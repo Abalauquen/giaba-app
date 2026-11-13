@@ -1,0 +1,17 @@
+{
+  "name": "GIABA · Abalauquen",
+  "short_name": "GIABA",
+  "description": "La app de Abalauquen. Cada uno ve lo suyo. Anda aunque no haya señal.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1b1c",
+  "theme_color": "#1b1b1c",
+  "lang": "es-AR",
+  "icons": [
+    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icono.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

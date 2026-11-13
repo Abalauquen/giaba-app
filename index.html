@@ -2,88 +2,68 @@
 <html lang="es-AR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1b1b1c">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102125">
 <title>GIABA · Abalauquen</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icono.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icono-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- el mismo estilo que la app de siempre (se copia de Index.html al publicar: tools/publicar-app.sh) -->
+<link rel="stylesheet" href="giaba.css">
 <style>
-:root{--bg:#1b1b1c;--surface:#262627;--line:#3a3a3b;--ink:#f5efe8;--soft:#a9a49e;--mid:#d6d0c9;--accent:#ffd100;--accent-ink:#1a1305;
-  --terra:#e9443b;--terra-ink:#ff8a83;--good:#8fd19e;--good-soft:#16301f;--warn:#ffb36b;--warn-soft:#3a2a14}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{min-height:100dvh;padding:env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom))}
-[hidden]{display:none!important}
-.top{display:flex;align-items:center;gap:10px;padding:12px 0 8px}
-.top h1{font-size:18px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top .yo{font-size:13px;color:var(--soft)}
-button{font:inherit;color:inherit;border:0;cursor:pointer}
-.btn{display:block;width:100%;padding:16px;border-radius:14px;background:var(--surface);border:1px solid var(--line);font-weight:600;font-size:17px;text-align:left}
-.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);text-align:center}
-.btn.peli{background:transparent;border-color:var(--terra);color:var(--terra-ink);text-align:center}
-.btn.chico{padding:10px 12px;font-size:15px;width:auto;display:inline-block}
-.btn+.btn{margin-top:10px}
-.ey{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:18px 0 8px}
-.hint{color:var(--soft);font-size:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}
-.lista .btn small{display:block;font-weight:400;color:var(--soft);font-size:13px;margin-top:2px}
-.lista .btn.mia{border-color:var(--accent)}
-.total{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center}
-.total b{font-size:26px}
-.total span{font-size:12px;color:var(--soft);letter-spacing:.05em}
-.monto{font-size:40px;font-weight:700;text-align:center;padding:10px 0 4px;font-variant-numeric:tabular-nums}
-.teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.teclado button{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 0;font-size:22px;font-weight:600}
-.medios{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}
-.medios button{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 6px;font-weight:600}
-.medios button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.fila{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:8px}
+/* solo lo propio de la app instalable */
+.prueba{background:#fde68a;color:#78350f;font:800 12px 'Manrope',sans-serif;text-align:center;padding:6px;border-radius:10px;margin:8px 16px 0}
+.toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center}
+.choice-btn small{display:block;font:600 12px 'IBM Plex Sans',sans-serif;color:var(--ink-soft);margin-top:3px}
+.choice-btn{flex-direction:column}
+.choice-btn.mia{border-color:var(--accent)}
+.fila{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
 .fila:last-child{border-bottom:0}
-.fila .s{color:var(--soft);font-size:13px}
+.fila .s{color:var(--ink-soft);font-size:13px}
+.fila b{font-family:'IBM Plex Mono',monospace}
 .fila.anul{opacity:.45;text-decoration:line-through}
 .cont{display:flex;align-items:center;gap:8px}
-.cont button{width:40px;height:40px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-size:22px}
-.cont b{min-width:28px;text-align:center}
-.estado{font-size:13px;padding:6px 10px;border-radius:999px;display:inline-block}
-.estado.ok{background:var(--good-soft);color:var(--good)}
-.estado.pend{background:var(--warn-soft);color:var(--warn)}
-.prueba{background:#fde68a;color:#78350f;font-weight:700;font-size:13px;text-align:center;padding:6px;border-radius:10px;margin-top:8px}
-#toast{position:fixed;left:16px;right:16px;bottom:calc(20px + env(safe-area-inset-bottom));background:#000;border:1px solid var(--line);border-radius:12px;padding:12px 14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
-#toast.on{opacity:1}#toast.mal{border-color:var(--terra);color:var(--terra-ink)}
-.pin{display:flex;justify-content:center;gap:12px;margin:18px 0}
-.pin i{width:16px;height:16px;border-radius:50%;border:2px solid var(--soft)}
-.pin i.on{background:var(--accent);border-color:var(--accent)}
-input,textarea{width:100%;font:inherit;color:var(--ink);background:#141414;border:1px solid var(--line);border-radius:12px;padding:12px}
+.cont button{width:44px;height:44px;border-radius:12px;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);font-size:22px;font-weight:800}
+.cont b{min-width:28px;text-align:center;font-size:18px}
+.chico{height:40px;padding:0 12px;border-radius:12px;border:1.5px solid var(--terra);color:var(--terra-ink);background:transparent;font:800 13px 'Manrope',sans-serif}
+textarea,input{font-size:16px!important}
+#modulo{display:contents}
 </style>
 </head>
-<body>
+<body class="v3f">
 <div id="banPrueba" class="prueba" hidden>🧪 MODO PRUEBA · nada de esto llega a la planilla</div>
 
-<section id="s-cargando"><div class="top"><h1>GIABA</h1></div><p class="hint">Abriendo…</p></section>
+<div id="s-cargando" class="screen"><div class="topbar"></div><h1>GIABA</h1><div class="sub">Abriendo…</div></div>
 
-<section id="s-nombres" hidden>
-  <div class="top"><h1>¿Quién sos?</h1></div>
-  <div id="nomLista" class="lista"></div>
-  <p class="hint" id="nomHint"></p>
-</section>
+<div id="s-nombres" class="screen" hidden>
+  <div class="topbar"></div>
+  <div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">GIABA · Abalauquen</span><h1>¿Quién sos?</h1></div>
+  <div class="choice-grid" id="nomLista"></div>
+  <div class="hint" id="nomHint"></div>
+</div>
 
-<section id="s-pin" hidden>
-  <div class="top"><button class="btn chico" id="pinAtras">‹ Atrás</button><h1 id="pinNombre"></h1></div>
-  <p class="hint" style="text-align:center">Tu PIN</p>
-  <div class="pin" id="pinPuntos"></div>
-  <div class="teclado" id="pinTec"></div>
-  <p class="hint" id="pinMsg" style="text-align:center"></p>
-</section>
+<div id="s-pin" class="screen" hidden>
+  <div class="topbar"><button class="back" id="pinAtras" data-lbl="Volver" aria-label="Atrás"></button></div>
+  <h1 id="pinNombre">Hola</h1>
+  <div class="sub">Ingresá tu PIN de 4 números</div>
+  <div class="pin-dots" id="pinPuntos"></div>
+  <div class="pin-error" id="pinMsg"></div>
+  <div class="spacer"></div>
+  <div class="keypad" id="pinTec"></div>
+</div>
 
-<section id="s-sinacceso" hidden>
-  <div class="top"><h1>Ferias</h1></div>
-  <div class="card"><p id="saTxt">Lo tuyo todavía está en la app de siempre.</p><a class="btn pri" id="saLink" style="text-decoration:none">Abrir GIABA</a></div>
-  <button class="btn" id="saSalir" style="margin-top:10px">Entrar con otro nombre</button>
-</section>
+<div id="s-sinacceso" class="screen" hidden>
+  <div class="topbar"></div>
+  <h1>Hola</h1>
+  <div class="card"><span id="saTxt">Lo tuyo todavía está en la app de siempre.</span></div>
+  <a class="btn" id="saLink">Abrir GIABA</a>
+  <div class="btn2" id="saSalir" role="button">Entrar con otro nombre</div>
+</div>
 
 <div id="modulo"></div>
-<div id="toast"></div>
+<div class="toast" id="toast"></div>
 
 <script src="config.js"></script>
 <script src="cola.js"></script>

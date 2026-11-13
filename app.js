@@ -8,12 +8,22 @@
 
   A.ver = function (id) {
     PANTALLAS.forEach(function (p) { $(p).hidden = p !== id; });
-    Array.prototype.forEach.call(document.querySelectorAll("#modulo > section"), function (s) { s.hidden = s.id !== id; });
+    Array.prototype.forEach.call(document.querySelectorAll("#modulo > .screen"), function (s) { s.hidden = s.id !== id; });
     window.scrollTo(0, 0);
   };
   var tt = null;
-  A.toast = function (t, mal) { var e = $("toast"); e.textContent = t; e.className = "on" + (mal ? " mal" : ""); clearTimeout(tt); tt = setTimeout(function () { e.className = ""; }, 3200); };
+  A.toast = function (t, mal) { var e = $("toast"); e.textContent = t; e.className = "toast show" + (mal ? " terra" : ""); clearTimeout(tt); tt = setTimeout(function () { e.className = "toast" + (mal ? " terra" : ""); }, 2600); };
+  // la flecha de «volver» igual que en la app de siempre
+  var ICON_BACK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+  A.flechas = function () { Array.prototype.forEach.call(document.querySelectorAll(".back"), function (b) { if (!b.dataset.ok) { b.dataset.ok = 1; b.innerHTML = ICON_BACK + (b.dataset.lbl ? "<span>" + b.dataset.lbl + "</span>" : ""); } }); };
+  // teclado como el de la app de siempre (Borrar en rojo)
+  A.teclado = function (el, teclas, f) {
+    el.innerHTML = teclas.map(function (k) { return k === "" ? "<span></span>" : '<div class="key' + (k === "⌫" ? " del" : "") + '" data-k="' + k + '" role="button">' + (k === "⌫" ? "Borrar" : k) + "</div>"; }).join("");
+    el.addEventListener("click", function (e) { var b = e.target.closest("[data-k]"); if (b) f(b.dataset.k); });
+  };
   A.plata = function (n) { n = Number(n) || 0; return "$ " + n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  // monto como en la app de siempre: «$ 15.000» (sin centavos en el teclado)
+  A.entero = function (n) { return "$ " + (Number(n) || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 }); };
   A.hoy = function () { var d = new Date(); return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear(); };
   A.esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
 
@@ -77,7 +87,7 @@
   function nombres() {
     A.ver("s-nombres");
     var pintar = function (L) {
-      $("nomLista").innerHTML = (L || []).map(function (n) { return '<button class="btn" data-n="' + A.esc(n) + '">' + A.esc(n) + "</button>"; }).join("");
+      $("nomLista").innerHTML = (L || []).map(function (n) { return '<div class="choice-btn" role="button" data-n="' + A.esc(n) + '">' + A.esc(n) + "</div>"; }).join("");
       $("nomHint").textContent = L && L.length ? "" : "Necesito señal la primera vez para traer los nombres.";
     };
     Cola.get("nombres").then(function (L) { if (L) pintar(L); });
@@ -86,20 +96,18 @@
   $("nomLista").addEventListener("click", function (e) { var b = e.target.closest("[data-n]"); if (b) pedirPin(b.dataset.n); });
   var PIN = "", QUIEN = "";
   function pedirPin(n) {
-    QUIEN = n; PIN = ""; $("pinNombre").textContent = n; $("pinMsg").textContent = ""; puntos(); A.ver("s-pin");
+    QUIEN = n; PIN = ""; $("pinMsg").className = "pin-error"; $("pinNombre").textContent = "Hola, " + n; $("pinMsg").textContent = ""; puntos(); A.ver("s-pin");
   }
-  function puntos() { $("pinPuntos").innerHTML = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < PIN.length ? "on" : "") + '"></i>'; }).join(""); }
-  $("pinTec").innerHTML = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].map(function (k) { return k ? '<button data-k="' + k + '">' + k + "</button>" : "<span></span>"; }).join("");
-  $("pinTec").addEventListener("click", function (e) {
-    var b = e.target.closest("[data-k]"); if (!b) return;
-    if (b.dataset.k === "⌫") PIN = PIN.slice(0, -1); else if (PIN.length < 4) PIN += b.dataset.k;
+  function puntos(err) { $("pinPuntos").innerHTML = [0, 1, 2, 3].map(function (i) { return '<span class="pin-dot' + (err ? " err" : i < PIN.length ? " filled" : "") + '"></span>'; }).join(""); }
+  A.teclado($("pinTec"), ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"], function (k) {
+    if (k === "⌫") PIN = PIN.slice(0, -1); else if (PIN.length < 4) PIN += k;
     puntos(); if (PIN.length === 4) setTimeout(probarPin, 150);
   });
   $("pinAtras").addEventListener("click", nombres);
   var probando = false;
   function probarPin() {
     if (probando || PIN.length < 4) return; probando = true;
-    $("pinMsg").textContent = "Entrando… (1 de 3: Google)";
+    $("pinMsg").className = "pin-error checking"; $("pinMsg").textContent = "Entrando… (1 de 3: Google)";
     var t1 = Date.now(); A.log("entrar: pide el pase", QUIEN);
     A.gas("vfEntrar", [QUIEN, PIN]).then(function (r) {
       probando = false;
@@ -113,11 +121,11 @@
       }
       PIN = ""; puntos();
       if (r && r.status === "sinacceso") { sinAcceso(r.msg); return; }
-      $("pinMsg").textContent = (r && r.msg) || "No se pudo entrar";
+      $("pinMsg").className = "pin-error"; $("pinMsg").textContent = (r && r.msg) || "No se pudo entrar"; puntos(true);
     }, function (e) {
       probando = false; PIN = ""; puntos();
       A.log("entrar: falló", e && e.message, Date.now() - t1, false); A.logMandar();
-      $("pinMsg").textContent = (e && /no contestó|respondió|raro/.test(e.message) ? e.message : "Sin señal: para entrar la primera vez hace falta internet") + ". Probá de nuevo.";
+      $("pinMsg").className = "pin-error"; $("pinMsg").textContent = (e && /no contestó|respondió|raro/.test(e.message) ? e.message : "Sin señal: para entrar la primera vez hace falta internet") + ". Probá de nuevo.";
     });
   }
   function sinAcceso(msg) {
@@ -134,7 +142,7 @@
     self.Secciones = self.Secciones || {};
     if (self.Secciones[sec]) { self.Secciones[sec].iniciar(); return; }
     var s = document.createElement("script"), t = Date.now(); s.src = SECCIONES[sec];
-    s.onload = function () { A.log("sección cargada", sec, Date.now() - t); self.Secciones[sec].iniciar(); };
+    s.onload = function () { A.log("sección cargada", sec, Date.now() - t); A.flechas(); self.Secciones[sec].iniciar(); };
     s.onerror = function () { A.log("sección NO cargó", sec, Date.now() - t, false); A.toast("No se pudo abrir la app: probá de nuevo", true); };
     document.body.appendChild(s);
   };
@@ -152,6 +160,7 @@
       : Cola.get("prueba").then(function (v) { return !!v; });
     return p.then(function (v) { A.prueba = v; $("banPrueba").hidden = !v; });
   }
+  A.flechas();
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
   window.addEventListener("online", function () { if (A.pase) A.empujar(); });
   A.log("abrió", (navigator.standalone || (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ? "instalada" : "navegador") + " · " + navigator.userAgent.slice(0, 90));

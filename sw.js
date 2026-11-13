@@ -1,5 +1,5 @@
 /* GIABA instalable · service worker: guarda la app en el celu (abre al instante y sin señal) y manda la cola en segundo plano. */
-var VERSION = "giaba-a3213f9";
+var VERSION = "giaba-b377f1e";
 var ARCHIVOS = ["./", "./index.html", "./app.js", "./cola.js", "./config.js", "./ferias/ferias.js", "./manifest.webmanifest", "./icono.svg", "./icono-192.png", "./icono-512.png"];
 importScripts("./cola.js");
 self.addEventListener("install", function (e) {

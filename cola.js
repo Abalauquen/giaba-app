@@ -11,7 +11,26 @@
     });
     return DB;
   }
+  // respaldo: si IndexedDB no responde (pasa en iPhone dentro de otras apps), se usa localStorage (o memoria)
+  var MEM = {}, SIN_IDB = false;
+  try { SIN_IDB = typeof localStorage !== "undefined" && localStorage.getItem("giaba-app|sinidb") === "1"; } catch (e) {}
+  function lsKey(store, k) { return "giaba-app|" + store + "|" + k; }
+  function lsGet(store, k) { try { var v = localStorage.getItem(lsKey(store, k)); return v === null ? (MEM[lsKey(store, k)]) : JSON.parse(v); } catch (e) { return MEM[lsKey(store, k)]; } }
+  function lsPut(store, k, v) { MEM[lsKey(store, k)] = v; try { if (v === undefined || v === null) localStorage.removeItem(lsKey(store, k)); else localStorage.setItem(lsKey(store, k), JSON.stringify(v)); } catch (e) {} }
+  function lsAll(store) { var out = [], pre = "giaba-app|" + store + "|", vistos = {}; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(pre) === 0) { vistos[k] = 1; out.push(JSON.parse(localStorage.getItem(k))); } } } catch (e) {}
+    Object.keys(MEM).forEach(function (k) { if (k.indexOf(pre) === 0 && !vistos[k] && MEM[k] != null) out.push(MEM[k]); }); return out; }
+  function conTiempo(p, ms) { return new Promise(function (ok, mal) { var t = setTimeout(function () { mal(new Error("IndexedDB no respondió")); }, ms); p.then(function (v) { clearTimeout(t); ok(v); }, function (e) { clearTimeout(t); mal(e); }); }); }
+  function txLS(store, modo, f) {
+    // emula lo mínimo que usa esta app: get / put / delete / getAll
+    var res, fake = { get: function (k) { res = lsGet(store, k); return {}; }, put: function (v, k) { lsPut(store, k === undefined ? v.uid : k, v); return {}; },
+      delete: function (k) { lsPut(store, k, null); return {}; }, getAll: function () { res = lsAll(store); return {}; } };
+    f(fake); return Promise.resolve(res);
+  }
   function tx(store, modo, f) {
+    if (SIN_IDB || typeof indexedDB === "undefined") return txLS(store, modo, f);
+    return conTiempo(txIDB(store, modo, f), 3000).catch(function (e) { SIN_IDB = true; try { localStorage.setItem("giaba-app|sinidb", "1"); } catch (e2) {} if (self.App && App.log) App.log("almacen", "sin IndexedDB: " + (e && e.message)); return txLS(store, modo, f); });
+  }
+  function txIDB(store, modo, f) {
     return abrir().then(function (d) { return new Promise(function (ok, mal) {
       var t = d.transaction(store, modo), s = t.objectStore(store), res; var q = f(s);
       if (q) q.onsuccess = function () { res = q.result; };

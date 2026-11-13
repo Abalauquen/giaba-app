@@ -18,10 +18,34 @@
   A.esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
 
   // Google (Apps Script): solo para entrar y para la lista de nombres / medios. Texto plano = sin «preflight».
-  A.gas = function (fn, args) {
-    return fetch(G.GAS, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn: fn, args: args || [] }), redirect: "follow" })
-      .then(function (r) { if (!r.ok) throw new Error("Google respondió " + r.status); return r.json(); });
+  A.gas = function (fn, args, ms) {
+    ms = ms || self.GIABA_GAS_MS || 25000;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+    return new Promise(function (ok, mal) {
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} mal(new Error("Google no contestó en " + Math.round((ms || 25000) / 1000) + " s")); }, ms || 25000);
+      fetch(G.GAS, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ fn: fn, args: args || [] }), redirect: "follow", cache: "no-store", signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error("Google respondió " + r.status); return r.text(); })
+        .then(function (t) { if (listo) return; listo = true; clearTimeout(tmo); try { ok(JSON.parse(t)); } catch (e) { mal(new Error("Google devolvió algo raro: " + String(t).slice(0, 60))); } },
+              function (e) { if (listo) return; listo = true; clearTimeout(tmo); mal(e); });
+    });
   };
+  // registro de pasos (para ver dónde se traba un celu): consola + Tiempos_App (app «giaba-app»), de a tandas
+  var LOG = [], T0 = Date.now();
+  A.log = function (que, det, ms, okk) {
+    var t = String(que) + (det ? ": " + String(det).slice(0, 200) : "");
+    try { console.log("[giaba-app] " + t); } catch (e) {}
+    LOG.push([t, ms === undefined ? Date.now() - T0 : ms, okk === false ? 0 : 1, Date.now(), 0]);
+    if (LOG.length >= 15) A.logMandar();
+  };
+  A.logMandar = function () {
+    if (!LOG.length) return; var l = LOG.splice(0, 40);
+    var quien = (A.pase && A.pase.nombre) || QUIEN || "";
+    A.gas("vfLog", [{ quien: quien, ua: navigator.userAgent.slice(0, 120), items: l }], 15000).catch(function () {});
+  };
+  setInterval(A.logMandar, 30000);
+  window.addEventListener("pagehide", A.logMandar);
+  window.addEventListener("error", function (ev) { A.log("ERROR JS", (ev && ev.message) + " @" + (ev && ev.lineno), 0, false); A.logMandar(); });
+  window.addEventListener("unhandledrejection", function (ev) { var r = ev && ev.reason; A.log("ERROR promesa", r && r.message || r, 0, false); });
   A.rpc = function (fn, body, ms) {
     if (!A.pase) return Promise.reject(new Error("sin pase"));
     return Cola.rpc(A.pase, fn, body, ms).then(function (j) {
@@ -75,14 +99,26 @@
   var probando = false;
   function probarPin() {
     if (probando || PIN.length < 4) return; probando = true;
-    $("pinMsg").textContent = "Entrando…";
+    $("pinMsg").textContent = "Entrando… (1 de 3: Google)";
+    var t1 = Date.now(); A.log("entrar: pide el pase", QUIEN);
     A.gas("vfEntrar", [QUIEN, PIN]).then(function (r) {
       probando = false;
-      if (r && r.status === "ok") { A.pase = r; Cola.set("pase", r).then(arrancar); return; }
+      A.log("entrar: Google contestó", r && r.status, Date.now() - t1, !!(r && r.status === "ok"));
+      if (r && r.status === "ok") {
+        A.pase = r; $("pinMsg").textContent = "Entrando… (2 de 3: guardando en el celu)";
+        var t2 = Date.now();
+        Cola.set("pase", r).then(function () { A.log("entrar: pase guardado", "", Date.now() - t2); }, function (e) { A.log("entrar: no se pudo guardar el pase", e && e.message, Date.now() - t2, false); })
+          .then(function () { $("pinMsg").textContent = "Entrando… (3 de 3: tus ferias)"; arrancar(); A.logMandar(); });
+        return;
+      }
       PIN = ""; puntos();
       if (r && r.status === "sinacceso") { sinAcceso(r.msg); return; }
       $("pinMsg").textContent = (r && r.msg) || "No se pudo entrar";
-    }, function () { probando = false; $("pinMsg").textContent = "Sin señal: para entrar la primera vez hace falta internet."; });
+    }, function (e) {
+      probando = false; PIN = ""; puntos();
+      A.log("entrar: falló", e && e.message, Date.now() - t1, false); A.logMandar();
+      $("pinMsg").textContent = (e && /no contestó|respondió|raro/.test(e.message) ? e.message : "Sin señal: para entrar la primera vez hace falta internet") + ". Probá de nuevo.";
+    });
   }
   function sinAcceso(msg) {
     $("saTxt").textContent = msg || "Esta app es para cobrar en las ferias. Lo tuyo está en la app de siempre.";
@@ -97,9 +133,9 @@
   A.cargar = function (sec) {
     self.Secciones = self.Secciones || {};
     if (self.Secciones[sec]) { self.Secciones[sec].iniciar(); return; }
-    var s = document.createElement("script"); s.src = SECCIONES[sec];
-    s.onload = function () { self.Secciones[sec].iniciar(); };
-    s.onerror = function () { A.toast("No se pudo abrir la app: probá de nuevo", true); };
+    var s = document.createElement("script"), t = Date.now(); s.src = SECCIONES[sec];
+    s.onload = function () { A.log("sección cargada", sec, Date.now() - t); self.Secciones[sec].iniciar(); };
+    s.onerror = function () { A.log("sección NO cargó", sec, Date.now() - t, false); A.toast("No se pudo abrir la app: probá de nuevo", true); };
     document.body.appendChild(s);
   };
   function arrancar() {
@@ -118,6 +154,7 @@
   }
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
   window.addEventListener("online", function () { if (A.pase) A.empujar(); });
+  A.log("abrió", (navigator.standalone || (window.matchMedia && matchMedia("(display-mode: standalone)").matches) ? "instalada" : "navegador") + " · " + navigator.userAgent.slice(0, 90));
   prueba().then(function () { return Cola.get("pase"); }).then(function (p) {
     if (p && p.token && p.vence * 1000 > Date.now() + 3600000) { A.pase = p; arrancar(); A.empujar(); }
     else nombres();

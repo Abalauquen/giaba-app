@@ -38,8 +38,10 @@
   function puestos() {
     A.ver("s-puestos"); $("puYo").textContent = nombre();
     Cola.get("ferias").then(function (L) { if (L) pintarPuestos(L); });
-    A.rpc("vf_mis_ferias", {}).then(function (r) { if (r && r.status === "ok") { Cola.set("ferias", r.ferias); pintarPuestos(r.ferias); } }, function () {
-      if (!$("puLista").querySelector("[data-i]")) $("puLista").innerHTML = '<p class="hint">Sin señal: no pude traer las ferias de hoy.</p>';
+    var t = Date.now();
+    A.rpc("vf_mis_ferias", {}).then(function (r) { A.log("base: ferias de hoy", r && r.status, Date.now() - t, !!(r && r.status === "ok")); if (r && r.status === "ok") { Cola.set("ferias", r.ferias); pintarPuestos(r.ferias); } }, function (e) {
+      A.log("base: ferias de hoy falló", e && e.message, Date.now() - t, false); A.logMandar();
+      if (!$("puLista").querySelector("[data-i]")) $("puLista").innerHTML = '<p class="hint">No pude traer las ferias de hoy (' + A.esc(e && e.message || "sin señal") + '). Probá de nuevo en un rato.</p>';
     });
   }
   var LP = [];

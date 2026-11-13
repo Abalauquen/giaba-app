@@ -3,70 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#102125">
+<meta name="theme-color" content="#1b1b1c">
 <title>GIABA · Abalauquen</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icono.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icono-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<!-- el mismo estilo que la app de siempre (se copia de Index.html al publicar: tools/publicar-app.sh) -->
-<link rel="stylesheet" href="giaba.css">
-<style>
-/* solo lo propio de la app instalable */
-.prueba{background:#fde68a;color:#78350f;font:800 12px 'Manrope',sans-serif;text-align:center;padding:6px;border-radius:10px;margin:8px 16px 0}
-.toast{white-space:normal;max-width:calc(100vw - 32px);text-align:center}
-.choice-btn small{display:block;font:600 12px 'IBM Plex Sans',sans-serif;color:var(--ink-soft);margin-top:3px}
-.choice-btn{flex-direction:column}
-.choice-btn.mia{border-color:var(--accent)}
-.fila{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
-.fila:last-child{border-bottom:0}
-.fila .s{color:var(--ink-soft);font-size:13px}
-.fila b{font-family:'IBM Plex Mono',monospace}
-.fila.anul{opacity:.45;text-decoration:line-through}
-.cont{display:flex;align-items:center;gap:8px}
-.cont button{width:44px;height:44px;border-radius:12px;background:var(--bg);border:1.5px solid var(--line);color:var(--ink);font-size:22px;font-weight:800}
-.cont b{min-width:28px;text-align:center;font-size:18px}
-.chico{height:40px;padding:0 12px;border-radius:12px;border:1.5px solid var(--terra);color:var(--terra-ink);background:transparent;font:800 13px 'Manrope',sans-serif}
-textarea,input{font-size:16px!important}
-#modulo{display:contents}
-</style>
+<style>html,body{margin:0;background:#1b1b1c;color:#f5efe8;font:16px system-ui,sans-serif}p{padding:24px}</style>
 </head>
-<body class="v3f">
-<div id="banPrueba" class="prueba" hidden>🧪 MODO PRUEBA · nada de esto llega a la planilla</div>
-
-<div id="s-cargando" class="screen"><div class="topbar"></div><h1>GIABA</h1><div class="sub">Abriendo…</div></div>
-
-<div id="s-nombres" class="screen" hidden>
-  <div class="topbar"></div>
-  <div style="display:flex;flex-direction:column;gap:6px"><span class="eyebrow">GIABA · Abalauquen</span><h1>¿Quién sos?</h1></div>
-  <div class="choice-grid" id="nomLista"></div>
-  <div class="hint" id="nomHint"></div>
-</div>
-
-<div id="s-pin" class="screen" hidden>
-  <div class="topbar"><button class="back" id="pinAtras" data-lbl="Volver" aria-label="Atrás"></button></div>
-  <h1 id="pinNombre">Hola</h1>
-  <div class="sub">Ingresá tu PIN de 4 números</div>
-  <div class="pin-dots" id="pinPuntos"></div>
-  <div class="pin-error" id="pinMsg"></div>
-  <div class="spacer"></div>
-  <div class="keypad" id="pinTec"></div>
-</div>
-
-<div id="s-sinacceso" class="screen" hidden>
-  <div class="topbar"></div>
-  <h1>Hola</h1>
-  <div class="card"><span id="saTxt">Lo tuyo todavía está en la app de siempre.</span></div>
-  <a class="btn" id="saLink">Abrir GIABA</a>
-  <div class="btn2" id="saSalir" role="button">Entrar con otro nombre</div>
-</div>
-
-<div id="modulo"></div>
-<div class="toast" id="toast"></div>
-
-<script src="config.js"></script>
-<script src="cola.js"></script>
-<script src="app.js"></script>
+<body>
+<p>Abriendo GIABA…</p>
+<script>
+/* GIABA instalable: un solo ícono. Por ahora la única sección es Ferias (la MISMA pantalla de siempre). Se mantiene ?prueba. */
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(function () {});
+location.replace("ferias/index.html" + location.search);
+</script>
 </body>
 </html>

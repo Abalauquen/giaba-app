@@ -1,7 +1,6 @@
-/* GIABA instalable · service worker: guarda la app en el celu (abre al instante y sin señal) y manda la cola en segundo plano. */
-var VERSION = "giaba-56ae8c4";
-var ARCHIVOS = ["./", "./index.html", "./giaba.css", "./app.js", "./cola.js", "./config.js", "./ferias/ferias.js", "./manifest.webmanifest", "./icono.svg", "./icono-192.png", "./icono-512.png"];
-importScripts("./cola.js");
+/* GIABA instalable · service worker: guarda la app en el celu (abre al instante, y sin señal abre la guardada). */
+var VERSION = "giaba-3d6a8be";
+var ARCHIVOS = ["./", "./index.html", "./ferias/index.html", "./ferias/gsr.js", "./manifest.webmanifest", "./icono.svg", "./icono-192.png", "./icono-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));
 });
@@ -21,6 +20,3 @@ self.addEventListener("fetch", function (e) {
     });
   }));
 });
-// Android: aunque cierren la app, cuando vuelve la señal el sistema despierta esto y se manda lo pendiente
-self.addEventListener("sync", function (e) { if (e.tag === "cola") e.waitUntil(Cola.mandarCola()); });
-self.addEventListener("message", function (e) { if (e.data === "mandar") e.waitUntil ? e.waitUntil(Cola.mandarCola()) : Cola.mandarCola(); });

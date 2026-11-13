@@ -2,7 +2,7 @@
   "name": "GIABA · Abalauquen",
   "short_name": "GIABA",
   "description": "La app de Abalauquen. Cada uno ve lo suyo. Anda aunque no haya señal.",
-  "start_url": "./index.html",
+  "start_url": "./ferias/index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

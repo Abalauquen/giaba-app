@@ -14,12 +14,19 @@
    entonces se lee directo de la base (≈0,5 s) en vez de esperar a Google (≈5 s por pedido). Si cambió algo, si la base no
    contesta o si recién guardaste algo, va por Google como siempre. Los guardados siguen por Google, igual que hoy. */
 (function () {
-  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
+  var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
-  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, guardarConteo: 1, guardarConteoMP: 1 };
+  // 18/11: qué lista se muestra con lo guardado ya puesto (solo esas). Lo demás que se guarda en la base (compras, producción, costos…)
+  // va por Google por un minuto, que primero termina lo pendiente de la base (VMB_ANTES) y así lo muestra bien.
+  var RECL_PEDIDO = 0;
+  var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
+  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1 };   // 18/11: + Costos
+  var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
   function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
   function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
   // el pedido recién guardado, puesto en la lista de Mayoristas (y los totales de arriba rehechos como los arma getPedidosVM)
@@ -32,6 +39,13 @@
     var aC = 0, nC = 0, nE = 0, uE = 0;
     d.pedidos.forEach(function (p) { if (p.estado === "Anulado") return; if (p.total - p.cobrado > 0.5) { aC += p.total - p.cobrado; nC++; } if (p.estadoEntrega !== "Entregado") { nE++; uE += p.unidades; } });
     d.aCobrar = aC; d.nCobrar = nC; d.nEntregar = nE; d.uEntregar = uE;
+  }
+  // 18/11 · la venta minorista recién guardada en la base, puesta arriba en Ventas minoristas (y en el resumen del mes)
+  function ponerVentaMin(vn) {
+    var d = MEM["getVentasMin|[]"]; if (!d || !d.pedidos || !vn || !vn.id) return;
+    if (d.pedidos.some(function (x) { return x.id === vn.id; })) return;
+    d.pedidos.unshift(vn);
+    if (d.resumen && d.admin) { var r = d.resumen[vn.canal] = d.resumen[vn.canal] || { n: 0, bruto: 0, neto: 0, unidades: 0 }; r.n++; r.bruto += vn.bruto || 0; r.neto += vn.neto || 0; r.unidades += vn.unidades || 0; }
   }
   // 17/11 · borradores 100 % en la base (zBorradoresBase.gs): listar, guardar y borrar sin Google
   var BZ = { borradoresListar: ["bz_listar", ["p_app"]], borradorGuardar: ["bz_guardar", ["p_app", "p_id", "p_titulo", "p_json"]], borradorBorrar: ["bz_borrar", ["p_id"]] }, BZ_OFF_HASTA = 0;
@@ -63,19 +77,38 @@
       if (d.resumenDet) (d.resumenDet[k] = d.resumenDet[k] || []).push({ id: m.id, fecha: m.fecha, detalle: m.detalle, aQuien: m.aQuien, cuenta: m.cuenta, monto: -m.monto, cat: m.categoria }); }
     else d.entradasMes = (d.entradasMes || 0) + m.monto;
   }
+  // 18/11 · etapa 3: lo que hace una función DENTRO de la base (supabase/functions). cb(respuesta) o cb(null) = Google
+  var FN_BASE = { guardarPreciosPublicaciones: ["precios-publicaciones", function (a) { return { canal: a[0], cambios: a[1] }; }, 60000] };
+  function fnBase(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var cfg = FN_BASE[n], body = cfg[1](Array.prototype.slice.call(args, 2)); body.token = p.token;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, cfg[2]);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/" + cfg[0], { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo);
+          if (!j || j.status === "google" || j.status === "token") { if (j && j.status === "token") lsS("ap_pase", null); return cb(null); }
+          cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
   // guardar directo en la base. cb(respuesta) o cb(null) = que vaya por Google como siempre
   function guardarEnBase(n, args, cb) {
     if (Date.now() < VM_OFF_HASTA) return cb(null);
     conPase(function (p) {
       if (!p) return cb(null);
-      rpc(p, { p_token: p.token, p_fn: n, p_args: Array.prototype.slice.call(args, 2) }, function (err, r) {
+      var pa = Array.prototype.slice.call(args, SIN_PIN[n] ? 0 : 2);
+      if (SIN_PIN[n]) pa = pa.map(function (x) { if (x && typeof x === "object") { x = copia(x); delete x.pin; } return x; });   // el PIN nunca viaja a la base
+      rpc(p, { p_token: p.token, p_fn: n, p_args: pa }, function (err, r) {
         if (err || !r) return cb(null);                                   // sin respuesta: Google (no duplica: mira el uid)
         if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
         if (r.status === "google") { if (r.motivo === "apagado") VM_OFF_HASTA = Date.now() + 600000; return cb(null); }
         if (r.status === "ok" && !r.dup) {
-          OVR_HASTA = Date.now() + OVR_MS;
+          if (OVR_DE[n]) { OVR_HASTA = Date.now() + OVR_MS; OVR_FN[OVR_DE[n]] = OVR_HASTA; } else lsS("ap_sucio", Date.now());
           if (r.pedido) { try { ponerPedido(copia(r.pedido)); } catch (e) {} }
           if (r.mov) { try { ponerMov(copia(r.mov)); } catch (e) {} }
+          if (r.venta) { try { ponerVentaMin(copia(r.venta)); } catch (e) {} }
           try { window.__apGuardado = (window.__apGuardado || 0) + 1; } catch (e) {}
           // respaldo del aviso de la base: que Google pase lo guardado a la planilla
           setTimeout(function () { try { base.withSuccessHandler(function () { try { base.biSubirAhora("vmtProcesar"); } catch (e) {} }).withFailureHandler(function () {}).vmtProcesar(); } catch (e) {} }, 8000);
@@ -128,8 +161,14 @@
         if (j.status === "token") { lsS("ap_pase", null); return cb(null); }
         var it = j.items && j.items[k]; if (!it) return cb(null);
         var t = Date.parse(it.t), c = Date.parse(it.c || j.cambio || 0), ahora = Date.parse(j.ahora || "") || Date.now();   // 18/11: «c» = el último cambio de las áreas de esta pantalla
-        if (!(t > c) || ahora - t > FRESCO_MS) return cb(null);   // cambió algo desde que se armó, o es viejo
         if (Math.floor((t - 3 * 3600000) / 86400000) !== Math.floor((ahora - 3 * 3600000) / 86400000)) return cb(null);   // se armó otro día (hora Argentina): lo de «hoy» cambió
+        if (ahora - t > FRESCO_MS) return cb(null);   // es viejo
+        if (!(t > c)) {
+          // 18/11: los resúmenes del menú (pendientes, para revisar) se muestran al toque aunque haya habido un guardado de otro,
+          // si se armaron hace menos de 20 minutos; y Google los rearma atrás para la próxima (lo propio recién guardado va por Google)
+          if (!(RESUMEN[n] && ahora - t < RESUMEN_MS)) return cb(null);
+          setTimeout(function () { try { var g = base.withSuccessHandler(function () {}).withFailureHandler(function () {}); g[n].apply(g, args); } catch (e) {} }, 1500);
+        }
         cb(it.d);
       });
     });
@@ -142,6 +181,15 @@
       if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
       var v = tt[k]; if (typeof v !== "function") return v;
       var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      if (FN_BASE[n]) return function () {
+        var args = arguments;
+        fnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
       if (BZ[n]) return function () {
         var args = arguments;
         bzBase(n, args, function (r) {
@@ -150,10 +198,25 @@
           g[n].apply(g, args);
         });
       };
+      // 18/11: los reclamos de una venta salen del índice de todos los reclamos (una sola pantalla en la base) · si no está fresco, Google como siempre
+      if (n === "reclamosDeVenta" && lista.indexOf("getReclamosIndice") !== -1) return function () {
+        var args = arguments, ref = String(args[2] || "");
+        var porGoogle = function () {
+          var r = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); }); r[n].apply(r, args);
+          // y que Google arme el índice en la base para las próximas (una vez por página)
+          if (!RECL_PEDIDO) { RECL_PEDIDO = 1; try { base.withSuccessHandler(function () {}).withFailureHandler(function () {}).getReclamosIndice(args[0], args[1]); } catch (e) {} }
+        };
+        try {
+          deBase("getReclamosIndice", [args[0], args[1]], function (d) {
+            if (!d || d.status !== "ok" || !d.por) return porGoogle();
+            if (ok) ok({ status: "ok", items: copia(d.por[ref] || []) }, uo);
+          });
+        } catch (e) { porGoogle(); }
+      };
       if (lista.indexOf(n) !== -1) return function () {
         var args = arguments, hecho = false;
         var kM = clave(n, args);
-        if (Date.now() < OVR_HASTA && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
+        if (Date.now() < (OVR_FN[n] || 0) && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
         var porGoogle = function () { var r = tt.withSuccessHandler(function (x) { recordar(kM, x); if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); }); r[n].apply(r, args); };
         var tope = setTimeout(function () { if (hecho) return; hecho = true; porGoogle(); }, 6500);
         try {
@@ -1315,7 +1378,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <div class="v3-col" id="ncMedioBox"><div class="v3-lbl" id="ncMedioTit">¿Cómo pagó?</div><div class="v3-chips" id="ncMedio"></div></div>
     <div class="v3-col" id="ncPagBox"><div class="v3-lbl">¿Ya pagó?</div><div class="v3-seg" id="ncPagado"></div></div>
     <div class="v3-col" id="ncSenaBox" hidden><div class="v3-lbl">¿Cuánto pagó?</div><input class="v3-txt" id="ncSena" inputmode="decimal" placeholder="$ 0"></div>
-    <div class="v3-col" id="ncCtaBox"><div class="v3-lbl">¿A dónde entró la plata?</div><div class="v3-seg" id="ncCta"></div></div>
+    <div class="v3-col" id="ncCtaBox"><div class="v3-lbl" id="ncCtaLbl">¿A dónde entró la plata?</div><div class="v3-seg" id="ncCta"></div></div>
     <div class="v3-aviso" id="ncSenaRes" hidden></div>
     <div class="v3-card" id="ncCom" hidden>
       <div class="v3-ct" id="ncComTit">Lo que descuenta la plataforma</div>
@@ -1589,7 +1652,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     // avance: vendida → armar → entregada → cobrada
     if (p.estado === "Cancelada") el("detSteps").innerHTML = '<span class="v3-est wx" style="grid-column:1/-1;text-align:center">Anulada</span>';
     else {
-      const armado = ["Armado","Despachada","Entregada"].indexOf(p.estado) !== -1, entregada = p.estado === "Entregada", cobrada = p.cobro !== "A cobrar";
+      const armado = ["Armado","Despachada","Entregada"].indexOf(p.estado) !== -1 || armFer(p), entregada = p.estado === "Entregada", cobrada = p.cobro !== "A cobrar";
       const st = function(ok, now, t){ return '<div class="' + (ok ? "ok" : now ? "now" : "") + '"><i></i>' + t + '</div>'; };
       el("detSteps").innerHTML = st(true, false, "Vendida") + st(armado, !armado, "Armar") + st(entregada, armado && !entregada, p.estado === "Despachada" ? "En camino" : "Entregada")
         + (ADM ? st(cobrada, !cobrada && entregada, "Cobrada") : "");
@@ -1612,6 +1675,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     pintarActs();
     pintarDetEst(); show("det");
   }
+  // 18/11 (Lucas): lo que retira en feria también se marca «armado» (queda «Para feria» y anotado en la venta, como en Fábrica › Entregas)
+  function esFer(p){ return p.estado === "Para feria" || p.estado === "A coordinar"; }
+  function armFer(p){ return esFer(p) && /\d{2}\/\d{2}\/\d{4} \d{1,2}:\d{2} armado \(/.test(String(p.nota || "")); }
   // la acción que sigue según cómo está la venta
   function proxAccion(p){
     if (p.estado === "A preparar") return ["📦", "Ya está armado", "Armado"];
@@ -1623,7 +1689,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function pintarActs(){
     const p = DT.p, ADM = D.admin !== false, cancel = p.estado === "Cancelada", A2 = [];
     const nx = cancel ? null : proxAccion(p);
-    if (nx) A2.push('<button class="wy" data-a="sig" type="button"><span class="i">' + nx[0] + '</span>' + nx[1] + '</button>');
+    const armarF = !cancel && esFer(p) && !armFer(p);
+    if (armarF) A2.push('<button class="wy" data-a="armfer" type="button"><span class="i">📦</span>Ya está armado</button>');
+    if (nx) A2.push('<button class="' + (armarF ? "" : "wy") + '" data-a="sig" type="button"><span class="i">' + nx[0] + '</span>' + nx[1] + '</button>');
     if (ADM && !cancel && p.cobro === "A cobrar") A2.push('<button class="' + (DPAN === "cobro" ? "on" : nx ? "" : "wy") + '" data-a="cobro" type="button"><span class="i">💵</span>' + (p.pagado ? "Cobrar lo que falta" : "Ya lo cobré") + '</button>');
     if (ADM && !cancel && p.cobro === "A cobrar" && (p.canal === "WA" || p.canal === "PER")) A2.push('<button class="' + (DPAN === "parcial" ? "on" : "") + '" data-a="parcial" type="button"><span class="i">➕</span>Pagó una parte</button>');
     if (telWa(p.tel)) A2.push('<a href="https://wa.me/' + telWa(p.tel) + '?text=' + encodeURIComponent("¡Hola " + String(p.cliente || "").split(" ")[0] + "! Te escribo de Abalauquen por tu pedido. ") + '" target="_blank" rel="noopener"><span class="i">💬</span>WhatsApp</a>');
@@ -1648,6 +1716,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const nx = proxAccion(p); if (!nx || b.dataset.busy) return; b.dataset.busy = "1"; b.style.opacity = .5;
       run("marcarVentaMin", p.id, nx[2], p.tracking || "").then(function(r){
         if (r && r.status === "ok"){ toast(nx[1] + " ✓"); p.estado = nx[2]; cargar().then(function(){ const np = D && D.pedidos.filter(function(q){ return q.id === p.id; })[0]; abrirDet(np || p); }); }
+        else { delete b.dataset.busy; b.style.opacity = 1; toast((r && r.msg) || "No se pudo", true); }
+      });
+      return;
+    }
+    if (a === "armfer"){
+      if (b.dataset.busy) return; b.dataset.busy = "1"; b.style.opacity = .5;
+      run("entregaMarcar", { tipo: "vmin", id: p.id, accion: "armado" }).then(function(r){
+        if (r && r.status === "ok"){ toast("Armado ✓ · queda para entregar en la feria"); cargar().then(function(){ const np = D && D.pedidos.filter(function(q){ return q.id === p.id; })[0]; abrirDet(np || p); }); }
         else { delete b.dataset.busy; b.style.opacity = 1; toast((r && r.msg) || "No se pudo", true); }
       });
       return;
@@ -2057,7 +2133,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!pf) NV.sena = false;
     opts(el("ncPagado"), "sg", OPP, NV.pagado ? "Sí, ya pagó" : NV.sena ? "Una parte (seña)" : "Todavía no", function(v){ NV.pagado = v === "Sí, ya pagó"; NV.sena = v === "Una parte (seña)"; NV.facturar = null; pintarNV5(); });
     el("ncSenaBox").hidden = !NV.sena;
-    el("ncCtaBox").hidden = !pf || !(NV.pagado || NV.sena);
+    // 18/11 (Lucas): si todavía no pagó, igual se anota cómo va a pagar (queda «A cobrar · Efectivo» y al cobrar ya viene elegido)
+    el("ncCtaBox").hidden = !pf;
+    el("ncCtaLbl").textContent = NV.pagado || NV.sena ? "¿A dónde entró la plata?" : "¿Cómo va a pagar?";
     pintarSena();
     if (pf){ opts(el("ncCta"), "sg", CTAS4, NV.cta, function(v){ NV.cta = v; NV.facturar = null; pintarNV5(); }); NV.medio = /^Efectivo/.test(NV.cta) ? "Efectivo" : "Transferencia"; }
     const plat = conComision();
@@ -2186,7 +2264,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         guardandoNV = false; el("nvOk").classList.remove("off"); pintarBotonNV();
         if (r && r.status === "ok"){
           const f = r.factura;
-          toast(r.dup ? "Ya estaba guardada" : "Venta " + (r.numero || "") + " guardada" + (f ? (f.status === "ok" ? " · " + String(f.tipo||"").replace("FACTURA","Factura") + " ✓" : " · la factura falló, queda en Para facturar") : " ✓"), !!(f && f.status !== "ok"));
+          toast(r.dup ? "Ya estaba guardada" : "Venta " + (r.numero || "") + " guardada" + (f ? (f.status === "ok" ? " · " + String(f.tipo||"").replace("FACTURA","Factura") + " ✓" : " · la factura falló, queda en Para facturar") : r.facturaEnCola ? " ✓ · la factura sale en un ratito" : " ✓"), !!(f && f.status !== "ok"));
           if (NV && NV.borrador) bzBorrar(NV.borrador);
           NVD = null;
           const id = r.id;

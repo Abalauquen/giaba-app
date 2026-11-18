@@ -14,12 +14,19 @@
    entonces se lee directo de la base (≈0,5 s) en vez de esperar a Google (≈5 s por pedido). Si cambió algo, si la base no
    contesta o si recién guardaste algo, va por Google como siempre. Los guardados siguen por Google, igual que hoy. */
 (function () {
-  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
+  var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
-  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, guardarConteo: 1, guardarConteoMP: 1 };
+  // 18/11: qué lista se muestra con lo guardado ya puesto (solo esas). Lo demás que se guarda en la base (compras, producción, costos…)
+  // va por Google por un minuto, que primero termina lo pendiente de la base (VMB_ANTES) y así lo muestra bien.
+  var RECL_PEDIDO = 0;
+  var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
+  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1 };   // 18/11: + Costos
+  var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
   function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
   function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
   // el pedido recién guardado, puesto en la lista de Mayoristas (y los totales de arriba rehechos como los arma getPedidosVM)
@@ -32,6 +39,13 @@
     var aC = 0, nC = 0, nE = 0, uE = 0;
     d.pedidos.forEach(function (p) { if (p.estado === "Anulado") return; if (p.total - p.cobrado > 0.5) { aC += p.total - p.cobrado; nC++; } if (p.estadoEntrega !== "Entregado") { nE++; uE += p.unidades; } });
     d.aCobrar = aC; d.nCobrar = nC; d.nEntregar = nE; d.uEntregar = uE;
+  }
+  // 18/11 · la venta minorista recién guardada en la base, puesta arriba en Ventas minoristas (y en el resumen del mes)
+  function ponerVentaMin(vn) {
+    var d = MEM["getVentasMin|[]"]; if (!d || !d.pedidos || !vn || !vn.id) return;
+    if (d.pedidos.some(function (x) { return x.id === vn.id; })) return;
+    d.pedidos.unshift(vn);
+    if (d.resumen && d.admin) { var r = d.resumen[vn.canal] = d.resumen[vn.canal] || { n: 0, bruto: 0, neto: 0, unidades: 0 }; r.n++; r.bruto += vn.bruto || 0; r.neto += vn.neto || 0; r.unidades += vn.unidades || 0; }
   }
   // 17/11 · borradores 100 % en la base (zBorradoresBase.gs): listar, guardar y borrar sin Google
   var BZ = { borradoresListar: ["bz_listar", ["p_app"]], borradorGuardar: ["bz_guardar", ["p_app", "p_id", "p_titulo", "p_json"]], borradorBorrar: ["bz_borrar", ["p_id"]] }, BZ_OFF_HASTA = 0;
@@ -63,19 +77,38 @@
       if (d.resumenDet) (d.resumenDet[k] = d.resumenDet[k] || []).push({ id: m.id, fecha: m.fecha, detalle: m.detalle, aQuien: m.aQuien, cuenta: m.cuenta, monto: -m.monto, cat: m.categoria }); }
     else d.entradasMes = (d.entradasMes || 0) + m.monto;
   }
+  // 18/11 · etapa 3: lo que hace una función DENTRO de la base (supabase/functions). cb(respuesta) o cb(null) = Google
+  var FN_BASE = { guardarPreciosPublicaciones: ["precios-publicaciones", function (a) { return { canal: a[0], cambios: a[1] }; }, 60000] };
+  function fnBase(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var cfg = FN_BASE[n], body = cfg[1](Array.prototype.slice.call(args, 2)); body.token = p.token;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, cfg[2]);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/" + cfg[0], { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo);
+          if (!j || j.status === "google" || j.status === "token") { if (j && j.status === "token") lsS("ap_pase", null); return cb(null); }
+          cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
   // guardar directo en la base. cb(respuesta) o cb(null) = que vaya por Google como siempre
   function guardarEnBase(n, args, cb) {
     if (Date.now() < VM_OFF_HASTA) return cb(null);
     conPase(function (p) {
       if (!p) return cb(null);
-      rpc(p, { p_token: p.token, p_fn: n, p_args: Array.prototype.slice.call(args, 2) }, function (err, r) {
+      var pa = Array.prototype.slice.call(args, SIN_PIN[n] ? 0 : 2);
+      if (SIN_PIN[n]) pa = pa.map(function (x) { if (x && typeof x === "object") { x = copia(x); delete x.pin; } return x; });   // el PIN nunca viaja a la base
+      rpc(p, { p_token: p.token, p_fn: n, p_args: pa }, function (err, r) {
         if (err || !r) return cb(null);                                   // sin respuesta: Google (no duplica: mira el uid)
         if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
         if (r.status === "google") { if (r.motivo === "apagado") VM_OFF_HASTA = Date.now() + 600000; return cb(null); }
         if (r.status === "ok" && !r.dup) {
-          OVR_HASTA = Date.now() + OVR_MS;
+          if (OVR_DE[n]) { OVR_HASTA = Date.now() + OVR_MS; OVR_FN[OVR_DE[n]] = OVR_HASTA; } else lsS("ap_sucio", Date.now());
           if (r.pedido) { try { ponerPedido(copia(r.pedido)); } catch (e) {} }
           if (r.mov) { try { ponerMov(copia(r.mov)); } catch (e) {} }
+          if (r.venta) { try { ponerVentaMin(copia(r.venta)); } catch (e) {} }
           try { window.__apGuardado = (window.__apGuardado || 0) + 1; } catch (e) {}
           // respaldo del aviso de la base: que Google pase lo guardado a la planilla
           setTimeout(function () { try { base.withSuccessHandler(function () { try { base.biSubirAhora("vmtProcesar"); } catch (e) {} }).withFailureHandler(function () {}).vmtProcesar(); } catch (e) {} }, 8000);
@@ -128,8 +161,14 @@
         if (j.status === "token") { lsS("ap_pase", null); return cb(null); }
         var it = j.items && j.items[k]; if (!it) return cb(null);
         var t = Date.parse(it.t), c = Date.parse(it.c || j.cambio || 0), ahora = Date.parse(j.ahora || "") || Date.now();   // 18/11: «c» = el último cambio de las áreas de esta pantalla
-        if (!(t > c) || ahora - t > FRESCO_MS) return cb(null);   // cambió algo desde que se armó, o es viejo
         if (Math.floor((t - 3 * 3600000) / 86400000) !== Math.floor((ahora - 3 * 3600000) / 86400000)) return cb(null);   // se armó otro día (hora Argentina): lo de «hoy» cambió
+        if (ahora - t > FRESCO_MS) return cb(null);   // es viejo
+        if (!(t > c)) {
+          // 18/11: los resúmenes del menú (pendientes, para revisar) se muestran al toque aunque haya habido un guardado de otro,
+          // si se armaron hace menos de 20 minutos; y Google los rearma atrás para la próxima (lo propio recién guardado va por Google)
+          if (!(RESUMEN[n] && ahora - t < RESUMEN_MS)) return cb(null);
+          setTimeout(function () { try { var g = base.withSuccessHandler(function () {}).withFailureHandler(function () {}); g[n].apply(g, args); } catch (e) {} }, 1500);
+        }
         cb(it.d);
       });
     });
@@ -142,6 +181,15 @@
       if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
       var v = tt[k]; if (typeof v !== "function") return v;
       var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      if (FN_BASE[n]) return function () {
+        var args = arguments;
+        fnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
       if (BZ[n]) return function () {
         var args = arguments;
         bzBase(n, args, function (r) {
@@ -150,10 +198,25 @@
           g[n].apply(g, args);
         });
       };
+      // 18/11: los reclamos de una venta salen del índice de todos los reclamos (una sola pantalla en la base) · si no está fresco, Google como siempre
+      if (n === "reclamosDeVenta" && lista.indexOf("getReclamosIndice") !== -1) return function () {
+        var args = arguments, ref = String(args[2] || "");
+        var porGoogle = function () {
+          var r = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); }); r[n].apply(r, args);
+          // y que Google arme el índice en la base para las próximas (una vez por página)
+          if (!RECL_PEDIDO) { RECL_PEDIDO = 1; try { base.withSuccessHandler(function () {}).withFailureHandler(function () {}).getReclamosIndice(args[0], args[1]); } catch (e) {} }
+        };
+        try {
+          deBase("getReclamosIndice", [args[0], args[1]], function (d) {
+            if (!d || d.status !== "ok" || !d.por) return porGoogle();
+            if (ok) ok({ status: "ok", items: copia(d.por[ref] || []) }, uo);
+          });
+        } catch (e) { porGoogle(); }
+      };
       if (lista.indexOf(n) !== -1) return function () {
         var args = arguments, hecho = false;
         var kM = clave(n, args);
-        if (Date.now() < OVR_HASTA && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
+        if (Date.now() < (OVR_FN[n] || 0) && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
         var porGoogle = function () { var r = tt.withSuccessHandler(function (x) { recordar(kM, x); if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); }); r[n].apply(r, args); };
         var tope = setTimeout(function () { if (hecho) return; hecho = true; porGoogle(); }, 6500);
         try {
@@ -1006,6 +1069,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="top"><a class="back" data-menu>Menú</a><span class="step">Costos</span><span class="who" data-yo></span></div>
   <h1>Costos y precios</h1>
   <div class="sub">Todo sin IVA. Lo que tiene <b class="s-y">borde amarillo</b> se puede cambiar.</div>
+  <div id="hmPA"></div>
   <div class="grp">Precios</div>
   <div class="tiles3" id="hmA"></div>
   <div class="grp">Lo que usa el cálculo</div>
@@ -1183,6 +1247,25 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 </div>
 
 <!-- 🔎 REVISIÓN DE PRECIOS (06/11/2026 · mockup-revision-precios-v3 aprobado) -->
+<!-- PRECIOS PARA REVISAR (18/11 · mockup claude/mockup-precios-inteligente.html) -->
+<div class="screen" id="s-alertas" hidden>
+  <div class="top"><button class="back" onclick="ir('home')">Costos</button><span class="step">Precios para revisar</span><span class="who" data-yo></span></div>
+  <h1>Precios para revisar</h1>
+  <div class="sub">Con los costos de hoy y los márgenes que pusimos. Vos decidís cada uno: no se cambia nada sin que lo toques.</div>
+  <div id="paBody" class="narrow stack"></div>
+</div>
+<style>
+.pa-card{background:var(--surface);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;border:2px solid var(--line)}
+.pa-card.w{border-color:#6b4a1e}.pa-card.r{border-color:#6b2a2a}.pa-card.g{border-color:#2f6b3e}
+.pa-ct{font-weight:800;font-size:17px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.pa-tb{width:100%;border-collapse:collapse;font-size:15px}.pa-tb td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}.pa-tb td:last-child{text-align:right;white-space:nowrap;padding-left:10px}
+.pa-tb tr:last-child td{border-bottom:0;font-weight:800}
+.pa-ln{font-size:15px;color:var(--ink-mid);line-height:1.4}.pa-ln b{color:var(--ink)}
+.pa-why{font-size:13.5px;color:var(--ink-soft);line-height:1.4;border-top:1px dashed var(--line-2);padding-top:8px}
+.pa-row{display:flex;gap:8px;flex-wrap:wrap}.pa-row .btn{flex:1;min-width:120px;min-height:50px;font-size:16px}
+.pa-big{font-size:34px;font-weight:800;color:var(--accent);line-height:1}
+.pa-err{color:var(--red);font-size:15px;font-weight:700}
+</style>
 <div class="screen" id="s-rev" hidden>
   <div class="narrow" id="rvApp"></div>
 </div>
@@ -1251,7 +1334,7 @@ document.addEventListener("blur", e => { const i = e.target; if (!i || i.tagName
 document.addEventListener("pointerdown", e => { const k = e.target.closest && e.target.closest(".btn,.chip,.fr,.tl,.hm,.lnk,.eye,.xb,.swrow,.pr.tap,.seg2 button,.seg3 button,.seg4 button,.mesnav button"); if (!k) return; k.classList.add("pressed"); setTimeout(() => k.classList.remove("pressed"), 160); }, { passive: true });
 
 /* ================= pantallas y servidor ================= */
-const SC = ["load","noauth","home","cuanto","capas","calc","pub","lpre","lmandar","marg","lista","canal","bolsas","insumos","fijos","cubrimos","productos","rev"];
+const SC = ["load","noauth","home","cuanto","capas","calc","pub","lpre","lmandar","marg","lista","canal","bolsas","insumos","fijos","cubrimos","productos","rev","alertas"];
 let ACTUAL = "load";
 function show(n){ SC.forEach(s => $("s-" + s).hidden = s !== n); ACTUAL = n; window.scrollTo(0, 0); }
 const AUTH = lsGet("giaba_auth", null);
@@ -1295,6 +1378,7 @@ function ir(n){
   else if (n === "fijos") cargarFijos();
   else if (n === "cubrimos" || n === "productos") cargarNumeros();
   else if (n === "rev") rvAbrir();
+  else if (n === "alertas") paCargar();
 }
 
 /* ================= INICIO ================= */
@@ -1309,7 +1393,86 @@ function home(){
   $("hmC").innerHTML = tl("cubrimos","⚖️","¿Cubrimos los fijos?","Lo que dejó cada canal vs. los gastos fijos · punto de equilibrio") + tl("fijos","🧾","Gastos fijos","Referencia vs. lo cargado este mes",fj) + tl("productos","📦","Productos","Los que más dejan, más y menos vendidos, para revisar");
   const L = [[fal,"producto" + (fal === 1 ? "" : "s") + " con stock al que le falta un precio (el costo da menos)","cuanto"],[ir_,"insumo" + (ir_ === 1 ? "" : "s") + " con precio viejo o distinto a la última compra","insumos"],[bo,"bolsa" + (bo === 1 ? "" : "s") + " sin precio","bolsas"],[fj,"gasto" + (fj === 1 ? "" : "s") + " fijo" + (fj === 1 ? "" : "s") + " sin cargar este mes","fijos"],[cam,"cambio" + (cam === 1 ? "" : "s") + " de margen sin aplicar","lista"]].filter(x => x[0]);
   $("hmRev").innerHTML = `<div class="card-t"><span>Para revisar</span><small>los mismos avisos de los botones</small></div>` + (L.length ? L.map(x => `<button class="hm" onclick="ir('${x[2]}')"><span class="t"><b>${x[0]} ${x[1]}</b></span><span class="lnk">Ver ›</span></button>`).join("") : (fjListo ? '<div class="empty">Nada para revisar 👌</div>' : "")) + (fjListo ? "" : '<div class="hint">Buscando gastos fijos sin cargar…</div>');
+  paHome();
   if (!FJH){ FJH = { cargando: true, faltan: [] }; run("getFijosCos", mesHoy()).then(r => { FJH = r && r.status === "ok" ? r : { faltan: [] }; if (ACTUAL === "home") home(); }); }
+}
+
+/* ================= PRECIOS PARA REVISAR (18/11) ================= */
+// Los arma el servidor cada noche (zPreciosAlertas.gs) con los costos de hoy y los márgenes de «Cambiar márgenes» / margen online.
+let PA = null, PAH = null;
+const f0 = n => (Number(n) < 0 ? "−\u00a0" : "") + "$\u00a0" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("es-AR");
+function paHome(){
+  const box = $("hmPA"); if (!box) return;
+  if (!PAH){ PAH = { cargando: true }; run("getPreciosAlertas").then(r => { PAH = r && r.status === "ok" ? r : { error: true }; if (r && r.status === "ok") PA = r; if (ACTUAL === "home") paHome(); }); }
+  if (PAH.cargando || PAH.error){ box.innerHTML = ""; return; }
+  const n = PAH.alertas.length, c = PAH.cambios || [];
+  let h = "";
+  if (n) h += `<button class="pa-card w" style="width:100%;text-align:left;color:var(--ink);margin-bottom:14px" onclick="ir('alertas')"><div class="pa-ct"><span>Precios para revisar</span><span class="tag w">${n}</span></div>
+    <div class="pa-big">${n}</div><div class="pa-ln">${n === 1 ? "precio que ya no llega" : "precios que ya no llegan"} al margen que pusimos, o que quedaron desparejos</div><span class="btn y" style="min-height:50px">Revisar ahora</span></button>`;
+  else if (PAH.ult) h += `<div class="hint" style="margin-bottom:10px">✓ Precios al día con los costos (revisado ${paCuando(PAH.ult.t)}).</div>`;
+  box.innerHTML = h;
+}
+function paCuando(t){ try { const d = new Date(t); return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" }) + " a las " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }); } catch (e) { return ""; } }
+function paCargar(){
+  $("paBody").innerHTML = '<div class="load"><div class="spin"></div><span>Buscando precios para revisar…</span></div>';
+  run("getPreciosAlertas").then(r => {
+    if (!r || r.status !== "ok"){ $("paBody").innerHTML = `<div class="pa-err">${r && r.status === "denegado" ? "No tenés acceso." : "No se pudo cargar (" + esc(r && r.msg || "sin señal") + ")."}</div><button class="btn ol" onclick="paCargar()">Reintentar</button>`; return; }
+    PA = r; PAH = r; PA.hechas = PA.hechas || []; paPint();
+  });
+}
+const paTag = a => a.tipo === "publicacion" ? `<span class="tag ${a.queda_pct < 10 ? "r" : "w"}">deja ${Math.round(a.queda_pct)} %</span>`
+  : a.tipo === "desparejo" ? '<span class="tag w">más barato que la manga</span>'
+  : a.detalle && a.detalle.bajoCosto ? '<span class="tag r">bajo el costo</span>' : `<span class="tag w">margen bajo</span>`;
+function paTarjeta(a){
+  const d = a.detalle || {}, mal = a.tipo === "publicacion" ? a.queda_pct < 10 : !!d.bajoCosto;
+  let h = `<div class="pa-card ${mal ? "r" : "w"}" id="pa-${esc(a.id).replace(/[^\w-]/g, "_")}"><div class="pa-ct"><span>${esc(a.titulo)}</span>${paTag(a)}</div>`;
+  h += `<table class="pa-tb">${(d.lineas || []).map(l => `<tr><td>${esc(l[0])}</td><td>${f0(l[1])}</td></tr>`).join("")}</table>`;
+  if (d.contiene) h += `<div class="pa-ln" style="font-size:13.5px">Trae: ${esc(d.contiene)}</div>`;
+  h += `<div class="pa-ln">${esc(d.texto || "")} → precio sugerido <b>${f0(a.sugerido)}</b> (${a.sugerido >= a.actual ? "+" : ""} ${f0(a.sugerido - a.actual)})</div>`;
+  h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">Subir a ${f0(a.sugerido)}</button><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
+  h += `<div class="pa-x" hidden></div>`;
+  h += `<div class="pa-why">Si elegís «Dejarlo así» no te lo vuelvo a preguntar hasta que el costo cambie más de un 5 %.${d.link ? ` · <a href="${esc(d.link)}" target="_blank" style="color:var(--blue)">ver publicación</a>` : ""}</div></div>`;
+  return h;
+}
+function paPint(){
+  const L = PA.alertas, hechas = PA.hechas;
+  let h = "";
+  if (hechas.length){
+    h += `<div class="pa-card g"><div class="pa-ct"><span>Listo</span><span class="tag g">✓ ${hechas.filter(x => x.ok).length} de ${hechas.length + L.length}</span></div>`
+      + hechas.map(x => `<div class="pa-ln">${x.ok ? "✓" : "·"} ${esc(x.titulo)} → <b>${x.ok ? f0(x.precio) : "dejado así"}</b>${x.nota ? " («" + esc(x.nota) + "»)" : ""}</div>`).join("")
+      + (L.length ? `<div class="pa-ln">· ${L.length} pendiente${L.length === 1 ? "" : "s"}</div>` : "") + `</div>`;
+  }
+  if (!L.length) h += `<div class="empty">Nada para revisar 👌</div>`;
+  // juntas por tipo: publicaciones · listas · desparejos
+  const G = [["publicacion", "Tienda Nube y Mercado Libre"], ["margen", "Listas mayoristas"], ["desparejo", "Desparejos entre tamaños"]];
+  G.forEach(g => { const X = L.filter(a => a.tipo === g[0]); if (X.length) h += `<div class="grp">${g[1]} · ${X.length}</div>` + X.map(paTarjeta).join(""); });
+  const c = PA.cambios || [];
+  if (c.length) h += `<div class="card"><div class="card-t"><span>Qué cambió esta semana</span><small>costo en Fábrica</small></div>` + c.map(x => `<div class="pa-ln">· <b>${esc(x.nombre)}</b> ${x.pct > 0 ? "+" : ""}${String(x.pct).replace(".", ",")} % (${f0(x.antes)} → ${f0(x.ahora)})</div>`).join("") + `</div>`;
+  const dec = (PA.decididas || []).filter(x => !hechas.some(y => y.id === x.id));
+  if (dec.length) h += `<div class="card"><div class="card-t"><span>Lo que ya decidiste</span></div>` + dec.map(x => `<div class="pa-ln">${x.estado === "aplicada" ? "✓" : "·"} ${esc(x.titulo)} → <b>${x.estado === "aplicada" ? esc(x.nota || "") : "dejado así"}</b>${x.estado === "dejada" && x.nota ? " («" + esc(x.nota) + "»)" : ""} <span style="color:var(--ink-soft)">${esc(x.quien || "")}</span></div>`).join("") + `</div>`;
+  if (PA.ult) h += `<div class="hint">Revisado ${paCuando(PA.ult.t)}${PA.ult.conPub ? "" : " (solo listas; Tienda Nube y ML se revisan de noche)"}.${(PA.ult.pubErr || []).length ? " No se pudo mirar: " + esc(PA.ult.pubErr.join(" · ")) : ""}</div>`;
+  $("paBody").innerHTML = h;
+}
+const paDe = id => PA.alertas.filter(a => a.id === id)[0];
+const paBox = id => { const c = document.getElementById("pa-" + String(id).replace(/[^\w-]/g, "_")); return c ? c.querySelector(".pa-x") : null; };
+function paOtro(id){ const b = paBox(id), a = paDe(id); if (!b || !a) return; b.hidden = false;
+  b.innerHTML = `<div class="lbl">¿A cuánto lo ponemos?</div><input class="txt" inputmode="decimal" id="paIn" value="${esc(fmTyp(String(Math.round(a.sugerido))))}" oninput="this.value=fmTyp(this.value)"><button class="btn y" onclick="paAplicar(${A(id)}, num($('paIn').value))">Guardar este precio</button>`;
+  setTimeout(() => { try { $("paIn").focus(); } catch (e) {} }, 50); }
+function paDejar(id){ const b = paBox(id); if (!b) return; b.hidden = false;
+  b.innerHTML = `<div class="lbl">¿Por qué? <small>(opcional)</small></div><input class="txt" id="paNota" placeholder="ej. es para competir"><button class="btn" onclick="paMandar(${A(id)}, 'dejar', 0, $('paNota').value)">Dejarlo así</button>`; }
+function paAplicar(id, precio){ if (!(precio > 0)) return; paMandar(id, "aplicar", precio, ""); }
+function paMandar(id, accion, precio, nota){
+  const a = paDe(id), b = paBox(id); if (!a) return;
+  if (b){ b.hidden = false; b.innerHTML = `<div class="load"><div class="spin"></div><span>${accion === "aplicar" ? "Cambiando el precio" + (a.tipo === "publicacion" ? " en " + esc(a.canal) : " en la lista") + "…" : "Guardando…"}</span></div>`; }
+  document.querySelectorAll("#pa-" + String(id).replace(/[^\w-]/g, "_") + " .pa-row .btn").forEach(x => x.disabled = true);
+  run("responderPrecioAlerta", id, accion, precio, nota).then(r => {
+    if (!r || r.status !== "ok"){
+      document.querySelectorAll("#pa-" + String(id).replace(/[^\w-]/g, "_") + " .pa-row .btn").forEach(x => x.disabled = false);
+      if (b) b.innerHTML = `<div class="pa-err">No se pudo: ${esc(r && r.msg || "sin señal")}. Probá de nuevo.</div>`; return; }
+    PA.alertas = PA.alertas.filter(x => x.id !== id);
+    PA.hechas.push({ id: id, titulo: a.titulo, ok: accion === "aplicar", precio: r.precio || precio, nota: accion === "dejar" ? nota : "" });
+    PAH = PA; paPint();
+  });
 }
 
 /* ================= ELEGIR PRODUCTO (tamaño → sabor) ================= */
@@ -1490,7 +1653,7 @@ function pbPint(){ const r = PB.data; if (!r) return; const OBJ = pbObj();
   $("pbList").innerHTML = L.length ? L.map(x => { const i = r.items.indexOf(x), pr = PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio;
     return `<div class="card pub"><div class="hd"><div><b>${esc(x.titulo)}</b><div class="note">${esc(x.sku || "sin SKU")}${x.full ? " · Full" : ""}${x.variantes ? " · " + x.variantes + " variantes (mismo precio)" : ""}</div>${x.promo ? '<span class="al w">tiene promoción: ML/TN puede no dejar cambiarlo</span>' : ""}</div><input class="txt num ed${PB.cambios[x.id] != null ? " man" : ""}" data-plata="1" inputmode="decimal" value="${fmIn(pr)}" oninput="pbCambio(${i},num(this.value),this)" onblur="if(!num(this.value)){this.value=fmIn(PB.data.items[${i}].precio);pbCambio(${i},0,this)}"></div>`
       + (x.sinCosto ? `<span class="al">Sin costo: ${x.sku ? "revisá la receta / el SKU " + esc(x.sku) : "la publicación no tiene SKU"}</span>`
-        : `<span class="hint">${esc(x.contiene)} · costo fábrica (20 % neto) ${fm(x.costo)} · comisión ${pc(x.comPct)}${x.comFijo ? " + " + fm(x.comFijo) + " fijo" : ""}${x.caja ? " · caja " + fm(x.caja) : ""}</span><div class="rr"><span>Nos queda (a <span data-pbp="${i}">${fm(pr)}</span>)</span>${(() => { const k = pbCalc(x, pr, pbObjX(x)); return `<b data-pbq="${i}" class="${k.pct < pbObjX(x) ? "neg" : "pos"}">${fm(k.queda)} (${Math.round(k.pct)} %)</b>`; })()}</div>${(() => { const mo = pbObjX(x), pro = mo !== OBJ; return `<div class="rr" style="align-items:center"><span>Margen <span class="pbg${pro ? " pro" : ""}">${pro ? "propio" : "general"}</span></span><span class="pbmg"><button class="pbb" onclick="pbMg(${i},-5)" aria-label="Bajar margen">−</button><b class="${pro ? "pro" : ""}">${mo} %</b><button class="pbb" onclick="pbMg(${i},5)" aria-label="Subir margen">+</button></span></div>`; })()}<div class="rr" style="align-items:center"><span>Sugerido para ${pbObjX(x)} %</span><button class="lnk" onclick="pbUsar(${i})">${fm(x.sugerido)} · usar</button></div>`)
+        : `<span class="hint">${esc(x.contiene)} · costo fábrica (20 % neto) ${fm(x.costo)} · comisión ${pc(x.comPct)}${x.comFijo ? " + " + fm(x.comFijo) + (x.envio ? " fijo (con " + fm(x.envio) + " de envío gratis)" : " fijo") : ""}${x.caja ? " · caja " + fm(x.caja) : ""}</span><div class="rr"><span>Nos queda (a <span data-pbp="${i}">${fm(pr)}</span>)</span>${(() => { const k = pbCalc(x, pr, pbObjX(x)); return `<b data-pbq="${i}" class="${k.pct < pbObjX(x) ? "neg" : "pos"}">${fm(k.queda)} (${Math.round(k.pct)} %)</b>`; })()}</div>${(() => { const mo = pbObjX(x), pro = mo !== OBJ; return `<div class="rr" style="align-items:center"><span>Margen <span class="pbg${pro ? " pro" : ""}">${pro ? "propio" : "general"}</span></span><span class="pbmg"><button class="pbb" onclick="pbMg(${i},-5)" aria-label="Bajar margen">−</button><b class="${pro ? "pro" : ""}">${mo} %</b><button class="pbb" onclick="pbMg(${i},5)" aria-label="Subir margen">+</button></span></div>`; })()}<div class="rr" style="align-items:center"><span>Sugerido para ${pbObjX(x)} %</span><button class="lnk" onclick="pbUsar(${i})">${fm(x.sugerido)} · usar</button></div>`)
       + (x.link ? `<a class="lnk g" style="align-self:flex-start" href="${esc(x.link)}" target="_blank" rel="noopener">Ver publicación ›</a>` : "") + `</div>`; }).join("")
     : `<div class="empty">${PB.filtro === "poco" ? "Ninguna deja menos del " + OBJ + " % 👌" : "No hay publicaciones."}</div>`;
   pbBtn(); }
@@ -1834,6 +1997,8 @@ function pdPint(){ pintMes(); const r = NUM, L = r.productos.filter(x => x.u > 0
 
 /* ================= arranque ================= */
 function arrancar(r){ if (!r) return;
+  let cmA = null; try { cmA = JSON.parse(localStorage.getItem("cm_abrir") || "null"); if (cmA === "alertas") localStorage.removeItem("cm_abrir"); } catch (e) {}   // 18/11: desde «Para revisar» del menú
+  if (cmA === "alertas" || GIABA_IR === "alertas"){ ir("alertas"); return; }
   const dest = { rev: "rev", fijos: "fijos", cubrimos: "cubrimos", productos: "productos", calc: "calc", cuanto: "cuanto", lpre: "lpre", lpremay: "lpre" }[GIABA_IR];
   ir(dest || "home"); }
 if (!OK) show("noauth"); else cargar().then(arrancar).catch(e => { $("ldSpin").hidden = true; $("loadTxt").textContent = "Algo falló al abrir (" + String(e && e.message || e).slice(0, 80) + "). Tocá para reintentar."; $("ldBox").classList.add("ns"); $("ldBox").onclick = () => location.reload(); });

@@ -1,0 +1,1933 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>GIABA · Abalauquen</title>
+<meta name="theme-color" content="#1b1b1c">
+<link rel="icon" href="../icono.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icono-192.png">
+<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "menu";</script>
+<script src="gsr.js"></script>
+<script>
+/* 17/11/2026 · TODA LA APP LEE DIRECTO DE LA BASE, COMO FERIAS (zPantallas.gs · Lucas 21:30).
+   Las pantallas son las mismas; cambia el «cable» de las lecturas: lo que el servidor ya armó para vos y no cambió desde
+   entonces se lee directo de la base (≈0,5 s) en vez de esperar a Google (≈5 s por pedido). Si cambió algo, si la base no
+   contesta o si recién guardaste algo, va por Google como siempre. Los guardados siguen por Google, igual que hoy. */
+(function () {
+  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
+  // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
+  var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
+  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, guardarConteo: 1, guardarConteoMP: 1 };
+  function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
+  function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
+  // el pedido recién guardado, puesto en la lista de Mayoristas (y los totales de arriba rehechos como los arma getPedidosVM)
+  function ponerPedido(ped) {
+    var d = MEM["getPedidosVM|[]"]; if (!d || !d.pedidos || !ped || !ped.id) return;
+    var porSku = {}; d.pedidos.forEach(function (x) { (x.items || []).forEach(function (i) { if (i.sku && i.n) porSku[i.sku] = i; }); });
+    (ped.items || []).forEach(function (i) { var o = porSku[i.sku]; i.n = o ? o.n : (i.nombre || i.sku); i.g = o ? o.g : 0; });
+    var j = -1; d.pedidos.forEach(function (x, i) { if (x.id === ped.id) j = i; });
+    if (j >= 0) { if (!ped.fact) ped.fact = d.pedidos[j].fact; d.pedidos[j] = ped; } else d.pedidos.unshift(ped);
+    var aC = 0, nC = 0, nE = 0, uE = 0;
+    d.pedidos.forEach(function (p) { if (p.estado === "Anulado") return; if (p.total - p.cobrado > 0.5) { aC += p.total - p.cobrado; nC++; } if (p.estadoEntrega !== "Entregado") { nE++; uE += p.unidades; } });
+    d.aCobrar = aC; d.nCobrar = nC; d.nEntregar = nE; d.uEntregar = uE;
+  }
+  // 17/11 · borradores 100 % en la base (zBorradoresBase.gs): listar, guardar y borrar sin Google
+  var BZ = { borradoresListar: ["bz_listar", ["p_app"]], borradorGuardar: ["bz_guardar", ["p_app", "p_id", "p_titulo", "p_json"]], borradorBorrar: ["bz_borrar", ["p_id"]] }, BZ_OFF_HASTA = 0;
+  function bzBase(n, args, cb) {
+    if (Date.now() < BZ_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var b = { p_token: p.token }, a = Array.prototype.slice.call(args, 2);
+      BZ[n][1].forEach(function (k, i) { b[k] = a[i] === undefined || a[i] === null ? "" : String(a[i]); });
+      rpc(p, b, function (err, r) {
+        if (err || !r) return cb(null);
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { BZ_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        cb(r);
+      }, BZ[n][0], 8000);
+    });
+  }
+  // el movimiento recién guardado, puesto en Caja (saldos, lista y el mes) como lo arma getCaja
+  function ponerMov(m) {
+    var d = MEM["getCaja|[]"]; if (!d || !d.recientes || !m || !m.id) return;
+    if (d.recientes.some(function (x) { return x.id === m.id; })) return;
+    var u = d.recientes[0] || {}, prevCta = 0;
+    for (var i = 0; i < d.recientes.length; i++) if (d.recientes[i].cuenta === m.cuenta) { prevCta = d.recientes[i].saldoCta || 0; break; }
+    m.saldoCta = Math.round((prevCta + m.monto) * 100) / 100; m.saldoTot = Math.round(((u.saldoTot || 0) + m.monto) * 100) / 100;
+    d.recientes.unshift(m);
+    if (d.saldos) d.saldos[m.cuenta] = Math.round(((d.saldos[m.cuenta] || 0) + m.monto) * 100) / 100;
+    if (m.monto < 0) { d.salidasMes = (d.salidasMes || 0) - m.monto; var k = m.categoria || "Otro"; if (k === "Sueldos ferias") k = "Empleados";
+      if (d.resumenMes) d.resumenMes[k] = (d.resumenMes[k] || 0) - m.monto;
+      if (d.resumenDet) (d.resumenDet[k] = d.resumenDet[k] || []).push({ id: m.id, fecha: m.fecha, detalle: m.detalle, aQuien: m.aQuien, cuenta: m.cuenta, monto: -m.monto, cat: m.categoria }); }
+    else d.entradasMes = (d.entradasMes || 0) + m.monto;
+  }
+  // guardar directo en la base. cb(respuesta) o cb(null) = que vaya por Google como siempre
+  function guardarEnBase(n, args, cb) {
+    if (Date.now() < VM_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      rpc(p, { p_token: p.token, p_fn: n, p_args: Array.prototype.slice.call(args, 2) }, function (err, r) {
+        if (err || !r) return cb(null);                                   // sin respuesta: Google (no duplica: mira el uid)
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { if (r.motivo === "apagado") VM_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        if (r.status === "ok" && !r.dup) {
+          OVR_HASTA = Date.now() + OVR_MS;
+          if (r.pedido) { try { ponerPedido(copia(r.pedido)); } catch (e) {} }
+          if (r.mov) { try { ponerMov(copia(r.mov)); } catch (e) {} }
+          try { window.__apGuardado = (window.__apGuardado || 0) + 1; } catch (e) {}
+          // respaldo del aviso de la base: que Google pase lo guardado a la planilla
+          setTimeout(function () { try { base.withSuccessHandler(function () { try { base.biSubirAhora("vmtProcesar"); } catch (e) {} }).withFailureHandler(function () {}).vmtProcesar(); } catch (e) {} }, 8000);
+        }
+        cb(r);
+      }, "vm_guardar", 9000);
+    });
+  }
+  function lsG(k, f) { try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }
+  function lsS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function quien() { var a = lsG("giaba_auth", null); return a && a.nombre ? a : null; }
+  function paseOk(p, a) { return p && p.token && p.key && p.url && p.fns && a && p.nombre && p.nombre.toLowerCase() === String(a.nombre).toLowerCase() && p.vence * 1000 > Date.now() + 86400000; }
+  function conPase(cb) {
+    var a = quien(), p = lsG("ap_pase", null);
+    if (paseOk(p, a)) { FNS = FNS || p.fns; if (!Object.keys(SINQ).length) SINQ = p.sinQuien || {}; cb(p); return; }
+    if (!a || !a.pin || !base) { cb(null); return; }
+    esperan.push(cb); if (pidiendo) return;
+    pidiendo = true;
+    var fin = function (r) {
+      pidiendo = false;
+      var ok = r && r.status === "ok" && r.token ? r : null;
+      if (ok) { lsS("ap_pase", ok); FNS = ok.fns || FNS; SINQ = ok.sinQuien || SINQ; }
+      else if (r && r.status === "apagado") lsS("ap_pase", null);
+      esperan.splice(0).forEach(function (f) { try { f(ok); } catch (e) {} });
+    };
+    try { base.withSuccessHandler(fin).withFailureHandler(function () { fin(null); }).apToken(a.nombre, a.pin); } catch (e) { fin(null); }
+  }
+  function rpc(p, body, cb, fn, ms) {
+    var h = { apikey: p.key, "Content-Type": "application/json", Accept: "application/json" };
+    if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+    var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(new Error("tarde")); }, ms || 6000);
+    fetch(p.url + "/rest/v1/rpc/" + (fn || "ap_pantallas"), { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error("base " + r.status); return r.json(); })
+      .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(null, j); }, function (e) { if (listo) return; listo = true; clearTimeout(tmo); cb(e || new Error("sin conexión")); });
+  }
+  // la misma clave que arma el servidor (pantClave_): función|argumentos sin nombre ni PIN
+  function clave(n, args) {
+    var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+    while (a.length && (a[a.length - 1] === undefined || a[a.length - 1] === null)) a.pop();
+    return n + "|" + JSON.stringify(a);
+  }
+  function deBase(n, args, cb) {
+    if (Date.now() - (lsG("ap_sucio", 0) || 0) < SUCIO_MS) return cb(null);   // recién guardaste: lo fresco está en Google
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var k = clave(n, args);
+      rpc(p, { p_token: p.token, p_claves: [k] }, function (err, j) {
+        if (err || !j) return cb(null);
+        if (j.status === "token") { lsS("ap_pase", null); return cb(null); }
+        var it = j.items && j.items[k]; if (!it) return cb(null);
+        var t = Date.parse(it.t), c = Date.parse(it.c || j.cambio || 0), ahora = Date.parse(j.ahora || "") || Date.now();   // 18/11: «c» = el último cambio de las áreas de esta pantalla
+        if (!(t > c) || ahora - t > FRESCO_MS) return cb(null);   // cambió algo desde que se armó, o es viejo
+        if (Math.floor((t - 3 * 3600000) / 86400000) !== Math.floor((ahora - 3 * 3600000) / 86400000)) return cb(null);   // se armó otro día (hora Argentina): lo de «hoy» cambió
+        cb(it.d);
+      });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|validarAcceso|biSubirAhora|borradoresListar|reclamosDeVenta|get)/;
+  function envolver(t, ok, fail, uo) {
+    return new Proxy(t, { get: function (tt, k) {
+      if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
+      if (k === "withFailureHandler") return function (f) { return envolver(tt.withFailureHandler(f), ok, f, uo); };
+      if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
+      var v = tt[k]; if (typeof v !== "function") return v;
+      var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      if (BZ[n]) return function () {
+        var args = arguments;
+        bzBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      if (lista.indexOf(n) !== -1) return function () {
+        var args = arguments, hecho = false;
+        var kM = clave(n, args);
+        if (Date.now() < OVR_HASTA && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
+        var porGoogle = function () { var r = tt.withSuccessHandler(function (x) { recordar(kM, x); if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); }); r[n].apply(r, args); };
+        var tope = setTimeout(function () { if (hecho) return; hecho = true; porGoogle(); }, 6500);
+        try {
+          deBase(n, args, function (d) {
+            if (hecho) return; hecho = true; clearTimeout(tope);
+            if (d === null || d === undefined) return porGoogle();
+            try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
+            recordar(kM, d);
+            if (ok) ok(d, uo);
+          });
+        } catch (e) { if (!hecho) { hecho = true; clearTimeout(tope); porGoogle(); } }
+      };
+      if (GUARDA_BASE[n]) return function () {
+        var args = arguments;
+        guardarEnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // un guardado (lo que no es lectura): por Google como siempre, y por un minuto las lecturas también van por Google
+      if (!LIBRES.test(n)) return function () { lsS("ap_sucio", Date.now()); return v.apply(tt, arguments); };
+      return function () { return v.apply(tt, arguments); };
+    } });
+  }
+  function poner() {
+    if (!(window.google && google.script && google.script.run)) return false;
+    base = google.script.run;
+    try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
+    conPase(function () {});
+    return true;
+  }
+  if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
+})();
+</script>
+
+
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GIABA · Abalauquen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1b1b1c; --surface:#262627; --ink:#f5efe8; --ink-soft:#a9a49e; --ink-mid:#d6d0c9;
+  --line:#3a3a3b;
+  --paper:#f5efe8; --paper-ink:#1b1b1c; --paper-soft:#6b655f; --paper-line:#e2d8cc; --bordo:#a8182e; --verde:#2f6b3f; --gris:#3a3a3b; --ok:#8fd19e; --accent:#ffd100; --accent-ink:#1a1305; --accent-soft:#3a2f10;
+  --terra:#e9443b; --terra-soft:#2a1d1c; --terra-ink:#ff8a83;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;display:flex;flex-direction:column;overscroll-behavior:none;user-select:none}
+[hidden]{display:none!important}
+.screen{flex:1;display:flex;flex-direction:column;gap:14px;padding:14px 16px 18px;min-height:0;overflow-y:auto}
+.topbar{display:flex;align-items:center;gap:8px;min-height:44px}
+.back{width:44px;height:44px;flex-shrink:0;border-radius:22px;background:var(--ink);color:var(--bg);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;text-decoration:none}
+.pill{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent);padding:5px 9px;border-radius:99px;white-space:nowrap}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line-height:1.2}
+.sub{color:var(--ink-soft);font-size:15px;margin-top:-8px}
+
+.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.choice-btn{height:64px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:17px;color:var(--ink);cursor:pointer}
+.choice-btn:active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
+.pin-dots{display:flex;gap:18px;justify-content:center;margin-top:24px}
+.pin-dot{width:18px;height:18px;border-radius:9px;border:2px solid var(--line-2)}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent)}
+.pin-dot.err{background:var(--terra);border-color:var(--terra)}
+.pin-error{color:var(--terra-ink);font-size:13px;text-align:center;font-weight:700;min-height:20px}
+.pin-error.checking{color:var(--ink-soft)}
+.spacer{flex:1}
+.keypad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.key{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;height:64px;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:26px;color:var(--ink);cursor:pointer}
+.key:active{background:var(--accent-soft)}
+.key.del{background:var(--terra-soft);border-color:var(--terra);color:var(--terra-ink)}
+.key.blank{visibility:hidden}
+
+.menu-list{display:flex;flex-direction:column;gap:10px}
+.menu-card{min-height:62px;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:0 16px;display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink)}
+.menu-card:active{border-color:var(--accent)}
+.menu-icon{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.menu-text{display:flex;flex-direction:column;gap:2px;flex:1}
+.menu-text b{font-family:'Manrope',sans-serif;font-size:17px}
+.menu-text span{font-size:13px;color:var(--ink-soft)}
+.pend{background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:6px 14px;display:flex;flex-direction:column;gap:0;margin-bottom:2px}
+.pend-h{display:flex;justify-content:space-between;align-items:center;padding:6px 0 2px}
+.pend-h small{font-size:11px;color:var(--ink-soft)}
+/* barra de retiros del mes (Lucas / Adriana, 16/10) */
+.ret{text-decoration:none;color:var(--ink);gap:6px;padding:10px 14px 12px}
+.ret .rt-n{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ret .rt-n b{font-family:'IBM Plex Mono',monospace;font-size:20px}
+.ret .rt-n span{font-size:13px;color:var(--ink-soft)}
+.ret .rt-bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.ret .rt-bar i{display:block;height:100%;border-radius:5px;background:#8fd19e}
+.ret .rt-bar i.pas{background:#e9443b}
+.ret small{font-size:13px;color:var(--ink-soft)}.ret small.pas{color:#ff8a83}
+.pd{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.pd:last-child{border-bottom:none}
+.pd .i{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--accent-soft);color:var(--accent)}
+.pd .i svg{width:18px;height:18px}
+.pd .i.r{background:#3d1d1b;color:#ff8a83}.pd .i.g{background:#12352a;color:#8fd19e}
+.pd .t{flex:1;display:flex;flex-direction:column;gap:1px;font-size:14px;font-weight:600;min-width:0}
+.pd .t span{font-size:12px;color:var(--ink-soft);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd b{font-family:'IBM Plex Mono',monospace;font-size:16px}
+.pd b.r{color:#ff8a83}
+.hola{font-family:'Manrope',sans-serif;font-size:24px;font-weight:800;margin-top:-4px}
+.menu-h{font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;margin:4px 0 -2px}
+.badge.o{background:#ffb36b;color:#1a1305}
+.pend-t{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;padding-bottom:4px}
+.pend a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.pend-ok{font-size:14px;color:#8fd19e;padding:4px 0 2px;font-weight:600}
+.pend a:first-child{border-top:none}
+.pend a span{display:flex;flex-direction:column;gap:1px;min-width:0}.pend a b{font-size:15px}.pend a i{font-style:normal;font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fich{border-radius:18px;padding:16px;display:flex;align-items:center;gap:16px;text-decoration:none;cursor:pointer;min-height:92px;border:none;width:100%;text-align:left;font:inherit}
+.fich .ic{width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fich b{font-family:'Manrope',sans-serif;font-size:20px;display:block}
+.fich small{font-size:13px;display:block;margin-top:2px}
+.fich.in{background:var(--accent);color:var(--accent-ink)}.fich.in .ic{background:rgba(26,19,5,.12)}.fich.in small{color:#5a4a10}
+.fich.on{background:#12352a;border:1.5px solid #8fd19e;color:var(--ink);cursor:default}.fich.on .ic{background:rgba(143,209,158,.15);color:#8fd19e}.fich.on b{color:#8fd19e;font-size:19px}.fich.on small{color:var(--ink-mid)}
+.fich.done{background:var(--surface);border:1.5px solid var(--line);color:var(--ink);cursor:default;min-height:64px;padding:10px 16px}.fich.done .ic{width:40px;height:40px;background:#12352a;color:#8fd19e}.fich.done b{font-size:16px}.fich.done small{color:var(--ink-soft)}
+.fich.busy{opacity:.6;pointer-events:none}
+.fich-sal{height:52px;border-radius:14px;border:1.5px solid #e9443b;color:#ff8a83;background:transparent;font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;cursor:pointer;width:100%}
+.fich-sal.conf{background:#e9443b;color:#fff}
+.fich-geo{font-size:13px;font-weight:600;padding:0 4px;display:flex;gap:6px;align-items:center}
+.fich-sem{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:8px 14px;display:flex;flex-direction:column;gap:5px;font-size:13px}
+.fich-sem .r{display:flex;justify-content:space-between;gap:8px}.fich-sem .r span:first-child{color:var(--ink-soft)}.fich-sem .m{font-family:'IBM Plex Mono',monospace;font-weight:700}
+.fich-link{font-size:12px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;padding:0 4px;align-self:flex-start}
+.fh-card{border-radius:18px;padding:16px 14px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;border:1.5px solid var(--line);background:var(--surface)}
+.fh-card.on{background:#12352a;border-color:#8fd19e}
+.fh-ey{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mid)}
+.fh-card.on .fh-ey{color:#8fd19e}
+.fh-big{font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:38px;letter-spacing:-1px;color:var(--ink);line-height:1.1}
+.fh-card.on .fh-big{color:#8fd19e}
+.fh-msg{font-family:'Manrope',sans-serif;font-weight:800;font-size:21px;text-align:center;color:var(--accent);line-height:1.25}
+.fh-sub{font-size:13px;color:var(--ink-soft)}.fh-card.on .fh-sub{color:#cfeedd}
+.fh-rem{background:var(--terra-soft);border:2px solid var(--terra);border-radius:14px;padding:11px 13px;font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;color:#ffc9c4;text-align:center;letter-spacing:.02em}
+.fh-ent{height:68px;border-radius:16px;border:none;background:#8fd19e;color:#0b2416;font-family:'Manrope',sans-serif;font-weight:800;font-size:19px;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;width:100%}
+.fh-ent.busy{opacity:.6;pointer-events:none}
+.fh-sal{height:58px;border-radius:14px;border:none;background:var(--terra);color:#fff;font-family:'Manrope',sans-serif;font-weight:800;font-size:17px;cursor:pointer;width:100%}
+.fh-sal.conf{background:#fff;color:var(--terra);border:2px solid var(--terra)}.fh-sal.busy{opacity:.6;pointer-events:none}
+.fh-hint{font-size:12px;color:var(--ink-soft);text-align:center}
+.fich-btn{align-self:flex-start;height:34px;padding:0 14px;border-radius:99px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--ink-mid);font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:6px}
+.grp{display:flex;flex-direction:column;gap:8px}
+/* v3 Mi sueldo (02/11, mockup-mi-sueldo.html): botón debajo de la tarjeta de fichaje (sin plata en el Inicio) */
+.mys{display:flex;align-items:center;gap:12px;min-height:72px;border-radius:16px;border:2px solid var(--accent);background:var(--accent-soft);padding:10px 14px;text-align:left;width:100%;text-decoration:none;color:var(--ink);font-family:'Manrope',sans-serif;cursor:pointer}
+.mys .i{font-size:26px}.mys .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}.mys b{font-size:18px;color:var(--accent)}.mys small{font-size:14px;color:var(--ink-mid);font-weight:700}
+.mys .go{font-size:24px;font-weight:800;color:var(--accent)}
+.grp>.menu-card{cursor:pointer}
+.grp .chev{transition:transform .2s;display:flex;flex-shrink:0}
+.grp.open>.menu-card .chev{transform:rotate(90deg)}
+.grp .sub{display:none;flex-direction:column;gap:8px;padding-left:14px;border-left:2px solid var(--line);margin-left:22px}
+.grp.open>.sub{display:flex}
+.sub .opc{min-height:48px!important;padding:10px 14px}
+.sub .opc .menu-text b{font-size:15px}
+.grp .sub .menu-card{min-height:54px}
+.grp .sub .menu-icon{width:36px;height:36px;border-radius:10px}
+.grp .sub .menu-text b{font-size:15px}
+.grp .sub .menu-text span{font-size:12px}
+.grp.open>.menu-card{border-color:var(--accent)}
+.menu-icon.red{background:#3d1d1b;color:#ff8a83}
+.badge{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;background:var(--terra);color:#fff;border-radius:99px;padding:3px 8px}
+.badge.y{background:var(--accent);color:var(--accent-ink)}
+/* respuesta al toque (en celulares :active casi no se ve) */
+.key,.pay-btn,.choice-btn,.menu-card{transition:transform .08s ease,background-color .08s ease,border-color .08s ease}
+.key.pressed{background:var(--accent)!important;border-color:var(--accent)!important;color:var(--accent-ink)!important;transform:scale(.93)}
+.key.del.pressed{background:var(--terra)!important;border-color:var(--terra)!important;color:#fff!important}
+.pay-btn.pressed,.choice-btn.pressed,.menu-card.pressed{transform:scale(.97);border-color:var(--accent)}
+/* ===== v3 (estética aprobada 22/10) ===== */
+.top3{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}
+.who{height:44px;padding:0 14px 0 6px;border-radius:22px;background:var(--surface);border:1.5px solid var(--line);display:flex;align-items:center;gap:8px;color:var(--ink);font:700 15px 'Manrope',sans-serif;cursor:pointer}
+.who i{width:32px;height:32px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800}
+.fecha3{font-size:13px;color:var(--ink-soft);text-align:right;line-height:1.3}
+.fecha3 b{display:block;color:var(--ink);font:700 14px 'Manrope',sans-serif}
+.h2r{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:-6px}
+.h2r b{font:800 18px 'Manrope',sans-serif}.h2r span{font-size:13px;color:var(--ink-soft)}
+.tickets{display:flex;flex-direction:column;gap:10px}
+.cm-ph{height:118px;border-radius:14px;border:1.5px solid var(--line);background:linear-gradient(90deg,var(--surface) 0%,rgba(255,255,255,.06) 50%,var(--surface) 100%);background-size:200% 100%;animation:phm 1.2s ease-in-out infinite}
+@keyframes phm{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion: reduce){.cm-ph{animation:none}}
+.cm{background:var(--paper);color:var(--paper-ink);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none}
+.cm-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--gris);color:#fff;font:800 14px 'Manrope',sans-serif}
+.cm-h span:last-child{font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;opacity:.9;white-space:nowrap}
+.cm.r .cm-h{background:var(--bordo)}.cm.y .cm-h{background:var(--accent);color:var(--accent-ink)}.cm.g .cm-h{background:var(--verde)}.cm.o .cm-h{background:#e8862a;color:#1a1305}.cm.b .cm-h{background:#2f5f9e}
+.cm-b{padding:11px 14px 12px;display:flex;flex-direction:column;gap:3px}
+.cm-t{font:800 17px 'Manrope',sans-serif;line-height:1.2}
+.cm-d{font-size:14px;color:#3d3833;line-height:1.35}
+.cm-f{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding-top:9px;border-top:1px solid var(--paper-line)}
+.cm-f .bs{margin-left:auto}
+.cm-f b{white-space:nowrap;font:700 17px 'IBM Plex Mono',monospace}
+.cm-f .go{margin-left:auto;height:44px;padding:0 18px;border-radius:12px;background:var(--paper-ink);color:var(--paper);font:800 14px 'Manrope',sans-serif;display:flex;align-items:center}
+.cm-f .bs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.cm-f .ac{height:44px;padding:0 16px;border-radius:12px;border:none;background:var(--paper-ink);color:var(--paper);font:800 14px 'Manrope',sans-serif;cursor:pointer}
+.cm-f .go{text-decoration:none}
+.cm-f .ac.sec,.cm-f .go.sec{background:transparent;color:var(--paper-ink);border:1.5px solid #bdb2a6}
+.cm-f .ac.conf{background:#e8862a;color:#1a1305}
+.cm.r .cm-f .ac:not(.sec):not(.conf){background:var(--bordo);color:#fff}
+.cm .ya{margin-top:8px;align-self:flex-start;height:36px;padding:0 12px;border-radius:8px;border:1.5px solid #cfc4b6;background:transparent;color:#6b655f;font:700 13px 'Manrope',sans-serif;cursor:pointer}
+.cm .ya.conf{background:#6b655f;color:#fff;border-color:#6b655f}
+.avm{position:fixed;left:16px;right:16px;bottom:24px;z-index:80;background:var(--ok);color:#0b2416;border-radius:14px;padding:14px;font:800 16px 'Manrope',sans-serif;text-align:center}
+.cm.r .cm-f .go:not(.sec){background:var(--bordo);color:#fff}.cm.g .cm-f .go:not(.sec){background:var(--verde);color:#fff}
+.vertodos{height:52px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:800 16px 'Manrope',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;width:100%}
+.vertodos em{font-style:normal;background:var(--accent);color:var(--accent-ink);border-radius:99px;padding:2px 9px;font:700 13px 'IBM Plex Mono',monospace}
+/* 16/11 «Para revisar» (solo Lucas · mockup-mail-diario 2 y 3) */
+.prv-ch{display:flex;gap:8px}.prv-ch button{height:40px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:800 14px 'Manrope',sans-serif;cursor:pointer}
+.prv-ch button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.prv-sub{color:var(--muted,#9a948d);font-size:14px;font-weight:600}
+.prv-tx{width:100%;box-sizing:border-box;margin-top:8px;min-height:44px;border-radius:10px;border:1.5px solid #cfc4b6;background:#fff;color:var(--paper-ink);font:600 15px 'Manrope',sans-serif;padding:10px}
+.cm.prv-ok{outline:2px solid var(--verde)}.cm.prv-ok .cm-h{background:var(--verde)}
+.todook{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:16px;text-align:center;color:var(--ok);font:700 16px 'Manrope',sans-serif}
+/* grilla de áreas */
+#menuList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#menuList>.grp{display:block}
+#menuList>.menu-card,#menuList>.grp>.menu-card{position:relative;min-height:104px;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;padding:14px;border-radius:18px;height:100%}
+#menuList>.menu-card .menu-text span,#menuList>.grp>.menu-card .menu-text span{display:none}
+#menuList>.menu-card>svg:last-child,#menuList>.grp>.menu-card .chev{display:none}
+#menuList>.menu-card .badge,#menuList>.grp>.menu-card .badge{position:absolute;top:12px;right:12px}
+#menuList>.grp>.sub{display:none!important}
+#menuList>.grp.open>.menu-card{border-color:var(--line)}
+#menuList .menu-icon{width:42px;height:42px}
+.menu-icon .emo{font-size:26px;line-height:1}#menuList .menu-icon{background:transparent}.menu-icon.red{background:transparent}
+#pendVer{flex-shrink:0}
+.cm .cm-f .bs .ac.ok:not(.conf){background:#2f6b3f!important;color:#fff!important;border:none!important}.cm .cm-f .bs .ac.no:not(.conf){background:transparent!important;color:#a8182e!important;border:1.5px solid #a8182e!important}
+#menuList.uno>.menu-card{grid-column:1/-1;min-height:120px;flex-direction:row;align-items:center;justify-content:flex-start;gap:16px;background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+#menuList.uno>.menu-card .menu-icon{width:56px;height:56px;background:rgba(26,19,5,.12);color:var(--accent-ink)}
+#menuList.uno>.menu-card .menu-text b{font-size:22px}#menuList.uno>.menu-card .menu-text span{display:block;color:#5a4a10;font-size:14px}
+/* hoja que sube desde abajo */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;z-index:50}
+.sheet .in{width:100%;max-width:760px;margin:0 auto;max-height:86%;overflow-y:auto;background:var(--bg);border-radius:22px 22px 0 0;padding:16px 16px 22px;display:flex;flex-direction:column;gap:10px;border-top:1.5px solid var(--line)}
+.sheet .in>*{flex-shrink:0}
+.sheet .hd{font:800 20px 'Manrope',sans-serif}
+#sheetIn>.sub{display:flex!important;flex-direction:column;gap:8px;padding:0;border:none;margin:0}
+.btn-cerrar{height:52px;border-radius:14px;border:none;background:var(--ink);color:var(--bg);font:800 16px 'Manrope',sans-serif;cursor:pointer;margin-top:4px;width:100%}
+.sw{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sw button{height:56px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:700 15px 'Manrope',sans-serif;display:flex;align-items:center;gap:10px;padding:0 12px;cursor:pointer}
+.sw button.on{border:2.5px solid var(--accent)}
+.sw i{width:28px;height:28px;border-radius:8px;border:1.5px solid #666;flex-shrink:0}
+.lbl3{font-size:13px;color:var(--ink-soft)}
+@media (min-width:820px){.screen{padding-left:calc((100% - 760px) / 2);padding-right:calc((100% - 760px) / 2)}}
+/* compu: Inicio más ancho, tarjetas en 3 columnas, áreas en 4, la hoja como ventana al medio */
+@media (min-width:1024px){
+  #screen-menu{padding-left:max(28px,calc((100% - 1080px) / 2));padding-right:max(28px,calc((100% - 1080px) / 2))}
+  #pendList,#urgList{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}
+  #pendList .vertodos,#pendList .todook{grid-column:1/-1}
+  #pendOcu,#pendVer{max-width:360px}
+  #menuList{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #retBox{max-width:520px}
+  .sheet{align-items:center}
+  .sheet .in{max-width:560px;border-radius:22px;border:1.5px solid var(--line)}
+}
+@media (min-width:600px) and (max-width:1023px){ #menuList{grid-template-columns:repeat(3,minmax(0,1fr))} }
+/* detalle de cada aviso, uno abajo del otro; si son muchos, se desliza adentro de la tarjeta */
+.lns{display:flex;flex-direction:column;margin-top:8px;border-top:1px solid var(--paper-line);max-height:236px;overflow-y:auto;overscroll-behavior:contain}
+.lns .ln{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--paper-line);font-size:14px;color:#3d3833}
+.lns .ln b{font:700 13px 'IBM Plex Mono',monospace;color:var(--paper-ink);white-space:nowrap}
+.lns .ln.lg{display:block;font:800 12px 'Manrope',sans-serif;letter-spacing:.06em;color:var(--paper-soft);padding:8px 0 2px;border-bottom:none}
+.lns.mas{box-shadow:inset 0 -14px 10px -10px rgba(0,0,0,.18)}
+.lns-h{font-size:12px;color:var(--paper-soft);margin-top:4px}
+</style>
+<!-- GIABA v3 · estilo común de TODAS las pantallas (aprobado 22/10). Se incluye en cada Index*.html; cambiar acá cambia toda la app. -->
+<script>
+/* fondo elegido por cada persona (Inicio › tocar tu nombre); se aplica antes de pintar para que no parpadee */
+(function(){ try {
+  var a = JSON.parse(localStorage.getItem("giaba_auth") || "null"), f = "";
+  if (a && a.nombre) f = JSON.parse(localStorage.getItem("giaba_fondo_" + a.nombre) || '""');
+  else f = JSON.parse(localStorage.getItem("giaba_fondo") || '""');
+  if (f) document.documentElement.classList.add("f-" + f);
+} catch (e) {} })();
+</script>
+<style>
+:root{
+  --bg:#1b1b1c; --surface:#262627; --line:#3a3a3b; --line-2:#5a5753; --inp:#141414;
+  --ink:#f5efe8; --ink-soft:#a9a49e; --ink-mid:#d6d0c9;
+  --accent:#ffd100; --accent-ink:#1a1305; --accent-soft:#3a3214;
+  --terra:#e9443b; --terra-ink:#ff8a83; --terra-soft:#2e1c1b;
+  --warn:#ffb36b; --warn-soft:#3a2a14; --good:#8fd19e; --good-soft:#16301f; --ok:#8fd19e;
+  --paper:#f5efe8; --paper-ink:#1b1b1c; --paper-soft:#6b655f; --paper-line:#e2d8cc; --bordo:#a8182e; --verde:#2f6b3f; --gris:#3a3a3b;
+}
+html.f-negro{--bg:#121212;--surface:#1e1e1e;--line:#333;--line-2:#4d4d4d;--inp:#0a0a0a}
+html.f-pizarra{--bg:#283443;--surface:#323f50;--line:#45536a;--line-2:#5d6e88;--ink-soft:#aab4c2;--inp:#1f2936}
+html.f-petroleo{--bg:#102125;--surface:#1b2f34;--line:#2c4448;--line-2:#5d7a80;--ink-soft:#9fb3b8;--ink-mid:#c9d6d9;--inp:#05090a}
+html,body{background:var(--bg)}
+/* nada se aplasta: si no entra, la pantalla scrollea */
+.screen>*{flex-shrink:0}
+/* tarjetas tipo comanda (Zeus) para usar en cualquier pantalla */
+.zk{background:var(--paper);color:var(--paper-ink);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none}
+.cm-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--gris);color:#fff;font:800 14px 'Manrope',sans-serif}
+.cm-h span:last-child{font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;opacity:.9;white-space:nowrap}
+.zk.zk-r .cm-h{background:var(--bordo)}.zk.zk-y .cm-h{background:var(--accent);color:var(--accent-ink)}.zk.zk-g .cm-h{background:var(--verde)}.zk.zk-o .cm-h{background:#e8862a;color:#1a1305}.zk.zk-b .cm-h{background:#2f5f9e}
+.cm-b{padding:11px 14px 12px;display:flex;flex-direction:column;gap:3px}
+.cm-t{font:800 17px 'Manrope',sans-serif;line-height:1.2}
+.cm-d{font-size:14px;color:#3d3833;line-height:1.35}
+.cm-f{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding-top:9px;border-top:1px solid var(--paper-line);flex-wrap:wrap}
+.cm-f>b{white-space:nowrap;font:700 17px 'IBM Plex Mono',monospace}
+.cm-f .bs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.cm-f .bs button,.cm-f .bs a{height:44px;padding:0 16px;border-radius:12px;border:none;background:var(--paper-ink);color:var(--paper);font:800 14px 'Manrope',sans-serif;cursor:pointer;display:flex;align-items:center;text-decoration:none}
+.cm-f .bs .sec{background:transparent;color:var(--paper-ink);border:1.5px solid #bdb2a6}
+.zk.zk-o .cm-f .bs button:not(.sec){background:#b85d0f;color:#fff}.zk.zk-r .cm-f .bs button:not(.sec){background:var(--bordo);color:#fff}.zk.zk-b .cm-f .bs button:not(.sec){background:#2f5f9e;color:#fff}
+.zk .it3{display:flex;flex-direction:column;margin-top:8px;border-top:1px solid var(--paper-line)}
+.zk .li3{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--paper-line);cursor:pointer;font-size:14px}
+.zk .li3 span{flex:1;display:flex;flex-direction:column;min-width:0}.zk .li3 small{font-size:12px;color:var(--paper-soft)}
+.zk .li3 b{font:700 15px 'IBM Plex Mono',monospace;white-space:nowrap}.zk .li3 em{font-style:normal;font:800 13px 'Manrope',sans-serif;color:#2f5f9e;white-space:nowrap}
+/* ===== celu / tablet / compu (27/10) =====
+   celu: como siempre · tablet y compu: columna centrada de 760 px (nada de botones de punta a punta);
+   las grillas de opciones pasan a 3 columnas. Cada pantalla puede ensancharse o angostarse sola (ej. Inicio más ancho, cobro más angosto). */
+@media (min-width:820px){
+  .screen{padding-left:max(24px,calc((100% - 760px) / 2));padding-right:max(24px,calc((100% - 760px) / 2))}
+  .choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+/* compu: los inicios de cada app (pantallas con botones .tile o .big) pasan a 2 columnas y más anchos */
+@media (min-width:1024px){
+  .screen:has(> .tile:not([hidden])),.screen:has(> .big:not([hidden])){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;column-gap:12px;
+    padding-left:max(24px,calc((100% - 1000px) / 2));padding-right:max(24px,calc((100% - 1000px) / 2))}
+  .screen:has(> .tile:not([hidden])) > :not(.tile),.screen:has(> .big:not([hidden])) > :not(.big){grid-column:1/-1}
+}
+.zk .it4{list-style:none;margin:6px 0 0;padding:0;border-top:1px solid var(--paper-line)}
+.zk .it4 li{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--paper-line);font:600 14px 'IBM Plex Sans',sans-serif}
+.zk .it4 li b{min-width:36px;height:28px;padding:0 6px;border-radius:8px;background:#e8dfd4;display:flex;align-items:center;justify-content:center;font:700 14px 'IBM Plex Mono',monospace}
+</style>
+
+<!-- GIABA v3 · menú de navegación (aprobado por Lucas 02/11 · mockup-menu-nav): en el celu el botón ☰ al lado del «‹ Menú» abre un panel de costado;
+     en la compu (1000 px o más) una barra fija arriba con los grupos desplegables («Más ▾» entre 1000 y 1199 px).
+     Se incluye en cada Index*.html con include('Nav') (menos IndexVisitas, que es la página pública de reservas).
+     Cada persona ve solo sus apps (giaba_auth.apps, misma regla que el Inicio). Nunca muestra plata: solo nombres y numeritos.
+     Numeritos: del caché de pendientes que guarda el Inicio (pend_<nombre>, inc_badge, mv_badge); no pide nada al servidor.
+     Aviso «Tenés una carga a medio hacer»: cada página avisa con GIABA_NAV.vigilar(pantallas, texto, fn) o GIABA_NAV.cargando(true/false). -->
+<style>
+.gn-hb,#gnBar,#gnDrw,#gnMdl{font-family:Manrope,system-ui,sans-serif;-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+#gnBar *,#gnDrw *,#gnMdl *,.gn-hb *{box-sizing:border-box}
+#gnBar a,#gnDrw a,#gnMdl a{text-decoration:none}
+/* ===== ☰ del celu ===== */
+.top>.gn-hb,.topbar>.gn-hb,.gn-hb{width:52px;height:52px;min-width:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;position:relative;flex-shrink:0;padding:0;margin:0;cursor:pointer;font:inherit}
+.gn-hb svg{width:26px;height:26px;display:block}
+.gn-bd{font:800 13px Manrope,system-ui,sans-serif;border-radius:999px;min-width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;padding:0 7px;background:var(--terra-ink,#ff8a83);color:#2a0b09;flex-shrink:0;line-height:1}
+.gn-bd.y{background:var(--accent);color:var(--accent-ink)} .gn-bd.o{background:var(--warn);color:#1a1305}
+.gn-hb .gn-bd{position:absolute;top:-8px;right:-8px;border:2px solid var(--bg)}
+#gnOv{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;opacity:0;pointer-events:none;transition:opacity .18s}
+#gnOv.on{opacity:1;pointer-events:auto}
+#gnDrw{position:fixed;top:0;bottom:0;left:0;width:min(340px,88%);background:#202021;border-right:2px solid var(--line-2);z-index:9001;transform:translateX(-102%);transition:transform .2s,visibility .2s;display:flex;flex-direction:column;color:var(--ink);visibility:hidden}
+#gnDrw.on{transform:none;visibility:visible}
+.gn-dh{display:flex;align-items:center;gap:10px;padding:max(14px,env(safe-area-inset-top)) 14px 12px;border-bottom:2px solid var(--line)}
+.gn-av{width:44px;height:44px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gn-dh .gn-nm{display:flex;flex-direction:column;min-width:0}
+.gn-dh .gn-nm b{font-size:18px}.gn-dh .gn-nm small{font-size:13px;color:var(--ink-soft);font-weight:700}
+.gn-xb{margin-left:auto;width:48px;height:48px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font:800 22px Manrope,system-ui,sans-serif;flex-shrink:0;cursor:pointer;padding:0}
+.gn-db{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:10px 10px 14px;display:flex;flex-direction:column;gap:6px}
+.gn-df{padding:10px 12px max(14px,env(safe-area-inset-bottom));border-top:2px solid var(--line);display:flex;flex-direction:column;gap:6px}
+/* 02/11 (Lucas): cada app y cada atajo es una opción separada, con su borde (no un texto corrido) */
+.gn-mr{display:flex;align-items:stretch;border-radius:14px;min-height:52px;position:relative;border:2px solid var(--line-2);background:var(--surface);flex-shrink:0}
+.gn-mr .gn-go{flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:0 12px;border:0;background:transparent;font-size:16px;font-weight:800;text-align:left;border-radius:12px;min-height:48px;line-height:1.2;color:var(--ink);cursor:pointer}
+.gn-mr .gn-go .gn-e{font-size:22px;width:28px;text-align:center;flex-shrink:0}
+.gn-mr .gn-go .gn-t{flex:1;min-width:0}
+.gn-mr .gn-go .gn-t small{display:block;font-size:13px;color:var(--accent);font-weight:800}
+.gn-mr .gn-tg{width:50px;border:0;border-left:2px solid var(--line-2);background:transparent;border-radius:0 12px 12px 0;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--ink-soft);cursor:pointer;padding:0}
+.gn-mr .gn-tg svg{width:20px;height:20px;transition:transform .15s}
+.gn-mr .gn-tg.on svg{transform:rotate(180deg)}
+.gn-mr .gn-sp{width:50px;flex-shrink:0}
+.gn-mr.cur{background:var(--accent-soft);border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.gn-mr.cur .gn-go{color:var(--accent)}
+.gn-mr.cur .gn-tg{border-left-color:var(--accent)}
+.gn-gh{display:flex;align-items:center;gap:10px;min-height:52px;border-radius:14px;border:0;background:transparent;width:100%;padding:0 12px;font:800 15px Manrope,system-ui,sans-serif;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-top:4px;cursor:pointer;flex-shrink:0;text-align:left}
+.gn-gh .gn-e{font-size:20px;width:28px;text-align:center}
+.gn-gh .gn-bd{margin-left:auto}
+.gn-gh svg{width:20px;height:20px;transition:transform .15s;flex-shrink:0}
+.gn-gh .gn-sp{margin-left:auto}
+.gn-gh.on svg{transform:rotate(180deg)}
+.gn-gh.cur{color:var(--accent)}
+.gn-gin{display:flex;flex-direction:column;gap:6px;padding-left:10px;border-left:2px solid var(--line);margin-left:22px;flex-shrink:0}
+.gn-ats{display:flex;flex-direction:column;gap:6px;padding:0 0 6px 40px;flex-shrink:0}
+.gn-at{min-height:48px;border-radius:12px;border:2px solid var(--line-2);background:var(--surface);font:700 15px Manrope,system-ui,sans-serif;text-align:left;padding:6px 12px;line-height:1.25;color:var(--ink-mid);display:flex;align-items:center;cursor:pointer}
+.gn-at.cur{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.gn-dsep{height:2px;background:var(--line);margin:6px 2px;flex-shrink:0}
+/* ===== barra de la compu ===== */
+#gnBar{display:none}
+@media (min-width:1000px){
+  #gnBar{display:flex;position:sticky;top:0;z-index:900;align-items:center;gap:4px;padding:8px 16px;background:#141414;border-bottom:2px solid var(--line);min-height:68px;color:var(--ink)}
+  #gnBar[hidden]{display:none!important}
+  .gn-hb,.top>.gn-hb,.topbar>.gn-hb{display:none!important}
+  /* el nombre de la persona arriba a la derecha pasa a la barra (en las pantallas v3 es .who; en las de antes, la pastilla con el nombre) */
+  .top>.who,.topbar>#who,.topbar>#homePill,.topbar>#pillNombre,.topbar>.pill[data-quien]{display:none!important}
+  #gnDrw,#gnOv{display:none!important}
+  #menuWho,#menuHola{display:none!important}
+  /* 02/11 (Lucas): en la compu el Inicio deja los botones de apps (ya están en la barra) y muestra solo lo urgente y los pendientes */
+  .no-pc{display:none!important}
+  h1#menuHoyPc.solo-pc{display:block}
+}
+#menuHoyPc.solo-pc{display:none;font-size:30px;line-height:1.15;margin:4px 0 6px}
+.gn-hola{font-weight:600;color:var(--ink-soft)}
+.gn-gi{min-height:48px;border-radius:12px;border:2px solid transparent;background:transparent;font:800 15px Manrope,system-ui,sans-serif;display:flex;align-items:center;gap:5px;padding:0 8px;flex-shrink:0;white-space:nowrap;color:var(--ink-mid);cursor:pointer}
+.gn-gi:hover{background:var(--surface);color:var(--ink)}
+.gn-gi .gn-e{font-size:18px;display:none}
+.gn-gi.home .gn-e{display:inline}
+.gn-gi.mas{display:none}
+.gn-gi .gn-cv{width:14px;height:14px;transition:transform .15s;opacity:.8}
+.gn-gi.op{background:var(--surface);border-color:var(--line-2);color:var(--ink)}
+.gn-gi.op .gn-cv{transform:rotate(180deg)}
+.gn-gi.cur{color:var(--accent);background:var(--accent-soft);border-color:transparent;box-shadow:inset 0 -3px 0 var(--accent)}
+.gn-gi.cur.op{border-color:var(--accent)}
+.gn-gsp{flex:1}
+.gn-gp{flex-shrink:0;min-height:48px;border-radius:999px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font:800 15px Manrope,system-ui,sans-serif;display:flex;align-items:center;gap:8px;padding:0 12px 0 6px;white-space:nowrap;cursor:pointer}
+.gn-gp .gn-av{width:34px;height:34px;font-size:16px}
+.gn-gp .gn-cv{width:14px;height:14px}
+.gn-gp.op{border-color:var(--accent)}
+@media (min-width:1560px){ .gn-gi .gn-e{display:inline} }
+@media (max-width:1559px){ .gn-gi.home .gn-lb{display:none} }
+@media (max-width:1199px){ .gn-gi.xtra{display:none} .gn-gi.mas{display:flex} .gn-gp .gn-pn{display:none} .gn-gp{padding:0 6px} }
+.gn-dd{position:absolute;top:calc(100% + 6px);background:#202021;border:2px solid var(--line-2);border-radius:16px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.55);display:flex;flex-direction:column;gap:6px;min-width:280px;z-index:901;max-height:calc(100vh - 96px);overflow-y:auto;overscroll-behavior:contain}
+.gn-dd.mega{left:16px;right:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;padding:14px;align-items:start}
+.gn-dc{background:var(--surface);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;border:2px solid transparent}
+.gn-dc.cur{border-color:var(--accent)}
+.gn-dc .gn-ap,.gn-dd .gn-ap1{min-height:52px;border-radius:12px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);display:flex;align-items:center;gap:10px;padding:0 10px;font:800 16px Manrope,system-ui,sans-serif;text-align:left;line-height:1.2;cursor:pointer}
+.gn-dd .gn-ap1{background:var(--surface);padding:0 12px}
+.gn-dc .gn-ap .gn-e,.gn-dd .gn-ap1 .gn-e{font-size:22px}.gn-dc .gn-ap .gn-t,.gn-dd .gn-ap1 .gn-t{flex:1;min-width:0}
+.gn-dc .gn-ap .gn-t small{display:block;font-size:13px;color:var(--accent);font-weight:800}
+.gn-dc .gn-ap.cur,.gn-dd .gn-ap1.cur{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.gn-dc .gn-at{background:var(--bg);margin-left:22px}
+.gn-dd .gn-at{margin-left:22px}
+.gn-dc .gn-ap:hover,.gn-dd .gn-at:hover,.gn-dd .gn-ap1:hover{border-color:var(--ink-soft);color:var(--ink)}
+.gn-dd .gn-dnote{font-size:13px;color:var(--ink-soft);font-weight:600;padding:4px 8px;grid-column:1/-1;line-height:1.35}
+/* ===== aviso / cambiar de persona ===== */
+#gnMdl{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9500;display:flex;align-items:center;justify-content:center;padding:16px;color:var(--ink)}
+#gnMdl[hidden]{display:none!important}
+.gn-box{background:var(--surface);border:2px solid var(--line-2);border-radius:20px;padding:18px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 32px);overflow-y:auto}
+.gn-box h2{margin:0;font-size:21px;line-height:1.2}
+.gn-hint{font-size:15px;color:var(--ink-soft);line-height:1.4}.gn-hint b{color:var(--ink-mid)}
+.gn-btn{min-height:56px;border-radius:16px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font:800 17px Manrope,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;width:100%;text-align:center;line-height:1.2;cursor:pointer}
+.gn-btn.y{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.gn-btn.ol{border-color:var(--accent);color:var(--accent);background:transparent}
+.gn-btn.r{border-color:var(--terra-ink,#ff8a83);color:var(--terra-ink,#ff8a83);background:transparent}
+.gn-pgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.gn-pgrid a{min-height:64px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font:800 16px Manrope,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px;overflow-wrap:anywhere}
+.gn-pgrid a.on{border-color:var(--accent);color:var(--accent)}
+</style>
+<script>
+(function(){
+  "use strict";
+  var NAV = window.GIABA_NAV = window.GIABA_NAV || {};
+  var DEF_TXT = "Tenés una carga a medio hacer";
+  var VIG = [], MANUAL = null, LISTO = false;
+  function $(id){ return document.getElementById(id); }
+  function lsGet(k, f){ try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }
+  function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function safe(fn){ try { return fn(); } catch (e) { return false; } }
+
+  /* ---------- API para las páginas: carga a medio hacer ---------- */
+  // GIABA_NAV.cargando(true|false|función, texto): la página dice a mano si hay algo sin guardar
+  NAV.cargando = function(v, txt){ MANUAL = v ? { v: v, txt: txt } : null; };
+  // GIABA_NAV.vigilar(["s-pago"], "Tenés un pago a medio cargar", fn?): mientras alguna de esas pantallas se ve y
+  // (se escribió algo en ella desde que se abrió, o fn() da verdadero) → hay carga a medio hacer
+  NAV.vigilar = function(pantallas, txt, fn){ var w = { ids: [].concat(pantallas), txt: txt, fn: fn, sucio: false }; VIG.push(w); if (LISTO) observar(w); return w; };
+  function nodo(id){ return typeof id === "string" ? $(id) : id; }
+  function visible(id){ var n = nodo(id); return !!(n && !n.hidden && n.getClientRects().length); }
+  function sucio(){
+    if (MANUAL){ var v = typeof MANUAL.v === "function" ? safe(MANUAL.v) : MANUAL.v; if (v) return typeof v === "string" ? v : (MANUAL.txt || DEF_TXT); }
+    for (var i = 0; i < VIG.length; i++){
+      var w = VIG[i];
+      if (!w.ids.some(visible)){ w.sucio = false; continue; }
+      if (w.sucio) return w.txt || DEF_TXT;
+      if (w.fn){ var r = safe(w.fn); if (r) return typeof r === "string" ? r : (w.txt || DEF_TXT); }
+    }
+    return "";
+  }
+  NAV.sucio = sucio;
+  function observar(w){
+    if (!window.MutationObserver) return;
+    w.ids.forEach(function(id){ var n = nodo(id); if (!n) return;
+      new MutationObserver(function(){ if (!w.ids.some(visible)) w.sucio = false; }).observe(n, { attributes: true, attributeFilter: ["hidden", "class", "style"] });
+    });
+  }
+  function marcarEscrito(e){
+    var t = e.target; if (!t || !t.closest || t.closest("#gnBar,#gnDrw,#gnMdl")) return;
+    // buscar no es cargar (ej. el buscador de clientes o de productos)
+    if (t.type === "search" || /bus(car|q)?/i.test(t.id || "") || /^\s*buscar/i.test(t.getAttribute && t.getAttribute("placeholder") || "")) return;
+    VIG.forEach(function(w){ if (w.ids.some(function(id){ var n = nodo(id); return n && n.contains(t); })) w.sucio = true; });
+  }
+  document.addEventListener("input", marcarEscrito, true);
+  document.addEventListener("change", marcarEscrito, true);
+
+  /* ---------- datos: los mismos del Inicio (IndexMenu.html: APPS, GRUPOS, EMO, SUBS, ORDEN) ---------- */
+  var APPS = {
+    cobros: { label: "Ferias", q: "ferias" }, local: { label: "Local Dulcería", q: "local" },
+    mayoristas: { label: "Mayoristas", q: "mayoristas" }, revendedores: { label: "Revendedoras", q: "revendedores" }, minoristas: { label: "Minoristas", q: "minoristas" },
+    retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
+    comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
+    roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
+    chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
+  };
+  var CORTO = { cobros: "Ferias", local: "Local", produccion: "Elaboración", horas: "Fichaje", movimientos: "Movimientos", stock: "Cuánto hay", caja: "Contabilidad", costos: "Costos" };
+  var GRUPOS = [{ key: "g_ventas", label: "Ventas", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"] }, { key: "g_stock", label: "Stock", apps: ["stock","movimientos"] }, { key: "g_prod", label: "Producción", apps: ["produccion","comandas","horas","roberto"] }];
+  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
+  // atajos: [texto, a qué botón entra (giaba_ir) o «@app» para otra pantalla]
+  var SUBS = {
+    cobros:     [["Mi feria de hoy (en curso o arrancar)","#homeSeguir,#homeArrancar"],["Dejar lista la de mañana","#homePrep"],["Resumen de ferias","#homeMis"],["Calendario de ferias","#homeCal"]],
+    mayoristas: [["+ Nueva venta","#goNueva"],["Mandar la lista de precios","@costos&s=lpremay"]],
+    revendedores: [["Comisiones y deudas","#goCom"],["Alta y comisión de cada una","#goLst"]],
+    minoristas: [["+ Nueva venta","#goNueva"],["Importar ventas TN / ML","#goImportar"]],
+    retirar:    [["➕ Cargar un retiro","#goCargar"],["Próximos","#tabProx"],["Sin día (a coordinar)","#tabSin"]],
+    produccion: [["Elaboración","[data-area=\"Elaboración\"]"],["Envasado","[data-area=\"Envasado\"]"],["Partidas","#partBtn"]],
+    comandas:   [["Qué hay que elaborar","#goElab"],["Materia prima a pedir","#goMP"]],
+    roberto:    [["Le pagué","#goPago"]],
+    compras:    [["+ Nueva compra","#goNueva"],["+ Nuevo gasto","#goGasto"],["Cuentas corrientes (a pagar)","#goCC"]],
+    caja:       [["Caja (saldos, pagos, a pagar)","@caja"],["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
+    costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
+    stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
+  };
+  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","incidentes"];
+  var ALIAS = { retiros: "caja", ventas: "cobros", ferias: "cobros", retirosadmin: "retirar" };
+  var SV_HB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  var SV_DN = '<svg class="gn-cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+  /* ---------- estado ---------- */
+  var P = null, APPSP = [], ITS = [], BAD = {}, APP = "", SUB = "", ABIERTOS = {}, ATS = {}, DD = null;
+  function cargarPersona(){
+    var a = lsGet("giaba_auth", null);
+    if (!a || !a.nombre || !a.apps || !a.apps.length){ P = null; APPSP = []; ITS = []; return false; }
+    P = String(a.nombre);
+    var socio = P === "Lucas" || P === "Adriana";   // 04/11: la revendedora ve «🏪 Ventas mayoristas»; Lucas y Adriana, «🤝 Revendedoras»
+    APPS.revendedores.label = socio ? "Revendedoras" : "Ventas mayoristas"; EMO.revendedores = socio ? "🤝" : "🏪";
+    var apps = a.apps.map(function(k){ return ALIAS[k] || k; });
+    apps = apps.filter(function(k, i, arr){ return arr.indexOf(k) === i && APPS[k]; });
+    if (apps.indexOf("minoristas") !== -1 && apps.indexOf("mayoristas") === -1) apps.push("mayoristas");   // como el Inicio
+    apps.sort(function(x, y){ return ORDEN.indexOf(x) - ORDEN.indexOf(y); });
+    APPSP = apps;
+    // mismo armado que el Inicio: grupos con 2+ apps, solo si la persona tiene 7 o más apps
+    var out = [], us = {};
+    apps.forEach(function(k){ if (us[k]) return;
+      var g = GRUPOS.filter(function(G){ return G.apps.indexOf(k) !== -1; })[0], en = g ? apps.filter(function(x){ return g.apps.indexOf(x) !== -1; }) : [];
+      if (g && en.length >= 2 && apps.length >= 7){ en.forEach(function(x){ us[x] = 1; }); out.push({ g: g, apps: en }); } else { us[k] = 1; out.push({ app: k }); } });
+    ITS = out;
+    // numeritos: lo último que guardó el Inicio (mismas reglas que sus tarjetas)
+    BAD = {};
+    var r = lsGet("pend_" + P, null);
+    if (r && (!r.yo || r.yo === P)){
+      (r.items || []).forEach(function(it){
+        var k = it.app === "compras" && apps.indexOf("compras") === -1 ? "stock" : it.app;
+        if (!k || typeof it.n !== "number" || k === "caja" || k === "incidentes" || k === "movimientos" || apps.indexOf(k) === -1) return;
+        var x = BAD[k] = BAD[k] || [0, "y", false]; x[0] += it.n; x[2] = x[2] || !!it.rojo;
+      });
+      Object.keys(BAD).forEach(function(k){ var x = BAD[k]; BAD[k] = x[0] > 0 ? [x[0], x[2] ? "r" : (k === "stock" ? "o" : "y")] : null; });
+      if (apps.indexOf("caja") !== -1){ var n = r.aPagarVencidas || r.aPagar || 0; if (n) BAD.caja = [n, r.aPagarVencidas ? "r" : "y"]; }
+    }
+    var inc = lsGet("inc_badge", null); if (inc && inc.abiertos > 0 && apps.indexOf("incidentes") !== -1) BAD.incidentes = [inc.abiertos, "r"];
+    var mv = lsGet("mv_badge", null); if (mv && mv.pendientes > 0 && apps.indexOf("movimientos") !== -1) BAD.movimientos = [mv.pendientes, "y"];
+    return true;
+  }
+  function badOf(k){ return BAD[k] || null; }
+  function sumBad(keys){ var n = 0, r = false, o = true; keys.forEach(function(k){ var b = badOf(k); if (b){ n += b[0]; if (b[1] === "r") r = true; if (b[1] !== "o") o = false; } }); return n ? [n, r ? "r" : (o ? "o" : "y")] : null; }
+  function bdH(b){ return b ? '<span class="gn-bd' + (b[1] === "r" ? "" : " " + b[1]) + '">' + b[0] + '</span>' : ""; }
+  function base(){ return String(window.GIABA_BASE_URL || ""); }
+  function urlQ(q){ var b = base(); return b + (b.indexOf("?") === -1 ? "?" : "&") + "app=" + q; }
+  function urlApp(k){ return k === "inicio" ? base() : urlQ(APPS[k].q); }
+  function urlSub(k, i){ var s = SUBS[k][i][1]; return s.charAt(0) === "@" ? urlQ(s.slice(1)) : urlApp(k); }
+  function nApps(){ return APPSP.length + " " + (APPSP.length === 1 ? "app" : "apps"); }
+  // links reales (lo único confiable en el marco de Google); data-gn = app[|atajo]
+  function lnk(cls, k, i, inner, extra){ return '<a class="' + cls + '" target="_top" href="' + esc(i == null ? urlApp(k) : urlSub(k, i)) + '" data-gn="' + k + (i == null ? "" : "|" + i) + '"' + (extra || "") + '>' + inner + '</a>'; }
+  function esSubCur(k, x){ return k === APP && SUB === x; }
+
+  /* ---------- ☰ panel del celu ---------- */
+  function abrirMenu(){
+    if (!P) return; cerrarDD();
+    ITS.forEach(function(it){ if (it.g && it.apps.indexOf(APP) !== -1) ABIERTOS[it.g.key] = 1; });
+    if (SUBS[APP] && ATS[APP] === undefined) ATS[APP] = 1;
+    pintarMenu(); $("gnOv").classList.add("on"); $("gnDrw").classList.add("on"); $("gnDrw").setAttribute("aria-hidden", "false");
+  }
+  function cerrarMenu(){ var d = $("gnDrw"); if (!d) return; $("gnOv").classList.remove("on"); d.classList.remove("on"); d.setAttribute("aria-hidden", "true"); }
+  NAV.abrir = abrirMenu; NAV.cerrar = cerrarMenu;
+  NAV.cambiarPersona = function(){ cambiarPersona(); };   /* 04/11: para el botón con el nombre de cada pantalla (antes volvía al Inicio y entraba de nuevo) */
+  function appRow(k){
+    var cur = k === APP, s = SUBS[k], ab = ATS[k];
+    return '<div class="gn-mr' + (cur ? " cur" : "") + '">' + lnk("gn-go", k, null, '<span class="gn-e">' + EMO[k] + '</span><span class="gn-t">' + esc(APPS[k].label) + (cur ? "<small>Estás acá</small>" : "") + '</span>' + bdH(badOf(k)))
+      + (s ? '<button type="button" class="gn-tg' + (ab ? " on" : "") + '" aria-label="Atajos de ' + esc(APPS[k].label) + '" aria-expanded="' + (ab ? "true" : "false") + '" data-tg="' + k + '">' + SV_DN + '</button>' : '<span class="gn-sp"></span>') + '</div>'
+      + (s && ab ? '<div class="gn-ats">' + s.map(function(x, i){ return lnk("gn-at" + (esSubCur(k, x[0]) ? " cur" : ""), k, i, esc(x[0])); }).join("") + '</div>' : "");
+  }
+  function pintarMenu(){
+    var d = $("gnDrw"); if (!d || !P) return;
+    var b = '<div class="gn-mr ini' + (APP === "inicio" ? " cur" : "") + '">' + lnk("gn-go", "inicio", null, '<span class="gn-e">🏠</span><span class="gn-t">Inicio<small style="color:var(--ink-soft)">' + (APP === "inicio" ? "Estás acá" : "Pendientes y todas tus apps") + '</small></span>') + '</div><div class="gn-dsep"></div>';
+    ITS.forEach(function(it){
+      if (it.g){ var g = it.g, op = ABIERTOS[g.key], cur = it.apps.indexOf(APP) !== -1;
+        b += '<button type="button" class="gn-gh' + (op ? " on" : "") + (cur ? " cur" : "") + '" data-gh="' + g.key + '" aria-expanded="' + (op ? "true" : "false") + '"><span class="gn-e">' + EMO[g.key] + '</span>' + g.label + (op ? '<span class="gn-sp"></span>' : bdH(sumBad(it.apps))) + SV_DN + '</button>';
+        if (op) b += '<div class="gn-gin">' + it.apps.map(appRow).join("") + '</div>'; }
+      else b += appRow(it.app);
+    });
+    var sc = d.querySelector(".gn-db"), top = sc ? sc.scrollTop : 0;
+    d.innerHTML = '<div class="gn-dh"><span class="gn-av">' + esc(P.charAt(0)) + '</span><span class="gn-nm"><b>' + esc(P) + '</b><small>' + nApps() + '</small></span><button type="button" class="gn-xb" data-x="1" aria-label="Cerrar">✕</button></div>'
+      + '<div class="gn-db">' + b + '</div><div class="gn-df"><button type="button" class="gn-btn ol" data-cp="1">↺ Cambiar de persona</button></div>';
+    if (top) d.querySelector(".gn-db").scrollTop = top;
+  }
+
+  /* ---------- barra de la compu ---------- */
+  function pintarBarra(){
+    var bar = $("gnBar"); if (!bar) return;
+    if (!P || (APP === "inicio" && !visible("screen-menu"))){ bar.hidden = true; bar.innerHTML = ""; DD = null; return; }
+    bar.hidden = false;
+    var h = lnk("gn-gi home" + (APP === "inicio" ? " cur" : ""), "inicio", null, '<span class="gn-e">🏠</span><span class="gn-lb">Inicio</span>', ' title="Inicio"');
+    var nx = ITS.length > 7 ? 3 : 0;
+    ITS.forEach(function(it, i){ var xc = i >= ITS.length - nx ? " xtra" : "";
+      if (it.g){ var cur = it.apps.indexOf(APP) !== -1;
+        h += '<button type="button" class="gn-gi' + xc + (cur ? " cur" : "") + (DD === it.g.key ? " op" : "") + '" data-dd="' + it.g.key + '" aria-expanded="' + (DD === it.g.key) + '"><span class="gn-e">' + EMO[it.g.key] + '</span>' + it.g.label + bdH(sumBad(it.apps)) + SV_DN + '</button>'; }
+      else { var k = it.app, c = k === APP, lb = CORTO[k] || APPS[k].label;
+        h += SUBS[k] ? '<button type="button" class="gn-gi' + xc + (c ? " cur" : "") + (DD === k ? " op" : "") + '" data-dd="' + k + '" aria-expanded="' + (DD === k) + '"><span class="gn-e">' + EMO[k] + '</span>' + esc(lb) + bdH(badOf(k)) + SV_DN + '</button>'
+          : lnk("gn-gi" + xc + (c ? " cur" : ""), k, null, '<span class="gn-e">' + EMO[k] + '</span>' + esc(lb) + bdH(badOf(k))); }
+    });
+    if (nx){ var ks = ITS.slice(ITS.length - nx).map(function(x){ return x.app || null; }).filter(Boolean), cm = ks.indexOf(APP) !== -1;
+      h += '<button type="button" class="gn-gi mas' + (cm ? " cur" : "") + (DD === "mas" ? " op" : "") + '" data-dd="mas" aria-expanded="' + (DD === "mas") + '">Más' + bdH(sumBad(ks)) + SV_DN + '</button>'; }
+    h += '<span class="gn-gsp"></span><button type="button" class="gn-gp' + (DD === "yo" ? " op" : "") + '" data-dd="yo" title="' + esc(P) + '"><span class="gn-av">' + esc(P.charAt(0)) + '</span><span class="gn-pn"><span class="gn-hola">Hola, </span>' + esc(P) + '</span>' + SV_DN + '</button>';
+    if (DD) h += ddH();
+    bar.innerHTML = h;
+    if (DD && DD !== "yo" && DD.indexOf("g_") !== 0){
+      var btn = bar.querySelector('[data-dd="' + DD + '"]'), dd = bar.querySelector(".gn-dd");
+      if (btn && dd){ var L = Math.min(btn.offsetLeft, bar.clientWidth - dd.offsetWidth - 16); dd.style.left = Math.max(16, L) + "px"; }
+    }
+  }
+  function atsDD(k){ return (SUBS[k] || []).map(function(x, i){ return lnk("gn-at" + (esSubCur(k, x[0]) ? " cur" : ""), k, i, esc(x[0])); }).join(""); }
+  function ddH(){
+    if (DD === "yo") return '<div class="gn-dd" style="right:16px"><div style="padding:6px 10px 10px;display:flex;gap:10px;align-items:center"><span class="gn-av">' + esc(P.charAt(0)) + '</span><span><b style="font-size:17px">' + esc(P) + '</b><br><span style="font-size:13px;color:var(--ink-soft);font-weight:600">' + nApps() + '</span></span></div><button type="button" class="gn-btn ol" data-cp="1">↺ Cambiar de persona</button>' + (APP === "inicio" && document.getElementById("menuWho") ? '<button type="button" class="gn-btn ol" data-fondo="1" style="margin-top:8px">🎨 Color de fondo</button>' : '') + '</div>';
+    if (DD.indexOf("g_") === 0){ var it = ITS.filter(function(x){ return x.g && x.g.key === DD; })[0]; if (!it) return "";
+      return '<div class="gn-dd mega">' + it.apps.map(function(k){ var c = k === APP;
+        return '<div class="gn-dc' + (c ? " cur" : "") + '">' + lnk("gn-ap" + (c && !SUB ? " cur" : ""), k, null, '<span class="gn-e">' + EMO[k] + '</span><span class="gn-t">' + esc(APPS[k].label) + (c ? "<small>Estás acá</small>" : "") + '</span>' + bdH(badOf(k))) + atsDD(k) + '</div>'; }).join("")
+        + '<div class="gn-dnote">Tocá el nombre de la app para entrar como siempre, o un atajo para ir directo.</div></div>'; }
+    if (DD === "mas"){ var ks = ITS.slice(ITS.length - 3).map(function(x){ return x.app; }).filter(Boolean);
+      return '<div class="gn-dd" style="min-width:300px">' + ks.map(function(k){ return lnk("gn-ap1" + (k === APP && !SUB ? " cur" : ""), k, null, '<span class="gn-e">' + EMO[k] + '</span><span class="gn-t">' + esc(APPS[k].label) + '</span>' + bdH(badOf(k))) + atsDD(k); }).join("")
+        + '<div class="gn-dnote">En pantallas de compu chicas, las últimas apps van acá para que la barra entre en una fila.</div></div>'; }
+    var k = DD; if (!SUBS[k]) return "";
+    return '<div class="gn-dd">' + lnk("gn-ap1" + (k === APP && !SUB ? " cur" : ""), k, null, '<span class="gn-e">' + EMO[k] + '</span><span class="gn-t">Entrar a ' + esc(APPS[k].label) + '</span>' + bdH(badOf(k))) + atsDD(k) + '</div>';
+  }
+  function cerrarDD(){ if (DD){ DD = null; pintarBarra(); } }
+
+  /* ---------- ☰ al lado de cada «‹ …» de arriba ---------- */
+  function ponerHB(){
+    if (!P || APP === "inicio") return;
+    var otras = bdH(sumBad(APPSP.filter(function(k){ return k !== APP; })));
+    Array.prototype.forEach.call(document.querySelectorAll(".top > .back, .topbar > .back"), function(b){
+      var par = b.parentNode; if (!par || par.querySelector(":scope > .gn-hb")) return;
+      if (par.querySelector(":scope > .back") !== b) return;
+      if (b.closest("#s-noauth,#noauth,#screen-quien,#screen-pin,#screen-ir-menu")) return;
+      var hb = document.createElement("button"); hb.type = "button"; hb.className = "gn-hb"; hb.setAttribute("aria-label", "Abrir el menú");
+      hb.innerHTML = SV_HB + otras; par.insertBefore(hb, b);
+    });
+  }
+  function pintarHB(){ var otras = bdH(sumBad(APPSP.filter(function(k){ return k !== APP; }))); Array.prototype.forEach.call(document.querySelectorAll(".gn-hb"), function(hb){ hb.innerHTML = SV_HB + otras; }); }
+
+  /* ---------- aviso: carga a medio hacer ---------- */
+  var PEND = null;
+  function marcarIr(gn){
+    var p = String(gn || "").split("|"), k = p[0], i = p[1];
+    if (i != null && APPS[k] && SUBS[k] && SUBS[k][+i] && SUBS[k][+i][1].charAt(0) !== "@") lsSet("giaba_ir", { app: APPS[k].q, sel: SUBS[k][+i][1], t: Date.now() });
+    else { try { localStorage.removeItem("giaba_ir"); } catch (e) {} }
+  }
+  function aviso(txt, dest){
+    cerrarMenu(); cerrarDD(); PEND = dest;
+    var m = $("gnMdl");
+    m.innerHTML = '<div class="gn-box" role="dialog" aria-modal="true"><h2>' + esc(txt) + '</h2><div class="gn-hint">Si salís ahora <b>no se guarda</b> lo que estabas cargando.</div>'
+      + '<button type="button" class="gn-btn y" data-mx="1">Seguir cargando</button>'
+      + (dest.href ? '<a class="gn-btn r" target="_top" href="' + esc(dest.href) + '" data-salir="1">Salir sin guardar</a>' : '<button type="button" class="gn-btn r" data-salir="1">Salir sin guardar</button>') + '</div>';
+    m.hidden = false;
+  }
+  function cerrarMdl(){ var m = $("gnMdl"); if (m){ m.hidden = true; m.innerHTML = ""; } PEND = null; }
+  function cambiarPersona(){
+    cerrarMenu(); cerrarDD();
+    var t = sucio(); if (t){ aviso(t, { fn: cambiarPersona0 }); return; }
+    cambiarPersona0();
+  }
+  function cambiarPersona0(){
+    var nombres = lsGet("giaba_nombres", null); if (!nombres || !nombres.length) nombres = ["Lucas","Adriana","Francisco","Julieta","Maricel","Sofía"];
+    var m = $("gnMdl");
+    m.innerHTML = '<div class="gn-box" role="dialog" aria-modal="true"><h2>¿Quién sos?</h2><div class="gn-hint">Después pide el PIN, como hoy, y vuelve al Inicio de esa persona.</div>'
+      + '<div class="gn-pgrid">' + nombres.map(function(n){ return '<a target="_top" href="' + esc(base()) + '" data-np="' + esc(n) + '" class="' + (n === P ? "on" : "") + '">' + esc(n) + '</a>'; }).join("") + '</div>'
+      + '<button type="button" class="gn-btn" data-mx="1">Cancelar</button></div>';
+    m.hidden = false;
+  }
+
+  /* ---------- clicks ---------- */
+  function onClick(e){
+    var t = e.target; if (!t || !t.closest) return;
+    var hb = t.closest(".gn-hb"); if (hb){ e.preventDefault(); e.stopPropagation(); abrirMenu(); return; }
+    var m = t.closest("#gnMdl");
+    if (m){
+      if (t === m || t.closest("[data-mx]")){ e.preventDefault(); cerrarMdl(); return; }
+      var np = t.closest("[data-np]"); if (np){ lsSet("giaba_cambiar", { n: np.getAttribute("data-np"), t: Date.now() }); try { localStorage.removeItem("giaba_ir"); } catch (er) {} return; }
+      var sl = t.closest("[data-salir]");
+      if (sl && PEND){ var d = PEND; VIG.forEach(function(w){ w.sucio = false; }); MANUAL = null;
+        if (d.fn){ e.preventDefault(); cerrarMdl(); d.fn(); return; }
+        marcarIr(d.gn); return; }
+      return;
+    }
+    var enNav = t.closest("#gnBar,#gnDrw");
+    if (enNav){
+      if (t.closest("[data-x]")){ cerrarMenu(); return; }
+      if (t.closest("[data-cp]")){ e.preventDefault(); cambiarPersona(); return; }
+      if (t.closest("[data-fondo]")){ e.preventDefault(); DD = ""; try { pintarBarra(); } catch (er) {} var mw = document.getElementById("menuWho"); if (mw) mw.click(); return; }
+      var gh = t.closest("[data-gh]"); if (gh){ var gk = gh.getAttribute("data-gh"); ABIERTOS[gk] = ABIERTOS[gk] ? 0 : 1; pintarMenu(); return; }
+      var tg = t.closest("[data-tg]"); if (tg){ var tk = tg.getAttribute("data-tg"); ATS[tk] = ATS[tk] ? 0 : 1; pintarMenu(); return; }
+      var dd = t.closest("[data-dd]"); if (dd){ var k = dd.getAttribute("data-dd"); DD = DD === k ? null : k; pintarBarra(); return; }
+      var a = t.closest("a[data-gn]");
+      if (a){ var tx = sucio(); if (tx){ e.preventDefault(); aviso(tx, { href: a.getAttribute("href"), gn: a.getAttribute("data-gn") }); return; }
+        marcarIr(a.getAttribute("data-gn")); cerrarMenu(); return; }
+      return;
+    }
+    if (DD) cerrarDD();
+    // el «‹ Menú» de cada app (link que sale de la página): también avisa
+    var bk = t.closest("a.back[href]");
+    if (bk){ var hr = bk.getAttribute("href") || ""; if (hr && hr !== "#" && hr.indexOf("javascript:") !== 0){ var tb = sucio(); if (tb){ e.preventDefault(); e.stopPropagation(); aviso(tb, { href: bk.href, gn: "" }); } } }
+  }
+
+  /* ---------- arranque ---------- */
+  NAV.refrescar = function(){
+    if (!LISTO) return;
+    if (!cargarPersona()){ var b = $("gnBar"); if (b){ b.hidden = true; b.innerHTML = ""; } cerrarMenu(); Array.prototype.forEach.call(document.querySelectorAll(".gn-hb"), function(x){ x.remove(); }); return; }
+    pintarBarra(); ponerHB(); pintarHB(); if ($("gnDrw").classList.contains("on")) pintarMenu();
+  };
+  function iniciar(){
+    if (LISTO) return; LISTO = true;
+    APP = String(window.GIABA_NAV_APP || ""); SUB = String(window.GIABA_NAV_SUB || "");
+    if (APP !== "inicio" && !APPS[APP]) APP = "";
+    var bar = document.createElement("nav"); bar.id = "gnBar"; bar.setAttribute("aria-label", "Menú"); bar.hidden = true;
+    document.body.insertBefore(bar, document.body.firstChild);
+    var ov = document.createElement("div"); ov.id = "gnOv"; ov.addEventListener("click", cerrarMenu);
+    var dr = document.createElement("aside"); dr.id = "gnDrw"; dr.setAttribute("aria-label", "Menú"); dr.setAttribute("aria-hidden", "true");
+    var md = document.createElement("div"); md.id = "gnMdl"; md.hidden = true;
+    document.body.appendChild(ov); document.body.appendChild(dr); document.body.appendChild(md);
+    VIG.forEach(observar);
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape"){ cerrarMenu(); cerrarDD(); cerrarMdl(); } });
+    if (!cargarPersona()) return;
+    pintarBarra(); ponerHB();
+    // pantallas que se arman después (cada app pinta sus «‹ …» al cambiar de pantalla)
+    if (window.MutationObserver){
+      var pend = false;
+      new MutationObserver(function(){ if (pend) return; pend = true; (window.requestAnimationFrame || setTimeout)(function(){ pend = false; ponerHB(); }); }).observe(document.body, { childList: true, subtree: true });
+      if (APP === "inicio" && $("screen-menu")) new MutationObserver(function(){ pintarBarra(); }).observe($("screen-menu"), { attributes: true, attributeFilter: ["hidden"] });
+    }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else setTimeout(iniciar, 0);
+})();
+</script>
+
+</head>
+<body>
+<!-- 09/11/2026 (Lucas): «cuando apretamos cualquier botón tiene que pasar algo». Va incluido en TODAS las pantallas (include('BotonesComun')).
+     1) Al tocar: el botón se hunde y se ilumina al instante (antes de que conteste el servidor).
+     2) Si ese toque llama al servidor: el botón queda «trabajando» (pulso + puntitos) y no se puede volver a tocar hasta que conteste.
+     3) Si tarda más de medio segundo: barrita arriba y cartelito «Cargando…» abajo, para que se note que la app está haciendo algo.
+     No cambia ningún texto ni ninguna función de las pantallas: solo se engancha a google.script.run. -->
+<style>
+button, .btn, .chip, [data-a], .tl, .ent button { -webkit-tap-highlight-color: transparent; }
+button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform: scale(.97); filter: brightness(1.25); transition: transform .06s, filter .06s; }
+.gb-toc { filter: brightness(1.3) !important; box-shadow: 0 0 0 3px rgba(255, 209, 0, .55) !important; }
+.gb-busy { position: relative; cursor: progress !important; animation: gbPulso 1s ease-in-out infinite; }
+.gb-busy::after { content: "…"; position: absolute; right: 10px; top: 50%; transform: translateY(-58%); font-weight: 800; letter-spacing: 1px; animation: gbPts 1s steps(3) infinite; }
+@keyframes gbPulso { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes gbPts { 0% { opacity: .3; } 50% { opacity: 1; } 100% { opacity: .3; } }
+#gbBarra { position: fixed; left: 0; top: 0; height: 4px; width: 0; background: #ffd100; z-index: 99999; transition: width .25s ease, opacity .3s; opacity: 0; pointer-events: none; }
+#gbBarra.on { opacity: 1; width: 75%; transition: width 6s cubic-bezier(.1, .7, .2, 1), opacity .2s; }
+#gbCartel { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #2a2a2b; color: #f5efe8; border: 2px solid #ffd100; border-radius: 999px; padding: 6px 14px; font: 700 15px/1.2 Manrope, system-ui, sans-serif; z-index: 99998; opacity: 0; pointer-events: none; transition: opacity .2s; }
+#gbCartel.on { opacity: 1; }
+</style>
+<script>
+(function () {
+  if (window.__gbBotones) return; window.__gbBotones = true;
+  var ULT = null, PEND = 0, TBAR = null;
+  var SEL = 'button, .btn, .chip, [data-a], .tl, [role="button"]';
+  function barra() { var b = document.getElementById('gbBarra'); if (!b) { b = document.createElement('div'); b.id = 'gbBarra'; document.body.appendChild(b); } return b; }
+  function cartel() { var c = document.getElementById('gbCartel'); if (!c) { c = document.createElement('div'); c.id = 'gbCartel'; document.body.appendChild(c); } return c; }
+  // 1) feedback al toque
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
+    if (t.classList.contains('gb-busy')) { e.stopPropagation(); e.preventDefault(); return; }   // ya está trabajando: no dos veces
+    ULT = { el: t, t: Date.now() };
+    t.classList.add('gb-toc'); setTimeout(function () { t.classList.remove('gb-toc'); }, 220);
+  }, true);
+  // 09/11 (Lucas): en el inicio (elegir usuario / PIN) no se muestra nada: recién después de iniciar sesión
+  function enLogin() { var ids = ['screen-quien', 'screen-pin', 'screen-login', 's-login', 's-pin']; for (var i = 0; i < ids.length; i++) { var x = document.getElementById(ids[i]); if (x && x.offsetParent !== null && getComputedStyle(x).display !== 'none' && !x.hidden) return true; } return false; }
+  function empezar(el) {
+    PEND++;
+    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
+    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
+  }
+  function terminar(el) {
+    PEND = Math.max(0, PEND - 1);
+    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); }
+    if (!PEND) { clearTimeout(TBAR); var b = document.getElementById('gbBarra'); if (b) b.classList.remove('on'); var c = document.getElementById('gbCartel'); if (c) c.classList.remove('on'); }
+  }
+  // 2) engancharse a google.script.run (sin cambiar cómo lo usan las pantallas)
+  var DUP = {};
+  function gbCopia(x) { try { return x === undefined ? x : JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }   // cada pantalla recibe su copia
+  function envolver(run, ok, fail) {
+    return new Proxy(run, { get: function (o, k) {
+      if (k === 'withSuccessHandler') return function (f) { return envolver(o, f, fail); };
+      if (k === 'withFailureHandler') return function (f) { return envolver(o, ok, f); };
+      if (k === 'withUserObject') return function (u) { return envolver(o.withUserObject(u), ok, fail); };
+      var fn = o[k]; if (typeof fn !== 'function') return fn;
+      return function () {
+        // 12/11 (lentitud): la misma lectura (get…, mismos datos) pedida varias veces a la vez se pide UNA sola vez a Google
+        // y la respuesta les llega a todas (solo mientras está en camino: lo que se pide después siempre va a Google). Las que guardan algo nunca se juntan.
+        var args = [].slice.call(arguments), clave = null, okL = ok, failL = fail;
+        if (/^get/.test(String(k))) { try { clave = String(k) + '|' + JSON.stringify(args); } catch (e) { clave = null; } }
+        else DUP = {};   // algo que guarda: lo que se leyó antes ya no sirve (la próxima lectura va a Google de nuevo)
+        if (clave) {
+          var D = DUP[clave];
+          if (D && D.vuela) {
+            D.esperan.push([okL, failL]);
+            return;
+          }
+          D = DUP[clave] = { vuela: true, esperan: [], t: 0, res: null, err: false };
+          var ok0 = okL, fail0 = failL;
+          okL = function (a, b) { D.vuela = false; if (DUP[clave] === D) delete DUP[clave]; var E = D.esperan; D.esperan = []; if (ok0) ok0(a, b); E.forEach(function (x) { try { if (x[0]) x[0](gbCopia(a)); } catch (e) {} }); };
+          failL = function (a, b) { D.vuela = false; D.t = 0; D.err = true; D.res = a; if (DUP[clave] === D) delete DUP[clave]; var E = D.esperan; D.esperan = []; if (fail0) fail0(a, b); E.forEach(function (x) { try { if (x[1]) x[1](a); } catch (e) {} }); };
+        }
+        var el = ULT && Date.now() - ULT.t < 600 ? ULT.el : null, listo = false;
+        if (el) ULT = null;   // un toque marca una sola llamada (la primera)
+        var calla = enLogin();   // en el inicio (usuario / PIN) no se muestra nada
+        var fin = function () { if (listo) return; listo = true; clearTimeout(tope); if (!calla) terminar(el); };
+        var tope = setTimeout(fin, 45000);   // por las dudas: nunca queda trabado
+        if (!calla) empezar(el);
+        var r = o;
+        r = r.withSuccessHandler(function (a, b) { fin(); if (okL) return okL(a, b); });
+        r = r.withFailureHandler(function (a, b) { fin(); if (failL) return failL(a, b); });
+        return r[k].apply(r, arguments);
+      };
+    } });
+  }
+  try {
+    if (window.google && google.script && google.script.run && !google.script.__gbOk) {
+      google.script.__gbOk = true;
+      var p = envolver(google.script.run, null, null);
+      Object.defineProperty(google.script, 'run', { value: p, configurable: true, writable: true });
+    }
+  } catch (e) {}
+})();
+</script>
+
+
+<div id="screen-quien" class="screen">
+  <div class="topbar"><span class="eyebrow">GIABA · Abalauquen</span></div>
+  <h1>Soy Giaba, ¿con quién tengo el gusto?</h1>
+  <div class="choice-grid" id="quienGrid"></div>
+</div>
+
+<div id="screen-pin" class="screen" hidden>
+  <div class="topbar"><button class="back" id="pinBackLink" aria-label="Atrás"></button></div>
+  <h1 id="pinTitulo">Hola</h1>
+  <div class="sub">Ingresá tu PIN de 4 números</div>
+  <div class="pin-dots" id="pinDots"></div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="spacer"></div>
+  <div class="keypad" id="pinKeypad"></div>
+</div>
+
+<div id="screen-menu" class="screen" hidden>
+  <div class="top3">
+    <button class="who" id="menuWho"><i id="menuIni"></i><span id="menuSaludo"></span> ▾</button>
+    <div class="fecha3" id="menuFecha"></div>
+  </div>
+  <button id="menuBackLink" hidden></button>
+  <h1 id="menuHola"></h1>
+  <div id="fichBox" hidden style="display:flex;flex-direction:column;gap:8px"></div>
+  <!-- 28/10 (Lucas 11:06): arriba solo lo URGENTE de hoy (visitas, retiros/entregas de hoy, pagos vencidos); después los botones;
+       abajo los retiros del mes y el resto de los pendientes (que cada uno puede ocultar; a Adriana le arranca oculto) -->
+  <h1 id="menuHoyPc" class="solo-pc">¿Qué vamos a hacer hoy?</h1>
+  <div id="urgBox" hidden style="display:flex;flex-direction:column;gap:14px"><div class="h2r"><b>Para hoy · urgente</b><span id="urgTit"></span></div><div class="tickets" id="urgList"></div></div>
+  <div class="h2r no-pc"><b id="menuTitulo">¿Qué vamos a hacer hoy?</b></div>
+  <div class="menu-list no-pc" id="menuList"></div>
+  <a class="pend ret" id="retBox" hidden></a>
+  <div id="pendBox" hidden style="display:flex;flex-direction:column;gap:14px"><div class="h2r"><b>Pendientes</b><span id="pendTit"></span></div><div class="tickets" id="pendList"></div><button class="vertodos" id="pendOcu">Ocultar los pendientes</button></div>
+  <button class="vertodos" id="pendVer" hidden>📋 Ver pendientes <em id="pendVerN"></em></button>
+  <button class="vertodos" id="prvVer" hidden>📝 Para revisar <em id="prvVerN"></em></button>
+</div>
+<div class="sheet" id="sheet" hidden><div class="in"><div class="hd" id="sheetT"></div><div id="sheetIn"></div><button class="btn-cerrar" id="sheetX">Cerrar</button></div></div>
+
+<script>
+  var GIABA_BASE_URL = "https://abalauquen.github.io/giaba-app/web/";
+  var GIABA_NAV_APP = "inicio";   // menú de navegación (Nav.html): en qué app estoy
+</script>
+
+<script>
+(function(){
+  "use strict";
+  const el = (id) => document.getElementById(id);
+  const ICON_BACK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+  const ICON_DEL = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9l-5 5M12 9l5 5"/></svg>';
+  const ICON_CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a9a49e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  document.querySelectorAll(".back").forEach(function(b){ b.innerHTML = ICON_BACK; });
+
+  const APPS = {
+    cobros:     { label:"Ferias",          desc:"Cobrar y cerrar la caja del puesto", query:"ferias",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20L12 4l8 16"/><path d="M9 20l3-6 3 6"/></svg>' },
+    local:      { label:"Local Dulcería",   desc:"Cobros del local (se cierra solo)",  query:"local",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v10h16V10"/><path d="M2 10l3-6h14l3 6z"/><path d="M9 20v-6h6v6"/></svg>' },
+    caja:       { label:"Contabilidad",     desc:"Caja · Facturación · Sin facturar · IVA · Reportes",            query:"contabilidad",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="18" height="8" rx="1.5"/><path d="M5 12l1-5h12l1 5"/><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M7 16h2M11 16h2M15 16h2"/></svg>' },
+    costos:     { label:"Costos y precios", desc:"Cuánto sale · Publicaciones ML/TN · ¿Cubrimos los fijos? · Productos", query:"costos",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' },
+    mayoristas: { label:"Mayoristas",       desc:"Ventas, cobros y entregas",          query:"mayoristas",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="8" height="8" rx="1"/><rect x="13" y="11" width="8" height="8" rx="1"/><rect x="8" y="3" width="8" height="8" rx="1"/></svg>' },
+    revendedores: { label:"Revendedoras",   desc:"Aprobar pedidos · comisiones y deudas", query:"revendedores", icon:"" },
+    retirar:    { label:"Pedidos para retirar", desc:"Hoy · Próximos · Sin día · depósito y ferias", query:"retirar",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>' },
+    minoristas: { label:"Minoristas", desc:"Tienda Nube, Mercado Libre, WhatsApp", query:"minoristas",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l-2 4v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4z"/><path d="M4 6h16"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' },
+    roberto:    { label:"Roberto",          desc:"A Fason: entregas, insumos y pagos", query:"roberto",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>' },
+    compras:    { label:"Compras",          desc:"+ Nueva compra · + Nuevo gasto · Para pedir · A pagar", query:"compras",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6"/></svg>' },
+    stock:      { label:"Cuánto hay",       desc:"Fábrica · CABA · Full · alertas y conteos",      query:"stock",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>' },
+    comandas:   { label:"Comandas",         desc:"Pedidos para armar y a elaborar",    query:"comandas",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M7 5H5v16h14V5h-2"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg>' },
+    produccion: { label:"Elaboración y envasado", desc:"Cargar lo producido e incidentes", query:"produccion",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8"/><path d="M9 3v3l-3 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9l-3-4V3"/><path d="M6 13h12"/></svg>' },
+    movimientos:{ label:"Movimientos masivos de stock", desc:"Envíos Fábrica ↔ CABA y bultos", query:"movimientos",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>' },
+    chacra:     { label:"Chacra",           desc:"Visitas guiadas y compras",          query:"chacra",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.8.2 5 2.6 5 5.8"/></svg>' },
+    horas:      { label:"Fichaje y sueldos", desc:"Horas trabajadas · sueldos de empleados", query:"horas",
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>' },
+    incidentes: { label:"Incidentes",       desc:"Ver abiertos y reportar",            query:"incidentes", red:true,
+                  icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l10 18H2z"/><path d="M12 10v5"/><path d="M12 18v.5"/></svg>' }
+  };
+
+  // grupos del menú: si la persona tiene 2 o más apps del grupo, se juntan en una tarjeta que se abre
+  const GRUPOS = [
+    { key: "g_ventas", label: "Ventas", desc: "Ferias · Local · Mayoristas · Minoristas · Pedidos para retirar · Incidentes", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"],
+      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l-2 4v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4z"/><path d="M4 6h16"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' },
+    { key: "g_stock", label: "Stock", desc: "Cuánto hay · Movimientos masivos · Conteos", apps: ["stock","movimientos"],
+      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>' },
+    { key: "g_prod", label: "Producción", desc: "Elaboración · Comandas · Fichaje · Roberto", apps: ["produccion","comandas","horas","roberto"],
+      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8"/><path d="M9 3v3l-3 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9l-3-4V3"/><path d="M6 13h12"/></svg>' }
+  ];
+  // 28/10 (Lucas: "me gustan mucho los logos"): dibujitos de color en vez de los íconos de línea
+  const EMO = { cobros:"🎪", local:"🏪", mayoristas:"📦", revendedores:"🤝", minoristas:"🛍️", retirar:"📦", produccion:"🍯", comandas:"📋", horas:"⏱️", roberto:"👨‍🌾",
+    stock:"📦", movimientos:"🚛", compras:"🧾", caja:"💵", costos:"💲", chacra:"🏡", incidentes:"⚠️", g_ventas:"🛒", g_stock:"📦", g_prod:"🍯" };
+  Object.keys(APPS).forEach(function(k){ if (EMO[k]) APPS[k].icon = '<span class="emo">' + EMO[k] + '</span>'; });
+  GRUPOS.forEach(function(g){ if (EMO[g.key]) g.icon = '<span class="emo">' + EMO[g.key] + '</span>'; });
+  // opciones de adentro de cada app: se abren como Ventas y entran directo a esa pantalla
+  const SUBS = {
+    cobros:     [["Mi feria de hoy (en curso o arrancar)","#homeSeguir,#homeArrancar"],["Dejar lista la de mañana","#homePrep"],["Resumen de ferias","#homeMis"],["Calendario de ferias","#homeCal"]],
+    mayoristas: [["+ Nueva venta","#goNueva"],["Mandar la lista de precios","@costos&s=lpremay"]],
+    revendedores: [["Comisiones y deudas","#goCom"],["Alta y comisión de cada una","#goLst"]],
+    minoristas: [["+ Nueva venta","#goNueva"],["Importar ventas TN / ML","#goImportar"]],
+    retirar:    [["➕ Cargar un retiro","#goCargar"],["Próximos","#tabProx"],["Sin día (a coordinar)","#tabSin"]],
+    produccion: [["Elaboración","[data-area=\"Elaboración\"]"],["Envasado","[data-area=\"Envasado\"]"],["Partidas","#partBtn"]],
+    comandas:   [["Qué hay que elaborar","#goElab"],["Materia prima a pedir","#goMP"]],
+    roberto:    [["Le pagué","#goPago"]],
+    compras:    [["+ Nueva compra","#goNueva"],["+ Nuevo gasto","#goGasto"],["Cuentas corrientes (a pagar)","#goCC"]],
+    caja:       [["Caja (saldos, pagos, a pagar)","@caja"],["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
+    costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
+    stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
+  };
+  // "Ver todo" = entrar a la app como siempre (todas sus opciones)
+  const VERTODO = { comandas: "Ver todo · pedidos para armar" };
+  function sumarGrupos(){
+    Array.prototype.forEach.call(document.querySelectorAll(".grp"), function(g){
+      let n = 0, rojo = false;
+      Array.prototype.forEach.call(g.querySelectorAll(".sub .badge"), function(b){ if (b.hidden) return; const v = parseInt(b.textContent, 10); if (v > 0){ n += v; if (!b.classList.contains("y") && !b.classList.contains("o")) rojo = true; } });
+      const gb = g.querySelector(".gb"); if (!gb) return;
+      gb.hidden = !n; gb.textContent = n; gb.className = "badge gb" + (rojo ? "" : " y");
+    });
+  }
+
+  const screens = ["quien","pin","menu"];
+  function showScreen(name){ screens.forEach(function(s){ el("screen-"+s).hidden = (s!==name); }); }
+
+  function lsGet(k,f){ try{ const v=localStorage.getItem(k); return v===null?f:JSON.parse(v);}catch(e){return f;} }
+  function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+  function buildUrl(appKey){
+    const sep = GIABA_BASE_URL.indexOf('?') === -1 ? '?' : '&';
+    return GIABA_BASE_URL + sep + 'app=' + APPS[appKey].query;
+  }
+
+  // ---- pantalla: quién sos ----
+  const NOMBRES_DEFAULT = (function(){ try { const n = []; if (n && n.length) return n; } catch (e) {} return ["Lucas","Adriana","Francisco","Julieta","Maricel","Sofía","Luis"]; })();
+  function renderQuienGrid(){
+    pintarGrid(NOMBRES_DEFAULT.length ? NOMBRES_DEFAULT : lsGet("giaba_nombres", NOMBRES_DEFAULT));   // 06/11: la lista viene con la página (antes tardaba en aparecer un usuario nuevo)
+    if (typeof google !== "undefined" && google.script){
+      google.script.run.withSuccessHandler(function(nombres){
+        if (nombres && nombres.length){ lsSet("giaba_nombres", nombres); pintarGrid(nombres); }
+      }).getNombresConAcceso();
+    }
+  }
+  function pintarGrid(nombres){
+    const grid = el("quienGrid"); grid.innerHTML = "";
+    nombres.forEach(function(nombre){
+      const b = document.createElement("div");
+      b.className = "choice-btn"; b.textContent = nombre;
+      b.addEventListener("click", function(){ openPinScreen(nombre); });
+      grid.appendChild(b);
+    });
+  }
+
+  // ---- PIN ----
+  let pinBuffer = "";
+  function openPinScreen(nombre){
+    pinBuffer = "";
+    el("pinTitulo").textContent = "Hola, " + nombre;
+    el("pinError").textContent = "";
+    buildPinDots(); buildPinKeypad(nombre);
+    showScreen("pin");
+  }
+  function buildPinDots(){
+    const box = el("pinDots"); box.innerHTML = "";
+    for (let i=0;i<4;i++){ const d=document.createElement("div"); d.className="pin-dot"; box.appendChild(d); }
+  }
+  function renderPinDots(){
+    const dots = el("pinDots").children;
+    for (let i=0;i<4;i++){ dots[i].classList.toggle("filled", i<pinBuffer.length); dots[i].classList.remove("err"); }
+  }
+  function markPinError(){ Array.prototype.forEach.call(el("pinDots").children, function(d){ d.classList.add("err"); }); }
+  // tecla que responde al toque (no espera el "click", que en el celu se pierde si tocás rápido)
+  // 29/10 (rev · R8): tocar ≠ scrollear: la tecla cuenta al soltar el dedo y solo si no se movió
+  function tap(b, fn){
+    if (!window.PointerEvent){ b.addEventListener("click", fn); return; }
+    let st = null;
+    b.addEventListener("pointerdown", function(e){ if (e.pointerType === "mouse" && e.button !== 0) return; st = { x: e.clientX, y: e.clientY }; b.classList.add("pressed"); });
+    b.addEventListener("pointermove", function(e){ if (st && (Math.abs(e.clientX - st.x) > 10 || Math.abs(e.clientY - st.y) > 10)){ st = null; b.classList.remove("pressed"); } });
+    b.addEventListener("pointerup", function(e){ b.classList.remove("pressed"); if (!st) return; const ok = Math.abs(e.clientX - st.x) <= 10 && Math.abs(e.clientY - st.y) <= 10; st = null; if (ok){ e.preventDefault(); fn(); } });
+    b.addEventListener("pointercancel", function(){ st = null; b.classList.remove("pressed"); });
+  }
+  let PIN_NOMBRE = "";
+  function buildPinKeypad(nombre){
+    PIN_NOMBRE = nombre;
+    const keys = ["1","2","3","4","5","6","7","8","9","","0","DEL"];
+    const kp = el("pinKeypad"); kp.innerHTML = "";
+    keys.forEach(function(k){
+      const b = document.createElement("div");
+      if (k === ""){ b.className="key blank"; kp.appendChild(b); return; }
+      b.className = "key" + (k==="DEL" ? " del" : "");
+      if (k==="DEL"){ b.textContent = "BORRAR"; b.style.fontSize = "15px"; b.setAttribute("aria-label","Borrar"); } else { b.textContent = k; }
+      tap(b, function(){ onPinKey(k, nombre); });
+      kp.appendChild(b);
+    });
+  }
+  document.addEventListener("keydown", function(e){
+    if (el("screen-pin").hidden || !PIN_NOMBRE) return;
+    if (/^[0-9]$/.test(e.key)){ e.preventDefault(); onPinKey(e.key, PIN_NOMBRE); }
+    else if (e.key === "Backspace"){ e.preventDefault(); onPinKey("DEL", PIN_NOMBRE); }
+  });
+  function onPinKey(k, nombre){
+    if (k === "DEL"){ pinBuffer = pinBuffer.slice(0,-1); renderPinDots(); return; }
+    if (pinBuffer.length >= 4) return;
+    pinBuffer += k; renderPinDots();
+    if (pinBuffer.length === 4) setTimeout(function(){ intentarValidar(nombre); }, 150);
+  }
+  // PIN ya usado en este celu: entra al instante y se confirma con el servidor por detrás
+  // 04/11: si mientras se confirmaba el PIN por detrás la persona tocó «Cambiar de usuario», la respuesta no la vuelve a meter
+  function sigue(n){ const a = lsGet("giaba_auth", null); return !!(a && a.nombre === n) && el("screen-quien").hidden && el("screen-pin").hidden; }
+  function hashPin(n, p){ let h = 2166136261; const s = "giaba|" + n + "|" + p; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+  function intentarValidar(nombre){
+    const pinIngresado = pinBuffer;
+    const ok = lsGet("giaba_okpin", {}), rec = ok[nombre];
+    if (rec && rec.h === hashPin(nombre, pinIngresado) && rec.apps && rec.apps.length){
+      lsSet("giaba_auth", { nombre: nombre, pin: pinIngresado, apps: rec.apps, zona: rec.zona, ts: Date.now() });
+      el("pinError").textContent = "";
+      irAlDestino(nombre, rec.apps);
+      if (typeof google !== "undefined" && google.script) google.script.run.withSuccessHandler(function(res){
+        if (res && res.status === 'ok'){ const cambio = JSON.stringify(res.apps) !== JSON.stringify(rec.apps); ok[nombre] = { h: rec.h, apps: res.apps, zona: res.zona }; lsSet("giaba_okpin", ok); if (!sigue(nombre)) return; lsSet("giaba_auth", { nombre: nombre, pin: pinIngresado, apps: res.apps, zona: res.zona, ts: Date.now() }); if (cambio) irAlDestino(nombre, res.apps); }
+        else if (res && ['denegado','sin_pin','no_encontrado'].indexOf(res.status) !== -1){ delete ok[nombre]; lsSet("giaba_okpin", ok); lsSet("giaba_auth", null); pinBuffer = ""; showScreen("quien"); }
+      }).withFailureHandler(function(){}).validarAcceso(nombre, pinIngresado);
+      return;
+    }
+    el("pinError").textContent = "Verificando...";
+    el("pinError").classList.add("checking");
+    function manejarResultado(res){
+      el("pinError").classList.remove("checking");
+      if (res && res.status === 'ok'){
+        try { const o = lsGet("giaba_okpin", {}); o[nombre] = { h: hashPin(nombre, pinIngresado), apps: res.apps, zona: res.zona }; lsSet("giaba_okpin", o); } catch (e) {}
+        lsSet("giaba_auth", { nombre: nombre, pin: pinIngresado, apps: res.apps, zona: res.zona, ts: Date.now() });
+        el("pinError").textContent = "";
+        irAlDestino(nombre, res.apps);
+      } else if (res && res.status === 'sin_pin'){
+        el("pinError").textContent = "Todavía no tenés PIN cargado. Avisale a Lucas."; markPinError();
+      } else if (res && res.status === 'no_encontrado'){
+        el("pinError").textContent = "Usuario no encontrado"; markPinError();
+        setTimeout(function(){ pinBuffer=""; renderPinDots(); }, 1000);
+      } else {
+        el("pinError").textContent = "PIN incorrecto"; markPinError();
+        setTimeout(function(){ pinBuffer=""; renderPinDots(); }, 600);
+      }
+    }
+    if (typeof google !== "undefined" && google.script){
+      google.script.run
+        .withSuccessHandler(manejarResultado)
+        .withFailureHandler(function(){
+          el("pinError").classList.remove("checking");
+          el("pinError").textContent = "Sin conexión para verificar el PIN. Probá con señal.";
+          markPinError();
+          setTimeout(function(){ pinBuffer=""; renderPinDots(); }, 1200);
+        })
+        .validarAcceso(nombre, pinIngresado);
+    } else {
+      el("pinError").classList.remove("checking");
+      el("pinError").textContent = "Sin conexión para verificar el PIN.";
+      markPinError();
+    }
+  }
+  el("pinBackLink").addEventListener("click", function(){ showScreen("quien"); });
+  el("menuBackLink").addEventListener("click", function(){ FIRMA_PEND = ""; lsSet("giaba_auth", null); if (el("retBox")) el("retBox").hidden = true; if (el("pendList")) el("pendList").innerHTML = ""; showScreen("quien"); });
+
+  function avisoMenu(t){ let a = el("avisoMenu"); if (!a){ a = document.createElement("div"); a.id = "avisoMenu"; a.className = "avm"; document.body.appendChild(a); } a.textContent = t; a.hidden = false; clearTimeout(a._x); a._x = setTimeout(function(){ a.hidden = true; }, 2200); }
+  // ---- v3: hoja desde abajo (las opciones de cada área) ----
+  let hojaNodo = null, hojaPadre = null;
+  function abrirHoja(titulo, nodo){
+    cerrarHoja();
+    el("sheetT").textContent = titulo; el("sheetIn").innerHTML = "";
+    if (nodo){ hojaNodo = nodo; hojaPadre = nodo.parentNode; el("sheetIn").appendChild(nodo); }
+    el("sheet").hidden = false;
+  }
+  function cerrarHoja(){
+    if (hojaNodo && hojaPadre) hojaPadre.appendChild(hojaNodo);
+    hojaNodo = hojaPadre = null; el("sheet").hidden = true;
+  }
+  el("sheetX").addEventListener("click", cerrarHoja);
+  el("sheet").addEventListener("click", function(e){ if (e.target === el("sheet")) cerrarHoja(); });
+  // ---- v3: color de fondo de cada persona (queda guardado en este celu) ----
+  const FONDOS = [["", "Negro grisáceo", "#1b1b1c"], ["pizarra", "Pizarra", "#283443"], ["negro", "Más negro", "#121212"], ["petroleo", "Petróleo", "var(--bg)"]];
+  function aplicarFondo(nombre){ const f = lsGet("giaba_fondo_" + nombre, ""); FONDOS.forEach(function(x){ if (x[0]) document.documentElement.classList.toggle("f-" + x[0], x[0] === f); }); lsSet("giaba_fondo", f); }
+  function pintarFecha(){
+    const d = new Date(), DI = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"], ME = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    el("menuFecha").innerHTML = "<b>" + DI[d.getDay()] + " " + d.getDate() + "</b>" + ME[d.getMonth()];
+  }
+  el("menuWho").addEventListener("click", function(){
+    const au = lsGet("giaba_auth", null), nombre = au && au.nombre || "";
+    const box = document.createElement("div"); box.style.cssText = "display:flex;flex-direction:column;gap:10px";
+    const f = lsGet("giaba_fondo_" + nombre, "");
+    box.innerHTML = '<span class="lbl3">Color de fondo · queda guardado para vos</span><div class="sw">' + FONDOS.map(function(x){ return '<button data-fb="' + x[0] + '" class="' + (f === x[0] ? "on" : "") + '"><i style="background:' + x[2] + '"></i>' + x[1] + '</button>'; }).join("") + '</div>'
+      + '<a class="menu-card" id="cambiarUsr" role="button"><span class="menu-text"><b>Cambiar de usuario</b></span>' + ICON_CHEV + '</a>';
+    abrirHoja(nombre, null); el("sheetIn").appendChild(box);
+    Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(b){ b.addEventListener("click", function(){ lsSet("giaba_fondo_" + nombre, b.dataset.fb); aplicarFondo(nombre); Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(x){ x.classList.toggle("on", x === b); }); }); });
+    box.querySelector("#cambiarUsr").addEventListener("click", function(){ cerrarHoja(); el("menuBackLink").click(); });
+  });
+
+  // ---- menú: tarjetas como links reales (lo único confiable en el sandbox) ----
+  function irAlDestino(nombre, apps){
+    if (!apps || !apps.length){
+      el("pinError").textContent = "Tu usuario no tiene ninguna app habilitada. Avisale a Lucas.";
+      markPinError();
+      return;
+    }
+    el("menuSaludo").textContent = nombre;
+    el("menuHola").textContent = "Hola, " + nombre;
+    el("menuTitulo").textContent = apps.length === 1 ? "¡Listo! Tocá para entrar" : "¿Qué vamos a hacer hoy?";
+    el("menuIni").textContent = String(nombre).charAt(0);
+    pintarFecha(); aplicarFondo(nombre);
+    FIRMA_PEND = ""; const list = el("menuList"); list.innerHTML = ""; list.classList.toggle("uno", apps.length === 1);
+    const ALIAS = { retiros:"caja", ventas:"cobros", ferias:"cobros", retirosadmin:"retirar" };
+    const ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","incidentes"];
+    // v3 Mi sueldo (02/11): quien ficha y no es Lucas ni Adriana ve «Mi fichaje y sueldo» (abre directo su sueldo)
+    const SOCIO_M = ["Lucas","Adriana"].indexOf(nombre) !== -1;
+    // 04/11: para la revendedora es «🏪 Ventas mayoristas» (sus clientes y comisiones); para Lucas y Adriana, «🤝 Revendedoras»
+    APPS.revendedores.label = SOCIO_M ? "Revendedoras" : "Ventas mayoristas"; APPS.revendedores.desc = SOCIO_M ? "Aprobar pedidos · comisiones y deudas" : "Tus clientes, pedidos y comisiones";
+    APPS.revendedores.icon = '<span class="emo">' + (SOCIO_M ? "🤝" : "🏪") + '</span>';
+    APPS.horas.label = SOCIO_M ? "Fichaje y sueldos" : "Mi fichaje y sueldo"; APPS.horas.desc = SOCIO_M ? "Horas trabajadas · sueldos de empleados" : "Mis horas · 💵 Mi sueldo";
+    if (!SOCIO_M && apps.indexOf("fichar") !== -1 && apps.indexOf("horas") === -1) apps = apps.concat(["horas"]);
+    apps = apps.map(function(k){ return ALIAS[k] || k; }).filter(function(k, i, arr){ return arr.indexOf(k) === i && APPS[k]; });
+    if (apps.indexOf("minoristas") !== -1 && apps.indexOf("mayoristas") === -1) apps.push("mayoristas"); // quien ve minoristas, ve también mayoristas
+    function pos(k){ const i = ORDEN.indexOf(k); return i === -1 ? 500 : i; }
+    apps.sort(function(x, y){ return pos(x) - pos(y); });
+    // armo la lista: los grupos con 2+ apps van juntos
+    const items = [], usados = {};
+    apps.forEach(function(k){
+      if (usados[k]) return;
+      const g = GRUPOS.filter(function(G){ return G.apps.indexOf(k) !== -1; })[0];
+      const enGrupo = g ? apps.filter(function(x){ return g.apps.indexOf(x) !== -1; }) : [];
+      // con pocas apps (ej. Fran o una vendedora) se ven sueltas, sin grupos
+      if (g && enGrupo.length >= 2 && apps.length >= 7){ enGrupo.forEach(function(x){ usados[x] = 1; }); items.push({ grupo: g, apps: enGrupo }); }
+      else { usados[k] = 1; items.push({ app: k }); }
+    });
+    const abiertos = {};   // 28/10 (Lucas 12:19): el menú arranca siempre cerrado (no se acuerda de lo que quedó abierto)
+    try { localStorage.removeItem("menu_grupos"); } catch (e) {}
+    function tarjeta(key){
+      // escalerita solo para quien tiene muchas apps (Lucas, Adriana); Fran y las vendedoras siguen con un toque directo
+      return SUBS[key] && apps.length >= 7 ? desplegable(key) : tarjetaLink(key);
+    }
+    // app con opciones adentro: tarjeta que se abre (como Ventas) + "Inicio de …" + cada opción
+    function desplegable(key){
+      const a = APPS[key], box = document.createElement("div"), gk = "a_" + key;
+      box.className = "grp" + (abiertos[gk] ? " open" : "");
+      const head = document.createElement("div");
+      head.className = "menu-card"; head.setAttribute("role", "button"); head.dataset.app = key;
+      head.innerHTML = '<span class="menu-icon'+(a.red?' red':'')+'">'+a.icon+'</span><span class="menu-text"><b>'+a.label+'</b><span>'+a.desc+'</span></span>'
+        + (["caja"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '<span class="badge" id="cajaBadge" hidden></span>')
+        + '<span class="chev">'+ICON_CHEV+'</span>';
+      head.addEventListener("click", function(){ if (box.parentNode === list) return abrirHoja(a.label, sub); box.classList.toggle("open"); abiertos[gk] = box.classList.contains("open"); });
+      const sub = document.createElement("div"); sub.className = "sub";
+      SUBS[key].concat([[VERTODO[key] || "Ver todo", ""]]).forEach(function(o){
+        const c = document.createElement("a");
+        c.className = "menu-card opc";
+        c.href = o[1].charAt(0) === "@" ? GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + "app=" + o[1].slice(1) : buildUrl(key);
+        if (o[1].charAt(0) === "@") o = [o[0], ""];
+        c.innerHTML = '<span class="menu-text"><b>'+o[0]+'</b></span>' + ICON_CHEV;
+        const marcar = function(){ if (o[1]) lsSet("giaba_ir", { app: APPS[key].query, sel: o[1], t: Date.now() }); else { try{ localStorage.removeItem("giaba_ir"); }catch(e){} } };
+        c.addEventListener("pointerdown", marcar); c.addEventListener("click", marcar);
+        sub.appendChild(c);
+      });
+      box.appendChild(head); box.appendChild(sub);
+      return box;
+    }
+    function tarjetaLink(key){
+      const a = APPS[key];
+      const card = document.createElement("a");
+      card.className = "menu-card";
+      card.href = buildUrl(key);
+      card.dataset.app = key;
+      card.innerHTML = '<span class="menu-icon'+(a.red?' red':'')+'">'+a.icon+'</span><span class="menu-text"><b>'+a.label+'</b><span>'+a.desc+'</span></span>'
+        + (["incidentes","movimientos","caja"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '')
+        + (key === "incidentes" ? '<span class="badge" data-inc hidden></span>' : '')
+        + (key === "movimientos" ? '<span class="badge y" id="movBadge" hidden></span>' : '')
+        + (key === "caja" ? '<span class="badge" id="cajaBadge" hidden></span>' : '') + ICON_CHEV;
+      return card;
+    }
+    items.forEach(function(it){
+      if (it.app){ list.appendChild(tarjeta(it.app)); return; }
+      const g = it.grupo, box = document.createElement("div");
+      box.className = "grp" + (abiertos[g.key] ? " open" : "");
+      const head = document.createElement("div");
+      head.className = "menu-card"; head.setAttribute("role", "button");
+      head.innerHTML = '<span class="menu-icon">'+g.icon+'</span><span class="menu-text"><b>'+g.label+'</b><span>'+g.desc+'</span></span><span class="badge gb" hidden></span><span class="chev">'+ICON_CHEV+'</span>';
+      head.addEventListener("click", function(){ abrirHoja(g.label, sub); });
+      const sub = document.createElement("div"); sub.className = "sub";
+      it.apps.forEach(function(k){ sub.appendChild(tarjeta(k)); });
+      // incidentes también a mano desde Ventas (además de Producción)
+      if (g.key === "g_ventas" && apps.indexOf("incidentes") !== -1 && it.apps.indexOf("incidentes") === -1) sub.appendChild(tarjeta("incidentes"));
+      box.appendChild(head); box.appendChild(sub); list.appendChild(box);
+    });
+    showScreen("menu");
+    traerFichaje(nombre);
+    if (apps.indexOf("incidentes") !== -1) actualizarBadge();
+    if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov();
+    actualizarBadgeCaja(nombre); PEND_T = Date.now();
+    prvContar(nombre);
+    if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();   // 02/11: barra de la compu con esta persona
+    pedirMail(nombre);
+  }
+  // 06/11 (Lucas): «Cargá tu mail (una sola vez)» para todos los usuarios, arriba del menú
+  // 12/11 (Lucas): Fran y Adriana no pueden usar la app hasta que carguen su mail (sin «Ahora no»)
+  const MAIL_OBLIG = ["Francisco", "Adriana"];
+  function pedirMail(nombre){
+    const au = lsGet("giaba_auth", null); if (!au || !au.pin || au.nombre !== nombre || typeof google === "undefined" || !google.script) return;
+    if (lsGet("mailok_" + nombre, 0)) return;
+    const oblig = MAIL_OBLIG.indexOf(nombre) !== -1;
+    const luego = Number(lsGet("mailluego_" + nombre, 0)) || 0; if (!oblig && Date.now() - luego < 7 * 864e5) return;
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.status !== "ok" || (lsGet("giaba_auth", null) || {}).nombre !== nombre) return;
+      if (r.mail){ lsSet("mailok_" + nombre, 1); return; }
+      const list = el("menuList"); if (!list || document.getElementById("mailCard")) return;
+      const c = document.createElement("div"); c.id = "mailCard";
+      c.style.cssText = "background:var(--surface,#262627);border:2px solid var(--accent,#ffd100);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;margin-bottom:12px";
+      c.innerHTML = '<b style="font-size:18px">✉️ Compartinos tu mail</b><span style="font-size:15px;color:var(--ink-soft,#a9a49e)">Así te hacemos llegar lo importante de tu parte en Abalauquen: avisos, pedidos y novedades de lo que hacés en la app. Lo cargás una sola vez y listo.</span>'
+        + '<input id="mailIn" type="email" inputmode="email" placeholder="tu@mail.com" style="min-height:56px;border-radius:14px;border:2px solid var(--line-2,#545456);background:var(--inp,#141414);color:var(--ink,#f5efe8);font-size:17px;padding:0 14px;font-family:inherit">'
+        + '<span id="mailErr" style="font-size:15px;color:var(--red,#ff8a83)"></span>'
+        + '<button id="mailOk" style="min-height:56px;border-radius:16px;border:2px solid var(--accent,#ffd100);background:var(--accent,#ffd100);color:var(--accent-ink,#1a1305);font-weight:800;font-size:17px;font-family:inherit">Guardar mi mail</button>'
+        + '<button id="mailNo" style="min-height:48px;border-radius:16px;border:2px solid var(--line-2,#545456);background:transparent;color:var(--ink,#f5efe8);font-weight:800;font-size:16px;font-family:inherit">Ahora no</button>';
+      list.parentNode.insertBefore(c, list);
+      if (oblig){ c.querySelector("#mailNo").remove(); c.querySelector("b").textContent = "✉️ Antes de seguir, cargá tu mail"; list.hidden = true; }
+      else c.querySelector("#mailNo").addEventListener("click", function(){ lsSet("mailluego_" + nombre, Date.now()); c.remove(); });
+      c.querySelector("#mailOk").addEventListener("click", function(){
+        const v = (c.querySelector("#mailIn").value || "").trim(), b = c.querySelector("#mailOk");
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ c.querySelector("#mailErr").textContent = "Revisá el mail: tiene que ser tipo nombre@mail.com"; return; }
+        b.disabled = true; b.textContent = "Guardando…";
+        google.script.run.withSuccessHandler(function(x){
+          if (x && x.status === "ok"){ lsSet("mailok_" + nombre, 1); list.hidden = false; c.innerHTML = '<b style="font-size:17px;color:var(--good,#8fd19e)">✓ ¡Listo! Guardamos ' + x.mail + '</b>'; setTimeout(function(){ c.remove(); }, 2500); }
+          else { b.disabled = false; b.textContent = "Guardar mi mail"; c.querySelector("#mailErr").textContent = (x && x.msg) || "No se pudo guardar. Probá de nuevo."; }
+        }).withFailureHandler(function(){ b.disabled = false; b.textContent = "Guardar mi mail"; c.querySelector("#mailErr").textContent = "Sin señal. Probá de nuevo."; }).guardarMiMail(au.nombre, au.pin, v);
+      });
+    }).getMiMail(au.nombre, au.pin);
+  }
+
+  // 01/11 (Lucas: «te baja y te modifica toda la pantalla»): Inicio sin saltos
+  // · lo último que se vio aparece al instante (pend_<nombre>) · si llega lo mismo no se repinta (FIRMA_PEND)
+  // · los urgentes cambian de alto suave (animarAlto) · sin nada guardado se reserva el lugar con tarjetas grises (reservarUrg)
+  var FIRMA_PEND = "";
+  function animarAlto(box, pintarFn){
+    const antes = box.hidden ? 0 : box.offsetHeight;
+    pintarFn();
+    const despues = box.hidden ? 0 : box.offsetHeight;
+    if (antes === despues || !antes && !despues || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const oculto = box.hidden; if (oculto) box.hidden = false;
+    box.style.overflow = "hidden"; box.style.height = antes + "px"; box.style.opacity = oculto ? "1" : "";
+    void box.offsetHeight;
+    box.style.transition = "height .28s ease, opacity .28s ease"; box.style.height = despues + "px"; if (oculto) box.style.opacity = "0";
+    setTimeout(function(){ box.style.transition = ""; box.style.height = ""; box.style.overflow = ""; box.style.opacity = ""; if (oculto) box.hidden = true; }, 300);
+  }
+  function reservarUrg(nombre){
+    const n = Math.min(+lsGet("urg_n_" + nombre, 0) || 0, 3), b = el("urgBox"); if (!b) return;
+    if (!n){ b.hidden = true; return; }
+    b.hidden = false; b.classList.add("cargando"); el("urgTit").textContent = "";
+    el("urgList").innerHTML = new Array(n + 1).join('<div class="cm-ph"></div>');
+  }
+
+  // pendientes de cada uno (arriba del menú) + numerito de Caja
+  let cajaPedido = "";
+  const SOCIOS_VEN_RETIRO = ["Lucas", "Adriana"];   // la barra de retiros es SOLO de los socios
+  function actualizarBadgeCaja(nombre){
+    function pintar(r){
+      if (!r){ reservarUrg(nombre); return; }
+      // 27/10 (Lucas 20:55): nunca pintar datos de otra persona (ej. respuesta de Lucas que llega después de cambiar a Francisco)
+      const auA = lsGet("giaba_auth", null), act = auA && auA.nombre;
+      if (act !== nombre || (r.yo && r.yo !== nombre)) return;
+      // 01/11 (Inicio sin saltos): si llega exactamente lo mismo que ya está en pantalla, no se toca nada
+      const firma = nombre + "|" + JSON.stringify([r.items, r.fichaje && Object.assign({}, r.fichaje, { _t: 0 }), r.retiro, r.aPagar, r.aPagarVencidas]);
+      if (firma === FIRMA_PEND) return; FIRMA_PEND = firma;
+      if (SOCIOS_VEN_RETIRO.indexOf(nombre) === -1) r.retiro = null;
+      const b = el("cajaBadge");
+      if (b){ const n = r.aPagarVencidas || r.aPagar || 0; b.hidden = !n; b.className = "badge" + (r.aPagarVencidas ? "" : " y");
+        b.textContent = r.aPagarVencidas ? n + " vencido" + (n>1?"s":"") : n + " a pagar"; }
+      const items = r.items || [];
+      if (r.fichaje){ lsSet("fich_" + nombre, true); if (!r.fichaje._t) r.fichaje._t = Date.now(); }
+      pintarFichaje(r.fichaje);
+      pintarRetiro(r.retiro);
+      const ICO_APP = { retirar: "g" };
+      const ICON_BELL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+      const ICON_BOX = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>';
+      // v3: cada pendiente es una tarjeta tipo comanda (Zeus) con el color del semáforo
+      const ETQ = { cobros:"Ferias", revendedores:"Revendedoras", local:"Local Dulcería", comandas:"Comandas", retirar:"Pedidos para retirar", mayoristas:"Mayoristas", minoristas:"Ventas online", movimientos:"Envíos", incidentes:"Incidentes", caja:"A pagar", stock:"Stock", compras:"Compras", chacra:"Chacra", produccion:"Producción", horas:"Fichaje y sueldos" };
+      const ORDc = { r:0, y:1, g:2, o:3, "":4, b:5 }, COLN = { r:"Urgente", y:"Hoy", g:"Listo", o:"Plata", "":"Pendiente", b:"Lo que viene" };
+      const colorDe = function(it){ if (it.prox) return "b"; if (it.app === "retirar" && (it.rojo || it.hoy)) return "r"; if (it.app === "chacra" && it.hoy) return "r"; return it.rojo ? (it.app === "caja" || it.app === "mayoristas" ? "o" : "r") : it.verde ? "g" : (it.app === "stock" || it.app === "compras" ? "" : "y"); };
+      const tks = items.map(function(it, i){ return { it: it, c: colorDe(it), i: i }; }).sort(function(a, b){ return (ORDc[a.c] - ORDc[b.c]) || (a.i - b.i); });
+      // 28/10: arriba (urgente) va solo lo VENCIDO de "A pagar", corto; la lista completa queda abajo en Pendientes
+      items.forEach(function(it, i){
+        if (it.app !== "caja" || !it.rojo || !it.lineas) return;
+        const ven = it.lineas.filter(function(l){ return /venci[óo]/i.test(String(l[0])); });
+        if (ven.length) tks.push({ c: "o", i: -1, it: Object.assign({}, it, { titulo: "Pagos vencidos", txt: ven.length + " vencido" + (ven.length > 1 ? "s" : ""), lineas: ven, n: ven.length, k: undefined, _urg: true }) });
+      });
+      const sep = GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&";
+      const limpio = function(t){ return String(t == null ? "" : t).replace(/[<>&"]/g, ""); };
+      const tarj = function(x, idx){
+        const it = x.it, nTxt = limpio(it.n), esNum = nTxt && nTxt !== "›" && /\d/.test(nTxt) && nTxt.length < 12;
+        // colores (como antes): lo que salió bien en verde con ✓, lo que no en rojo con ✕
+        const accs = (it.acc || []).map(function(a, j){ const t = limpio(a.t), no = /^no /i.test(t), si = !no && /vinieron|vino|retirad|entregad|listo|hecho|pagad/i.test(t);
+          return '<button class="ac' + (j ? ' sec' : '') + (si ? ' ok' : no ? ' no' : '') + '" data-ac="' + idx + '|' + j + '">' + (si ? '✓ ' : no ? '✕ ' : '') + t + '</button>'; }).join("");
+        const ver = it.app ? '<a class="go' + (accs ? ' sec' : '') + '" href="' + GIABA_BASE_URL + sep + 'app=' + it.app + '"' + (it.abrir ? ' data-abrir="' + limpio(it.abrir) + '"' : '') + '>' + (accs ? "Ver más" : (!esNum && nTxt && nTxt !== "›" ? nTxt : "Abrir")) + ' ›</a>' : '';
+        return '<div class="cm ' + x.c + '" data-t="' + idx + '"><div class="cm-h"><span>' + limpio(it.h || ETQ[it.app] || "Para hacer") + '</span><span>' + COLN[x.c] + '</span></div><div class="cm-b"><span class="cm-t">' + limpio(it.titulo) + '</span>' + (it.txt ? '<span class="cm-d">' + limpio(it.txt) + '</span>' : '') + (it.lineas && it.lineas.length ? '<div class="lns' + (it.lineas.length > 5 ? ' mas' : '') + '">' + it.lineas.map(function(l){ return l[0] === "" ? '<div class="ln lg">' + limpio(l[1]) + '</div>' : '<div class="ln"><b>' + limpio(l[0]) + '</b><span>' + limpio(l[1]) + '</span></div>'; }).join("") + '</div>' + (it.lineas.length > 5 ? '<span class="lns-h">' + it.lineas.length + ' en total · deslizá para ver todos</span>' : '') : '')
+          + '<div class="cm-f">' + (it.monto ? '<b>' + limpio(it.monto) + '</b>' : '') + '<span class="bs">' + accs + ver + '</span></div>'
+          + (it.k ? '<button class="ya" data-ya="' + idx + '">✓ Ya está · no mostrar más</button>' : '') + '</div></div>';
+      };
+      const VIS = window.innerWidth >= 1024 ? 6 : 3;
+      let todosVis = false;
+      // urgente = lo de HOY que pasa sí o sí (visita a la chacra, retiro o entrega de hoy) y los pagos vencidos
+      const esUrg = function(it){ return !it.prox && (it._urg || (it.hoy && it.app !== "cobros")); };
+      function pintarTks(){
+        const todos = tks.filter(function(x){ return !x.fuera; }), urg = todos.filter(function(x){ return esUrg(x.it); }), lista = todos.filter(function(x){ return !esUrg(x.it); });
+        animarAlto(el("urgBox"), function(){
+          el("urgBox").hidden = !urg.length; el("urgBox").classList.remove("cargando");
+          el("urgList").innerHTML = urg.map(function(x){ return tarj(x, tks.indexOf(x)); }).join("");
+          el("urgTit").textContent = urg.length > 1 ? urg.length + " cosas" : "";
+        });
+        lsSet("urg_n_" + nombre, urg.length);
+        const ocu = lsGet("pend_oculto_" + nombre, nombre === "Adriana");
+        el("pendBox").hidden = ocu || !r.items; el("pendVer").hidden = !ocu || !lista.length; el("pendVerN").textContent = lista.length;
+        el("pendList").innerHTML = (lista.length ? (todosVis ? lista : lista.slice(0, VIS)).map(function(x){ return tarj(x, tks.indexOf(x)); }).join("") : '<div class="todook">Todo al día ✓</div>')
+          + (lista.length > VIS && !todosVis ? '<button class="vertodos" id="pendMas">Ver todos <em>' + lista.length + '</em></button>' : '');
+        el("pendTit").textContent = lista.length ? lista.length + " pendiente" + (lista.length === 1 ? "" : "s") : "";
+        el("pendOcu").onclick = function(){ lsSet("pend_oculto_" + nombre, true); pintarTks(); };
+        el("pendVer").onclick = function(){ lsSet("pend_oculto_" + nombre, false); pintarTks(); };
+        if (el("pendMas")) el("pendMas").addEventListener("click", function(){ todosVis = true; pintarTks(); });
+        engancharAbrir();
+      }
+      function sacar(x, msg){ x.fuera = true; const c = document.querySelector('#pendList [data-t="' + tks.indexOf(x) + '"],#urgList [data-t="' + tks.indexOf(x) + '"]'); if (c){ c.style.transition = "opacity .25s"; c.style.opacity = "0"; } setTimeout(pintarTks, 260); avisoMenu(msg);
+        try { const r0 = lsGet("pend_" + nombre, null); if (r0 && r0.items){ r0.items = r0.items.filter(function(y){ return y.k !== x.it.k || !x.it.k; }); lsSet("pend_" + nombre, r0); } } catch(e){} }
+      function engancharAbrir(){
+        Array.prototype.forEach.call(document.querySelectorAll("#pendList [data-abrir]"+",#urgList "+"[data-abrir]"), function(a){
+          a.addEventListener("click", function(){ try { localStorage.setItem("cm_abrir", JSON.stringify(a.dataset.abrir)); } catch(e){} });
+        });
+        const au = lsGet("giaba_auth", null);
+        Array.prototype.forEach.call(document.querySelectorAll("#pendList [data-ya]"+",#urgList "+"[data-ya]"), function(b){
+          b.addEventListener("click", function(){
+            const x = tks[+b.dataset.ya];
+            if (!b.classList.contains("conf")){ b.classList.add("conf"); b.textContent = "Tocá de nuevo para sacarlo"; setTimeout(function(){ if (b.isConnected){ b.classList.remove("conf"); b.textContent = "✓ Ya está · no mostrar más"; } }, 3000); return; }
+            b.textContent = "Guardando…"; b.disabled = true;
+            google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok") sacar(x, r.todos ? "Listo, ya no lo ve nadie" : "Listo, ya no lo ves"); else { b.disabled = false; b.textContent = "No se pudo · probá de nuevo"; } })
+              .withFailureHandler(function(){ b.disabled = false; b.textContent = "Sin señal · probá de nuevo"; }).descartarPendiente(au.nombre, au.pin, x.it.k);
+          });
+        });
+        Array.prototype.forEach.call(document.querySelectorAll("#pendList [data-ac]"+",#urgList "+"[data-ac]"), function(b){
+          b.addEventListener("click", function(){
+            const ij = b.dataset.ac.split("|"), x = tks[+ij[0]], a = x.it.acc[+ij[1]];
+            if (!b.classList.contains("conf")){ b.classList.add("conf"); b.dataset.t0 = b.textContent; b.textContent = "¿" + a.t + "? Tocá de nuevo"; setTimeout(function(){ if (b.isConnected && !b.disabled){ b.classList.remove("conf"); b.textContent = b.dataset.t0; } }, 3000); return; }
+            b.disabled = true; b.textContent = "Guardando…";
+            google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok") sacar(x, "Listo: " + a.t.toLowerCase()); else { b.disabled = false; b.textContent = "No se pudo · probá de nuevo"; } })
+              .withFailureHandler(function(){ b.disabled = false; b.textContent = "Sin señal · probá de nuevo"; }).accionPendiente(au.nombre, au.pin, a.a, a.id);
+          });
+        });
+      }
+      pintarTks();
+      // numeritos en las tarjetas del menú, sacados de los pendientes
+      const porApp = {};
+      items.forEach(function(it){ const k = it.app === "compras" && !document.querySelector('[data-b="compras"]') ? "stock" : it.app; if (!k || typeof it.n !== "number") return; const x = porApp[k] = porApp[k] || { n: 0, rojo: false }; x.n += it.n; x.rojo = x.rojo || !!it.rojo; });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-b]"), function(bd){ const x = porApp[bd.dataset.b]; bd.hidden = !x; if (x){ bd.textContent = x.n; bd.className = "badge" + (x.rojo ? "" : (bd.dataset.b === "stock" ? " o" : " y")); } });
+      sumarGrupos();
+      if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();   // 02/11: numeritos de la barra de la compu
+    }
+    pintar(lsGet("pend_" + nombre, null));
+    const au = lsGet("giaba_auth", null);
+    if (cajaPedido === nombre || !au || !au.pin || au.nombre !== nombre || typeof google === "undefined" || !google.script) return;
+    cajaPedido = nombre;
+    google.script.run.withSuccessHandler(function(res){
+      if (cajaPedido === nombre) cajaPedido = "";
+      if (res && res.status === "ok" && (!res.yo || res.yo === nombre)){ lsSet("pend_" + nombre, res); pintar(res); }
+    }).withFailureHandler(function(){ if (cajaPedido === nombre) cajaPedido = ""; }).getPendientesMenu(au.nombre, au.pin);
+  }
+  // 16/11 · «Para revisar» (solo Lucas): preguntas que la app no puede decidir sola. Se responden con un toque (y si querés, escribiendo).
+  const PRV_ES = ["Lucas"];
+  let PRV = null, PRV_TAB = "p", PRV_RECIEN = {};
+  function prvIr(u){ try { window.top.location.href = u; } catch(e){ window.open(u, "_top"); } }
+  function prvLimpio(t){ return String(t == null ? "" : t).replace(/[<>&"]/g, ""); }
+  function prvContar(nombre){
+    const b = el("prvVer"); if (!b) return;
+    if (PRV_ES.indexOf(nombre) === -1){ b.hidden = true; return; }
+    const n0 = +lsGet("prv_n_" + nombre, 0) || 0; b.hidden = !n0; el("prvVerN").textContent = n0;
+    const au = lsGet("giaba_auth", null); if (!au || !au.pin || au.nombre !== nombre || typeof google === "undefined" || !google.script) return;
+    google.script.run.withSuccessHandler(function(r){
+      const a2 = lsGet("giaba_auth", null); if (!a2 || a2.nombre !== nombre || !r || r.status !== "ok") return;
+      lsSet("prv_n_" + nombre, r.n); b.hidden = !r.n; el("prvVerN").textContent = r.n;
+    }).getParaRevisarN(au.nombre, au.pin);
+  }
+  function prvPintar(){
+    const box = el("prvBox"); if (!box) return;
+    if (!PRV){ box.innerHTML = '<div class="prv-sub">Buscando…</div>'; return; }
+    if (PRV.error){ box.innerHTML = '<div class="prv-sub">' + prvLimpio(PRV.error) + '</div>'; return; }
+    const pend = PRV.pendientes || [], resp = PRV.respondidas || [], COL = { w: "y", r: "r", b: "b" };
+    let h = '<div class="prv-sub">' + (pend.length ? pend.length + (pend.length === 1 ? " pendiente" : " pendientes") : "Nada pendiente ✓") + '</div>'
+      + '<div class="prv-ch"><button data-tab="p"' + (PRV_TAB === "p" ? ' class="on"' : '') + '>Pendientes ' + pend.length + '</button><button data-tab="r"' + (PRV_TAB === "r" ? ' class="on"' : '') + '>Respondidas</button></div>';
+    if (PRV_TAB === "p"){
+      Object.keys(PRV_RECIEN).forEach(function(id){ const x = PRV_RECIEN[id];
+        h += '<div class="cm g prv-ok"><div class="cm-h"><span>✓ Respondida · recién</span><span></span></div><div class="cm-b"><span class="cm-t">' + prvLimpio(x.tit) + '</span><span class="cm-d">Elegiste <b>' + prvLimpio(x.resp) + '</b>' + (x.txt ? ' · «' + prvLimpio(x.txt) + '»' : '') + '.</span></div></div>'; });
+      h += pend.map(function(q, i){
+        const bs = (q.btns || []).map(function(b, j){ return '<button class="ac' + (j ? ' sec' : '') + '" data-q="' + i + '|' + j + '">' + prvLimpio(b.t) + '</button>'; }).join("");
+        return '<div class="cm ' + (COL[q.tipo] || "") + '" data-qi="' + i + '"><div class="cm-h"><span>' + prvLimpio(q.tag) + '</span><span></span></div><div class="cm-b"><span class="cm-t">' + prvLimpio(q.tit) + '</span>'
+          + (q.det ? '<span class="cm-d">' + prvLimpio(q.det) + '</span>' : '')
+          + '<input class="prv-tx" placeholder="Escribí tu respuesta (opcional)…" maxlength="400">'
+          + '<div class="cm-f"><span class="bs">' + bs + '</span></div></div></div>';
+      }).join("");
+    } else {
+      h += resp.length ? resp.map(function(x){ return '<div class="cm"><div class="cm-h"><span>Respondida · ' + prvLimpio(String(x.cuando).slice(0, 5)) + '</span><span></span></div><div class="cm-b"><span class="cm-t">' + prvLimpio(x.tit || x.id) + '</span><span class="cm-d">Elegiste: ' + prvLimpio(x.resp) + (x.txt ? ' · «' + prvLimpio(x.txt) + '»' : '') + '</span></div></div>'; }).join("") : '<div class="prv-sub">Todavía no respondiste nada.</div>';
+    }
+    box.innerHTML = h;
+    Array.prototype.forEach.call(box.querySelectorAll("[data-tab]"), function(b){ b.addEventListener("click", function(){ PRV_TAB = b.dataset.tab; prvPintar(); }); });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-q]"), function(b){ b.addEventListener("click", function(){
+      const ij = b.dataset.q.split("|"), q = pend[+ij[0]], bt = q.btns[+ij[1]], card = b.closest(".cm"), txt = (card.querySelector(".prv-tx") || {}).value || "";
+      if (bt.ir){ try { if (bt.abrir) localStorage.setItem("cm_abrir", JSON.stringify(bt.abrir)); } catch(e){} const sp = GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&"; prvIr(GIABA_BASE_URL + sp + "app=" + bt.app); return; }
+      if (bt.k === "cerrar" && !b.classList.contains("conf")){ b.classList.add("conf"); b.dataset.t0 = b.textContent; b.textContent = "¿" + bt.t + "? Tocá de nuevo"; setTimeout(function(){ if (b.isConnected && !b.disabled){ b.classList.remove("conf"); b.textContent = b.dataset.t0; } }, 3000); return; }
+      const au = lsGet("giaba_auth", null); b.disabled = true; b.textContent = "Guardando…";
+      google.script.run.withSuccessHandler(function(r){
+        if (!r || r.status !== "ok"){ b.disabled = false; b.textContent = (r && r.msg) || "No se pudo · probá de nuevo"; return; }
+        PRV_RECIEN[q.id] = { tit: q.tit, resp: bt.t + (r.hecho || ""), txt: txt };
+        PRV.pendientes = pend.filter(function(x){ return x.id !== q.id; });
+        PRV.respondidas = [{ id: q.id, tit: q.tit, resp: bt.t + (r.hecho || ""), txt: txt, cuando: "hoy " + (r.cuando || "") }].concat(PRV.respondidas || []);
+        lsSet("prv_n_" + au.nombre, PRV.pendientes.length); el("prvVer").hidden = !PRV.pendientes.length; el("prvVerN").textContent = PRV.pendientes.length;
+        prvPintar();
+        if (bt.app){ const sep = GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&"; setTimeout(function(){ prvIr(GIABA_BASE_URL + sep + "app=" + bt.app); }, 700); }
+      }).withFailureHandler(function(){ b.disabled = false; b.textContent = "Sin señal · probá de nuevo"; })
+        .responderParaRevisar(au.nombre, au.pin, { id: q.id, k: bt.k, t: bt.t, txt: txt, tit: q.tit });
+    }); });
+  }
+  function prvAbrir(){
+    const au = lsGet("giaba_auth", null); if (!au || PRV_ES.indexOf(au.nombre) === -1) return;
+    const box = document.createElement("div"); box.id = "prvBox"; box.style.cssText = "display:flex;flex-direction:column;gap:10px";
+    PRV = null; PRV_TAB = "p"; PRV_RECIEN = {};
+    abrirHoja("Para revisar", null); el("sheetIn").appendChild(box); prvPintar();
+    google.script.run.withSuccessHandler(function(r){ PRV = r && r.status === "ok" ? r : { error: "No se pudo traer · probá de nuevo" }; prvPintar(); })
+      .withFailureHandler(function(){ PRV = { error: "Sin señal · probá de nuevo" }; prvPintar(); }).getParaRevisar(au.nombre, au.pin);
+  }
+  if (el("prvVer")) el("prvVer").addEventListener("click", prvAbrir);
+  // 28/10 (Lucas 17:02): si la pestaña queda abierta, los avisos se actualizan solos (al volver a la pestaña y cada 5 min)
+  var PEND_T = 0;
+  function refrescarPend(){
+    if (document.hidden || el("screen-menu").hidden || Date.now() - PEND_T < 60000) return;
+    const au = lsGet("giaba_auth", null); if (!au || !au.nombre) return;
+    PEND_T = Date.now(); actualizarBadgeCaja(au.nombre);
+  }
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) refrescarPend(); });
+  window.addEventListener("focus", refrescarPend);
+  setInterval(refrescarPend, 5 * 60000);
+
+  // ---- barra de retiros del mes (Lucas / Adriana) ----
+  function pintarRetiro(x){
+    const b = el("retBox"); if (!b) return;
+    const auR = lsGet("giaba_auth", null); if (!auR || SOCIOS_VEN_RETIRO.indexOf(auR.nombre) === -1){ b.hidden = true; return; }
+    if (!x){ b.hidden = true; return; }
+    const MES_N = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    const f2 = function(n){ return "$ " + (Number(n)||0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    const pct = x.objetivo > 0 ? Math.round(x.retirado * 100 / x.objetivo) : 0, pas = x.objetivo > 0 && x.retirado > x.objetivo;
+    b.href = GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + "app=contabilidad";
+    b.innerHTML = '<span class="pend-t" style="padding:0">Tus retiros de ' + MES_N[+x.mes.slice(5) - 1] + '</span>'
+      + '<div class="rt-n"><b>' + f2(x.retirado) + '</b><span>de ' + f2(x.objetivo) + '</span></div>'
+      + '<div class="rt-bar"><i class="' + (pas ? "pas" : "") + '" style="width:' + Math.min(100, pct) + '%"></i></div>'
+      + '<small class="' + (pas ? "pas" : "") + '">' + (x.objetivo > 0 ? (pas ? "Te pasaste " + f2(x.retirado - x.objetivo) : "Te quedan " + f2(x.objetivo - x.retirado)) + " · " + pct + "%" : "Cargá tu sueldo en Costos › Gastos fijos") + '</small>'
+      // 30/10: lo que ya adelantó del mes que viene
+      + (x.adelanto ? '<div class="rt-n" style="margin-top:8px"><b style="font-size:16px">' + MES_N[+x.adelanto.mes.slice(5) - 1].replace(/^./, function(c){ return c.toUpperCase(); }) + ' · ya adelantado</b><span>' + f2(x.adelanto.retirado) + (x.objetivo > 0 ? ' de ' + f2(x.objetivo) : '') + '</span></div>'
+        + (x.objetivo > 0 ? '<div class="rt-bar"><i style="width:' + Math.min(100, Math.round(x.adelanto.retirado * 100 / x.objetivo)) + '%;background:#8cc8ff"></i></div>' : '') : '');
+    // 27/10 (fix49): tocar el cuadro abre directo "Cargar un retiro" en Caja; el detalle de retiros sigue en Contabilidad (link chico)
+    b.href = GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + "app=caja";
+    const urlCaja = b.href, urlConta = GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + "app=contabilidad";
+    b.onclick = function(e){
+      const ver = e.target && e.target.closest && e.target.closest("[data-ver]");
+      try { if (ver){ localStorage.setItem("conta_abrir", "ret"); b.href = urlConta; } else { localStorage.setItem("caja_abrir", "retiro"); b.href = urlCaja; } } catch(err){}
+    };
+    b.innerHTML += '<span class="rt-acc" style="display:flex;gap:8px;margin-top:8px"><span style="flex:1;display:flex;align-items:center;justify-content:center;height:40px;border-radius:12px;background:var(--accent,#ffd100);color:#1a1305!important;font-weight:800;font-size:16px">+ Cargar un retiro</span>'
+      + '<span data-ver="1" style="display:flex;align-items:center;justify-content:center;height:40px;padding:0 12px;border-radius:12px;border:1.5px solid var(--line,#2a3437);font-weight:700">Ver detalle</span></span>';
+    b.hidden = false;
+  }
+
+  // ---- fichar (empleados de producción) ----
+  const ICON_RELOJ = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  let FICH = null, fichOcupado = false, fichSem = false, salConf = 0, UBIC_ERR = "", MIS_AV_PED = "";
+  const FALTA = { fecha: "", mot: "", file: null, nota: "", hechas: [] };
+  function txtLugar(l){
+    if (!l) return "";
+    if (l.lugar === "Fábrica") return '<span style="color:#8fd19e">📍 En la fábrica ✓</span>';
+    if (l.lugar === "Afuera") return '<span style="color:#ff8a83">📍 A ' + (l.dist >= 1000 ? (l.dist/1000).toLocaleString("es-AR",{maximumFractionDigits:1}) + " km" : l.dist + " m") + ' de la fábrica</span>';
+    if (l.lugar === "Sin ubicación") return '<span style="color:#ffb36b">📍 Sin ubicación (revisá que el GPS esté prendido)</span>';
+    return "";
+  }
+  function fmtHM(min){ min = Math.max(0, Math.floor(min)); return Math.floor(min / 60) + " h " + ("0" + (min % 60)).slice(-2) + " min"; }
+  function hoyAR(){ const d = new Date(), z = function(n){ return (n<10?"0":"")+n; }; return z(d.getDate()) + "/" + z(d.getMonth()+1) + "/" + d.getFullYear(); }
+  let fichTimer = null;
+  function minVivo(f){ return (f.minHoy || 0) + (f._t ? (Date.now() - f._t) / 60000 : 0); }
+  function pintarFichaje(f){
+    const box = el("fichBox");
+    if (!f || (f.fecha && f.fecha !== hoyAR() && !f.adentro)){ if (!f){ box.hidden = true; return; } f = Object.assign({}, f, { adentro: false, hoyHecho: false, sinUbicHoy: "" }); }
+    if (!f._t) f._t = Date.now();
+    FICH = f; box.hidden = false;
+    let h = "";
+    if (f.adentro){
+      h += '<div class="fh-card on"><span class="fh-ey">Hoy · trabajando desde ' + f.desde + '</span><span class="fh-big" id="fhVivo">' + fmtHM(minVivo(f)) + '</span>'
+        + '<span class="fh-sub">' + (f.lugarEntrada && f.lugarEntrada.lugar === "Fábrica" ? "📍 En la fábrica ✓" : txtLugar(f.lugarEntrada)) + (f.totalSemana ? ' · semana: ' + f.totalSemana : '') + '</span></div>';
+      h += '<div class="fh-rem">⚠ NO OLVIDES FICHAR SALIDA</div>';
+      h += '<button class="fh-sal' + (salConf > Date.now() ? ' conf' : '') + '" id="fichSal">' + (salConf > Date.now() ? 'Tocá de nuevo para confirmar la salida' : 'Fichar salida') + '</button>';
+      h += '<span class="fh-hint">Tocás una vez y te pide confirmar (así no se ficha sin querer)</span>';
+    } else if (f.hoyHecho){
+      h += '<div class="fh-msg">¡GRAN JORNADA! Que descanses 😴</div>';
+      h += '<div class="fh-card"><span class="fh-ey">Hoy ✓ · ' + (f.entradaHoy || "") + ' → ' + (f.salidaHoy || "") + '</span><span class="fh-big">' + fmtHM(f.minHoy || 0) + '</span>'
+        + (f.totalSemana ? '<span class="fh-sub">semana: ' + f.totalSemana + '</span>' : '') + '</div>';
+    } else {
+      h += '<div class="fh-msg">¡Buen día! Éxitos hoy 💪🏻</div>';
+      h += '<button class="fh-ent" id="fichEnt">' + ICON_RELOJ + '<b>Fichar entrada</b></button>';
+      h += '<span class="fh-hint">Tocá al llegar a la fábrica · 📍 se guarda la ubicación</span>';
+    }
+    if (f.sinUbicHoy || UBIC_ERR){
+      h += '<div style="background:#3a2a14;border:1.5px solid #ffb36b;border-radius:14px;padding:11px 14px;font-size:13px;line-height:1.45;color:#ffd9b0">'
+        + '<b style="color:#ffb36b">📍 Para fichar tenés que compartir tu ubicación</b> ('+String(UBIC_ERR || f.sinUbicHoy).replace(/[<>&]/g,"")+').<br>'
+        + '<b>iPhone:</b> Ajustes → Privacidad → Localización → activada, y en Safari/Chrome “Mientras se usa”. Después, en Ajustes → Safari → Ubicación → Preguntar o Permitir.<br>'
+        + '<b>Android:</b> en Chrome tocá el candado de la barra → Permisos → Ubicación → Permitir.<br>'
+        + '<span class="fich-link" id="fichProbar" style="color:#ffb36b;padding:6px 0 0">Probar ubicación ahora</span><span id="fichProbarRes"></span></div>';
+    }
+    if (f.semana && f.semana.length){
+      h += '<button class="fich-btn" id="fichVerSem">'+(fichSem ? 'Ocultar mi semana ▴' : 'Mi semana · '+f.totalSemana+' ▾')+'</button>';
+      if (fichSem) h += '<div class="fich-sem">' + f.semana.map(function(d){ return '<div class="r"><span>'+d.dia+'</span><span class="m">'+d.entrada+' → '+(d.enCurso ? '…' : (d.salida || 'sin salida'))+(d.horas ? ' · '+d.horas : '')+(d.lugar === 'afuera' ? ' <span style="color:#ff8a83">📍</span>' : '')+'</span></div>'; }).join("")
+        + '<div class="r" style="border-top:1px solid var(--line);padding-top:5px"><b>Total semana</b><b class="m">'+f.totalSemana+'</b></div></div>';
+      h += '<span class="fich-link" style="text-decoration:none;cursor:default">¿Te olvidaste de fichar? Avisale a Lucas o Adriana: ellos lo corrigen.</span>';
+    }
+    // v3 Mi sueldo (02/11): botón debajo de la tarjeta de fichaje, siempre visible (antes de la entrada y después de la salida). Sin montos.
+    const auM = lsGet("giaba_auth", null), nomM = auM && auM.nombre || "";
+    if (nomM && ["Lucas","Adriana"].indexOf(nomM) === -1){
+      const av = lsGet("misav_" + nomM, "");
+      h += '<a class="mys" id="misBtn" href="' + GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + 'app=horas"><span class="i">💵</span><span class="t"><b>Mi sueldo</b><small>Horas, valor de la hora, bono y lo que ya cobraste</small>'
+        + (av ? '<small style="color:var(--accent)">🎁 Nuevo en ' + String(av).replace(/[<>&"]/g, "") + ': bono</small>' : '') + '</span><span class="go">›</span></a>';
+      if (MIS_AV_PED !== nomM && auM.pin && typeof google !== "undefined" && google.script){
+        MIS_AV_PED = nomM;
+        google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok" || (lsGet("giaba_auth", null) || {}).nombre !== nomM) return; const ya = lsGet("misav_" + nomM, ""); lsSet("misav_" + nomM, r.bono || ""); if ((r.bono || "") !== ya && FICH) pintarFichaje(FICH); })
+          .withFailureHandler(function(){}).getMiSueldoAviso(auM.nombre, auM.pin);
+      }
+    }
+    // 01/11: días hábiles sin fichar → que avise por qué (certificado opcional)
+    const FL = (f.faltas || []).filter(function(x){ return FALTA.hechas.indexOf(x.fecha) === -1; });
+    if (FL.length && !f.adentro){
+      const x = FL[0]; if (FALTA.fecha !== x.fecha){ FALTA.fecha = x.fecha; FALTA.mot = ""; FALTA.file = null; FALTA.nota = ""; }
+      const MOTS = [["Enfermo","🤒 Estuve enfermo"],["No se trabajó","🗓️ No se trabajó ese día"],["Vine sin fichar","✋ Vine pero no fiché"],["Otro","Otro motivo"]];
+      h += '<div id="flCard" style="background:var(--surface,#1b2f34);border:1.5px solid #ffb36b;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:9px;font-size:15px">'
+        + '<b style="font-size:17px;color:#ffb36b">¿No viniste el ' + x.dia + '?</b>'
+        + '<span style="font-size:15px;line-height:1.4">Ese día no fichaste. Contanos qué pasó (es solo para el orden de los papeles).' + (FL.length > 1 ? ' Después te preguntamos ' + (FL.length === 2 ? 'el otro día' : 'los otros ' + (FL.length - 1)) + '.' : '') + '</span>'
+        + '<div style="display:flex;flex-direction:column;gap:7px" id="flMot">' + MOTS.map(function(m){ const on = FALTA.mot === m[0]; return '<button data-m="' + m[0] + '" style="min-height:50px;border-radius:12px;border:1.5px solid ' + (on ? '#ffd100' : 'var(--line,#2c4448)') + ';background:' + (on ? '#ffd100' : 'transparent') + ';color:' + (on ? '#1a1305' : 'inherit') + ';font-weight:700;font-size:16px;cursor:pointer;font-family:inherit">' + m[1] + '</button>'; }).join("") + '</div>';
+      if (FALTA.mot === "Enfermo") h += '<label style="min-height:50px;border-radius:12px;border:1.5px dashed var(--line,#2c4448);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;cursor:pointer;padding:0 10px;text-align:center">' + (FALTA.file ? '📎 ' + String(FALTA.file.nombre).replace(/[<>&"]/g, "") + ' ✓ (tocá para cambiar)' : '📎 Adjuntar certificado (opcional)') + '<input type="file" id="flCert" accept="image/*,application/pdf" hidden></label>';
+      if (FALTA.mot === "Vine sin fichar") h += '<span style="font-size:15px;color:#ffb36b">Les avisamos a Lucas y Adriana para que carguen tu entrada y salida.</span>';
+      if (FALTA.mot) h += '<input id="flNota" maxlength="150" placeholder="Nota (opcional)" value="' + String(FALTA.nota || "").replace(/[<>&"]/g, "") + '" style="height:50px;border-radius:12px;border:1.5px solid var(--line,#2c4448);background:transparent;color:inherit;font-size:16px;padding:0 12px;font-family:inherit">'
+        + '<button id="flOk" style="min-height:52px;border-radius:14px;border:none;background:#ffd100;color:#1a1305;font-weight:800;font-size:17px;cursor:pointer;font-family:inherit">Guardar</button>';
+      h += '</div>';
+    }
+    box.innerHTML = h;
+    if (el("flMot")) Array.prototype.forEach.call(el("flMot").children, function(b){ b.addEventListener("click", function(){ FALTA.mot = b.dataset.m; pintarFichaje(FICH); }); });
+    if (el("flNota")) el("flNota").addEventListener("input", function(){ FALTA.nota = el("flNota").value; });
+    if (el("flCert")) el("flCert").addEventListener("change", function(){
+      const fi = el("flCert").files[0]; if (!fi) return;
+      if (/pdf/.test(fi.type)){ if (fi.size > 8e6){ alertaFich("El PDF es muy pesado (máx. 8 MB). Probá con una foto.", true); return; } const rd = new FileReader(); rd.onload = function(){ FALTA.file = { b64: String(rd.result).split(",")[1], mime: "application/pdf", nombre: fi.name }; pintarFichaje(FICH); }; rd.readAsDataURL(fi); return; }
+      const img = new Image(), url = URL.createObjectURL(fi);
+      img.onload = function(){ const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); FALTA.file = { b64: c.toDataURL("image/jpeg", 0.8).split(",")[1], mime: "image/jpeg", nombre: fi.name || "certificado.jpg" }; pintarFichaje(FICH); };
+      img.onerror = function(){ alertaFich("No pude abrir esa foto. Probá con otra.", true); };
+      img.src = url;
+    });
+    if (el("flOk")) el("flOk").addEventListener("click", function(){
+      const b = el("flOk"); if (b.dataset.busy) return;
+      const au = lsGet("giaba_auth", null); if (!au || !au.pin || typeof google === "undefined" || !google.script){ alertaFich("Sin conexión: probá de nuevo con señal.", true); return; }
+      b.dataset.busy = "1"; b.textContent = FALTA.file ? "Subiendo el certificado…" : "Guardando…";
+      const fecha = FALTA.fecha;
+      google.script.run.withSuccessHandler(function(r){
+        if (r && r.status === "ok"){ FALTA.hechas.push(fecha); FALTA.fecha = ""; FICH.faltas = r.faltas; alertaFich("Guardado ✓ Gracias por avisar"); pintarFichaje(FICH); }
+        else { delete b.dataset.busy; b.textContent = "Guardar"; alertaFich((r && r.msg) || "No se pudo guardar. Probá de nuevo.", true); }
+      }).withFailureHandler(function(){ delete b.dataset.busy; b.textContent = "Guardar"; alertaFich("Sin señal: no se guardó. Probá de nuevo.", true); })
+        .marcarNoVine(au.nombre, au.pin, { fecha: fecha, motivo: FALTA.mot, nota: FALTA.nota || "", cert: FALTA.mot === "Enfermo" ? FALTA.file : null });
+    });
+    const be = el("fichEnt"), bs = el("fichSal"), vs = el("fichVerSem");
+    if (be) be.addEventListener("click", function(){ hacerFichar("Entrada", be); });
+    if (bs) bs.addEventListener("click", function(){
+      if (salConf > Date.now()){ salConf = 0; hacerFichar("Salida", bs); return; }
+      salConf = Date.now() + 4000; pintarFichaje(FICH); setTimeout(function(){ if (salConf && salConf <= Date.now()){ salConf = 0; pintarFichaje(FICH); } }, 4100);
+    });
+    if (vs) vs.addEventListener("click", function(){ fichSem = !fichSem; pintarFichaje(FICH); });
+    const pr = el("fichProbar");
+    if (pr) pr.addEventListener("click", function(){
+      const out = el("fichProbarRes"); out.textContent = " · buscando…";
+      if (!navigator.geolocation){ out.textContent = " · este navegador no da ubicación"; return; }
+      navigator.geolocation.getCurrentPosition(function(pos){
+        const fb = f.fabrica || { lat: -42.0293566, lng: -71.525929, radio: 100 };
+        const R = 6371000, t = Math.PI/180, dLa = (pos.coords.latitude - fb.lat)*t, dLo = (pos.coords.longitude - fb.lng)*t;
+        const x = Math.sin(dLa/2)*Math.sin(dLa/2) + Math.cos(fb.lat*t)*Math.cos(pos.coords.latitude*t)*Math.sin(dLo/2)*Math.sin(dLo/2);
+        const dist = Math.round(2*R*Math.atan2(Math.sqrt(x), Math.sqrt(1-x)));
+        out.textContent = " · ✓ funciona: estás a " + (dist >= 1000 ? (dist/1000).toFixed(1).replace(".", ",") + " km" : dist + " m") + " de la fábrica";
+      }, function(e){ out.textContent = " · ✗ " + (e && e.code === 1 ? "sigue sin permiso" : e && e.code === 3 ? "el GPS tardó demasiado" : "no se pudo leer"); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    });
+  }
+  setInterval(function(){ const v = el("fhVivo"); if (v && FICH && FICH.adentro) v.textContent = fmtHM(minVivo(FICH)); }, 20000);
+  // al entrar: el fichaje aparece al instante (lo guardado en el celu) y se confirma con un pedido rápido, sin esperar a Pendientes
+  function traerFichaje(nombre){
+    const au = lsGet("giaba_auth", null);
+    if (!au || !au.pin || typeof google === "undefined" || !google.script || !lsGet("fich_" + nombre, false)) return;
+    google.script.run.withSuccessHandler(function(r){
+      if (r && r.status === "ok" && r.fichaje){ r.fichaje._t = Date.now(); pintarFichaje(r.fichaje); }
+      else if (r && r.status === "denegado") lsSet("fich_" + nombre, false);
+    }).withFailureHandler(function(){}).getFichaje(au.nombre, au.pin);
+  }
+  function hacerFichar(tipo, btn){
+    if (fichOcupado) return;
+    const au = lsGet("giaba_auth", null);
+    if (!au || !au.pin || typeof google === "undefined" || !google.script){ alertaFich("Sin conexión: probá de nuevo con señal."); return; }
+    fichOcupado = true; btn.classList.add("busy");
+    const t = btn.querySelector("b") || btn; t.textContent = "Buscando ubicación…"; btn.classList.add("busy");
+    function enviar(geo, err){
+      if (t) t.textContent = "Fichando…";
+      google.script.run.withSuccessHandler(function(r){
+        fichOcupado = false;
+        if (r && r.status === "sinubic"){
+          UBIC_ERR = r.motivo || "sin ubicación";
+          pintarFichaje(r.fichaje || FICH);
+          alertaFich("No se fichó: no se pudo tomar tu ubicación. Seguí los pasos del cartel naranja y probá de nuevo.", true);
+          return;
+        }
+        if (r && r.status === "lejos"){
+          pintarFichaje(r.fichaje || FICH);
+          alertaFich("No se fichó: estás a " + (r.dist >= 1000 ? (r.dist/1000).toLocaleString("es-AR",{maximumFractionDigits:1}) + " km" : r.dist + " m") + " de la fábrica. Para fichar tenés que estar ahí (a menos de " + r.radio + " m).", true);
+          return;
+        }
+        // 14/11 (mockup produccion-cierre): hoy hubo producción y el día sigue abierto → primero cerrar el día
+        if (r && r.status === "cerrarDia"){ pintarFichaje(r.fichaje || FICH); pedirCierreDia(r, geo, err); return; }
+        if (r && r.status === "ok"){
+          UBIC_ERR = "";
+          if (r.fichaje) r.fichaje._t = Date.now();
+          const pend = lsGet("pend_" + au.nombre, null) || {}; pend.fichaje = r.fichaje; lsSet("pend_" + au.nombre, pend); lsSet("fich_" + au.nombre, true);
+          pintarFichaje(r.fichaje);
+          if (r.tipo) alertaFich((r.tipo === "Entrada" ? "Entrada fichada ✓ " : "Salida fichada ✓ ") + (r.lugar === "Fábrica" ? "· en la fábrica" : r.lugar === "Afuera" ? "· fuera de la fábrica" : "· sin ubicación"), r.lugar !== "Fábrica");
+          else if (r.msg) alertaFich(r.msg);
+        } else { pintarFichaje(FICH); alertaFich("No se pudo fichar. Probá de nuevo.", true); }
+      }).withFailureHandler(function(){ fichOcupado = false; pintarFichaje(FICH); alertaFich("Sin señal: no se fichó. Probá de nuevo.", true); })
+        .fichar(au.nombre, au.pin, { tipo: tipo, geo: geo, geoError: err || "", cerrarDia: !!CIERRA_DIA });
+    }
+    hacerFichar._enviar = enviar;
+    if (!navigator.geolocation){ enviar(null, "el navegador no da ubicación"); return; }
+    let listo = false;
+    const corte = setTimeout(function(){ if (!listo){ listo = true; enviar(null, "tardó demasiado el GPS"); } }, 20000);
+    navigator.geolocation.getCurrentPosition(function(pos){
+      if (listo) return; listo = true; clearTimeout(corte);
+      enviar({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy });
+    }, function(e){
+      if (listo) return; listo = true; clearTimeout(corte);
+      enviar(null, e && e.code === 1 ? "no dio permiso de ubicación" : e && e.code === 3 ? "tardó demasiado el GPS" : "no se pudo leer la ubicación");
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  }
+  // 14/11: «Antes de irte, cerrá el día» (mismo resumen de Producción, un solo botón que cierra y ficha)
+  let CIERRA_DIA = false;
+  function pedirCierreDia(r, geo, err){
+    const box = el("fichBox"); if (!box) return;
+    const e = function(t){ return String(t == null ? "" : t).replace(/[&<>"]/g, function(c){ return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]; }); };
+    let h = '<div class="fh-card" style="border:2px solid #8fd19e"><span class="fh-ey" style="color:#8fd19e">Antes de irte, cerrá el día</span>'
+      + '<span class="fh-sub">Hoy cargaste producción y el día sigue abierto.</span>'
+      + (r.sabores || []).map(function(x){ return '<div style="display:flex;justify-content:space-between;gap:8px;font-size:15px;padding:6px 0;border-top:1px solid #3a3a3b"><b>' + e(x.sabor) + (x.cacerolas ? ' · ' + x.cacerolas + ' cacerola' + (x.cacerolas === 1 ? '' : 's') : '') + '</b><span style="color:' + (x.envasada ? '#8fd19e' : '#ffb36b') + '">' + (x.envasada ? '✓ envasada' : 'falta envasar') + '</span></div>'; }).join("")
+      + ((r.sinEnvasar || []).length ? '<span class="fh-sub" style="color:#ffb36b">' + e(r.sinEnvasar.join(", ")) + ' quedó sin envasar: queda para envasar mañana.</span>' : '')
+      + '</div>'
+      + '<button class="fh-sal" id="fichCerrarDia" style="background:#8fd19e;color:#10240f">✓ Cerrar el día y fichar la salida</button>'
+      + '<a class="fich-link" id="fichFalta" href="' + buildUrl("produccion") + '">Me falta cargar algo</a>';
+    box.innerHTML = h; box.hidden = false;
+    el("fichCerrarDia").addEventListener("click", function(){
+      const b = el("fichCerrarDia"); if (fichOcupado) return;
+      CIERRA_DIA = true; fichOcupado = true; b.textContent = "Cerrando el día y fichando…";
+      try { hacerFichar._enviar(geo, err); } finally { setTimeout(function(){ CIERRA_DIA = false; }, 500); }
+    });
+  }
+  function alertaFich(msg, malo){
+    let d = el("fichMsg");
+    if (!d){ d = document.createElement("div"); d.id = "fichMsg"; d.style.cssText = "position:fixed;left:16px;right:16px;bottom:20px;padding:14px 16px;border-radius:14px;font-weight:700;font-size:14px;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.4)"; document.body.appendChild(d); }
+    d.textContent = msg; d.style.background = malo ? "#3d1d1b" : "#12352a"; d.style.color = malo ? "#ff8a83" : "#8fd19e"; d.hidden = false;
+    clearTimeout(d._t); d._t = setTimeout(function(){ d.hidden = true; }, 4500);
+  }
+
+  // numerito de envíos en viaje
+  let movPedido = false;
+  function actualizarBadgeMov(){
+    function pintar(n){ const b = el("movBadge"); if (!b) return; b.hidden = !(n > 0); b.textContent = n; sumarGrupos(); if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar(); }
+    const c = lsGet("mv_badge", null);
+    if (c) pintar(c.pendientes);
+    if (movPedido || typeof google === "undefined" || !google.script) return;
+    movPedido = true;
+    google.script.run.withSuccessHandler(function(res){
+      movPedido = false;
+      if (res && res.status === 'ok'){ lsSet("mv_badge", { pendientes: res.pendientes }); pintar(res.pendientes); }
+    }).withFailureHandler(function(){ movPedido = false; }).getResumenMovimientos();
+  }
+
+  // numerito de incidentes abiertos (primero lo guardado, después lo real)
+  function pintarBadge(n){
+    document.querySelectorAll("[data-inc]").forEach(function(b){ b.hidden = !(n > 0); b.textContent = n; });
+    sumarGrupos(); if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();
+  }
+  let badgePedido = false;
+  function actualizarBadge(){
+    const c = lsGet("inc_badge", null);
+    if (c) pintarBadge(c.abiertos);
+    if (badgePedido || typeof google === "undefined" || !google.script) return;
+    badgePedido = true;
+    google.script.run.withSuccessHandler(function(res){
+      badgePedido = false;
+      if (res && res.status === 'ok'){ lsSet("inc_badge", { abiertos: res.abiertos, urgentes: res.urgentes }); pintarBadge(res.abiertos); }
+    }).withFailureHandler(function(){ badgePedido = false; }).getResumenIncidentes((lsGet("giaba_auth", null) || {}).nombre, (lsGet("giaba_auth", null) || {}).pin);   // 29/10 (rev): con nombre + PIN
+  }
+
+  // ---- boot ----
+  renderQuienGrid();
+  var authGuardada = lsGet("giaba_auth", null);
+  // 02/11: «Cambiar de persona» desde el menú (☰ o barra) de cualquier app → llega acá y pide el PIN de esa persona
+  var cambiarA = lsGet("giaba_cambiar", null);
+  try { localStorage.removeItem("giaba_cambiar"); } catch (e) {}
+  if (cambiarA && cambiarA.n && Date.now() - (cambiarA.t || 0) < 120000){
+    openPinScreen(String(cambiarA.n));
+  } else if (authGuardada && authGuardada.nombre && authGuardada.apps && authGuardada.apps.length){
+    irAlDestino(authGuardada.nombre, authGuardada.apps);
+    if (typeof google !== "undefined" && google.script && authGuardada.pin){
+      google.script.run.withSuccessHandler(function(res){
+        if (res && res.status === 'ok'){
+          if (!sigue(authGuardada.nombre)) return;
+          lsSet("giaba_auth", { nombre: authGuardada.nombre, pin: authGuardada.pin, apps: res.apps, zona: res.zona, ts: Date.now() });
+          irAlDestino(authGuardada.nombre, res.apps);
+        } else if (res && ['denegado','sin_pin','no_encontrado'].indexOf(res.status) !== -1){
+          lsSet("giaba_auth", null);
+          showScreen("quien");
+        }
+      }).withFailureHandler(function(){ /* sin señal: queda con lo guardado */ })
+        .validarAcceso(authGuardada.nombre, authGuardada.pin);
+    }
+  } else {
+    showScreen("quien");
+  }
+  // ---- respuesta al toque: se ilumina la tecla y vibra apenas (si el celu deja) ----
+  document.addEventListener("touchstart", function(){}, { passive: true });
+  document.addEventListener("pointerdown", function(e){
+    const k = e.target.closest && e.target.closest(".key,.pay-btn,.choice-btn,.menu-card");
+    if (!k || k.classList.contains("blank")) return;
+    k.classList.add("pressed");
+    if (k.classList.contains("key")){ try { if (navigator.vibrate) navigator.vibrate(10); } catch(_){} }
+    setTimeout(function(){ k.classList.remove("pressed"); }, 170);
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

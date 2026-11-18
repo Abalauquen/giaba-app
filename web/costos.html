@@ -25,7 +25,7 @@
   var RECL_PEDIDO = 0;
   var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
   var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
-    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1 };   // 18/11: + Costos
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1, marcarVentaMin: 1, cobrarVentaMin: 1, entregaMarcar: 1 };   // 18/11: + Costos
   var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
   function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
   function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
@@ -1437,7 +1437,7 @@ function paTarjeta(a){
 function paPint(){
   const L = PA.alertas, hechas = PA.hechas;
   let h = "";
-  if (hechas.length){
+  if (hechas.length && PA.resumenArriba){
     h += `<div class="pa-card g"><div class="pa-ct"><span>Listo</span><span class="tag g">✓ ${hechas.filter(x => x.ok).length} de ${hechas.length + L.length}</span></div>`
       + hechas.map(x => `<div class="pa-ln">${x.ok ? "✓" : "·"} ${esc(x.titulo)} → <b>${x.ok ? f0(x.precio) : "dejado así"}</b>${x.nota ? " («" + esc(x.nota) + "»)" : ""}</div>`).join("")
       + (L.length ? `<div class="pa-ln">· ${L.length} pendiente${L.length === 1 ? "" : "s"}</div>` : "") + `</div>`;
@@ -1445,13 +1445,61 @@ function paPint(){
   if (!L.length) h += `<div class="empty">Nada para revisar 👌</div>`;
   // juntas por tipo: publicaciones · listas · desparejos
   const G = [["publicacion", "Tienda Nube y Mercado Libre"], ["margen", "Listas mayoristas"], ["desparejo", "Desparejos entre tamaños"]];
-  G.forEach(g => { const X = L.filter(a => a.tipo === g[0]); if (X.length) h += `<div class="grp">${g[1]} · ${X.length}</div>` + X.map(paTarjeta).join(""); });
+  // 18/11: las listas del mismo producto van juntas en una tarjeta («te las muestra juntas para cambiarlas de una», mockup)
+  G.forEach(g => { const X = L.filter(a => a.tipo === g[0]); if (!X.length) return;
+    h += `<div class="grp">${g[1]} · ${X.length}</div>`;
+    if (g[0] === "publicacion"){ h += X.map(paTarjeta).join(""); return; }
+    const por = {}, orden = []; X.forEach(a => { const k = a.sku || a.id; if (!por[k]){ por[k] = []; orden.push(k); } por[k].push(a); });
+    h += orden.map(k => por[k].length === 1 || PA.abierto === k ? por[k].map(paTarjeta).join("") : paGrupo(k, por[k])).join(""); });
   const c = PA.cambios || [];
   if (c.length) h += `<div class="card"><div class="card-t"><span>Qué cambió esta semana</span><small>costo en Fábrica</small></div>` + c.map(x => `<div class="pa-ln">· <b>${esc(x.nombre)}</b> ${x.pct > 0 ? "+" : ""}${String(x.pct).replace(".", ",")} % (${f0(x.antes)} → ${f0(x.ahora)})</div>`).join("") + `</div>`;
   const dec = (PA.decididas || []).filter(x => !hechas.some(y => y.id === x.id));
   if (dec.length) h += `<div class="card"><div class="card-t"><span>Lo que ya decidiste</span></div>` + dec.map(x => `<div class="pa-ln">${x.estado === "aplicada" ? "✓" : "·"} ${esc(x.titulo)} → <b>${x.estado === "aplicada" ? esc(x.nota || "") : "dejado así"}</b>${x.estado === "dejada" && x.nota ? " («" + esc(x.nota) + "»)" : ""} <span style="color:var(--ink-soft)">${esc(x.quien || "")}</span></div>`).join("") + `</div>`;
   if (PA.ult) h += `<div class="hint">Revisado ${paCuando(PA.ult.t)}${PA.ult.conPub ? "" : " (solo listas; Tienda Nube y ML se revisan de noche)"}.${(PA.ult.pubErr || []).length ? " No se pudo mirar: " + esc(PA.ult.pubErr.join(" · ")) : ""}</div>`;
   $("paBody").innerHTML = h;
+}
+function paGrupo(k, X){
+  const prod = String(X[0].titulo).split(" · ")[0], mal = X.some(a => a.detalle && a.detalle.bajoCosto), d0 = X[0].detalle || {};
+  const tot = X.reduce((t, a) => t + (a.sugerido - a.actual), 0), meta = X.some(a => a.detalle && a.detalle.meta && a.detalle.meta > a.sugerido);
+  let h = `<div class="pa-card ${mal ? "r" : "w"}" id="pag-${esc(k).replace(/[^\w-]/g, "_")}"><div class="pa-ct"><span>${esc(prod)}</span>${paTag(X[0])}</div>`;
+  h += `<table class="pa-tb"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">hoy → sugerido</td></tr>` + X.map(a => `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b></td></tr>`).join("") + `</table>`;
+  if (X[0].tipo === "desparejo"){ const mg = (d0.lineas || [])[0]; h += `<div class="pa-ln">${esc(d0.texto ? String(d0.texto).split(" De a poco")[0] : "")}${mg ? " Manga 4 kg en " + esc(String(mg[0]).replace(/^Manga 4 kg \(|\)$/g, "")) + ": <b>" + f0(mg[1]) + "</b>." : ""}</div>`; }
+  else h += `<div class="pa-ln">${esc(String(d0.texto || "").split(" De a poco")[0])}</div>`;
+  if (meta) h += `<div class="pa-ln">De a poco: cada vez se sugiere subir como mucho un 10 %. La meta completa está en «una por una».</div>`;
+  h += `<div class="pa-row"><button class="btn y" onclick="paGrupoSubir(${A(k)})">Subir las ${X.length} (+ ${f0(tot / X.length)} c/u en promedio)</button></div>`;
+  h += `<div class="pa-row"><button class="btn ol" onclick="paAbrir(${A(k)})">Ver una por una</button><button class="btn" onclick="paGrupoDejar(${A(k)})">Dejarlas así</button></div>`;
+  h += `<div class="pa-x" hidden></div><div class="pa-why">Si elegís «Dejarlas así» no te lo vuelvo a preguntar hasta que el costo cambie más de un 5 %.</div></div>`;
+  return h;
+}
+function paAbrir(k){ PA.abierto = k; paPint(); }
+const paGrupoDe = k => PA.alertas.filter(a => (a.sku || a.id) === k && a.tipo !== "publicacion");
+const paGrupoBox = k => { const c = document.getElementById("pag-" + String(k).replace(/[^\w-]/g, "_")); return c ? c.querySelector(".pa-x") : null; };
+function paGrupoDejar(k){ const b = paGrupoBox(k); if (!b) return; b.hidden = false;
+  b.innerHTML = `<div class="lbl">¿Por qué? <small>(opcional)</small></div><input class="txt" id="paNotaG" placeholder="ej. lo charlamos después"><button class="btn" onclick="paGrupoMandar(${A(k)}, 'dejar', $('paNotaG').value)">Dejarlas así</button>`; }
+function paGrupoSubir(k){ paGrupoMandar(k, "aplicar", ""); }
+async function paGrupoMandar(k, accion, nota){
+  const X = paGrupoDe(k), b = paGrupoBox(k); if (!X.length) return;
+  document.querySelectorAll("#pag-" + String(k).replace(/[^\w-]/g, "_") + " .btn").forEach(x => x.disabled = true);
+  const mal = [];
+  for (let i = 0; i < X.length; i++){
+    const a = X[i];
+    if (b){ b.hidden = false; b.innerHTML = `<div class="load"><div class="spin"></div><span>${accion === "aplicar" ? "Cambiando" : "Guardando"} ${i + 1} de ${X.length}…</span></div>`; }
+    const r = await run("responderPrecioAlerta", a.id, accion, accion === "aplicar" ? a.sugerido : 0, nota);
+    if (r && r.status === "ok"){ PA.alertas = PA.alertas.filter(x => x.id !== a.id); PA.hechas.push({ id: a.id, titulo: a.titulo, ok: accion === "aplicar", precio: a.sugerido, nota: accion === "dejar" ? nota : "" }); }
+    else mal.push(a.titulo + ": " + ((r && r.msg) || "sin señal"));
+  }
+  PAH = PA;
+  const hechos = X.filter(a => !PA.alertas.some(x => x.id === a.id));
+  if (!mal.length) paHecha(document.getElementById("pag-" + String(k).replace(/[^\w-]/g, "_")), hechos.map(a => (accion === "aplicar" ? "✓ " : "· ") + a.titulo + " → " + (accion === "aplicar" ? f0(a.sugerido) : "dejado así")).join("<br>"), true);
+  else paPint();
+  if (mal.length) t("No se pudo: " + mal.join(" · "), true); else t(accion === "aplicar" ? "Listo: " + X.length + " precios cambiados" : "Listo");
+}
+// 18/11 (Lucas 18:44): al terminar, la tarjeta queda en su lugar y con el mismo alto (en verde): la pantalla no salta mientras revisás la siguiente
+function paHecha(card, txt, html){
+  if (!card) return;
+  const h = card.offsetHeight; card.style.minHeight = h + "px"; card.className = "pa-card g";
+  card.innerHTML = `<div class="pa-ct"><span>Listo</span><span class="tag g">✓</span></div><div class="pa-ln">${html ? txt : esc(txt)}</div>`;
+  card.style.justifyContent = "center";
 }
 const paDe = id => PA.alertas.filter(a => a.id === id)[0];
 const paBox = id => { const c = document.getElementById("pa-" + String(id).replace(/[^\w-]/g, "_")); return c ? c.querySelector(".pa-x") : null; };
@@ -1471,7 +1519,7 @@ function paMandar(id, accion, precio, nota){
       if (b) b.innerHTML = `<div class="pa-err">No se pudo: ${esc(r && r.msg || "sin señal")}. Probá de nuevo.</div>`; return; }
     PA.alertas = PA.alertas.filter(x => x.id !== id);
     PA.hechas.push({ id: id, titulo: a.titulo, ok: accion === "aplicar", precio: r.precio || precio, nota: accion === "dejar" ? nota : "" });
-    PAH = PA; paPint();
+    PAH = PA; paHecha(document.getElementById("pa-" + String(id).replace(/[^\w-]/g, "_")), accion === "aplicar" ? "✓ " + a.titulo + " → " + f0(r.precio || precio) : "· " + a.titulo + " → dejado así" + (nota ? " («" + nota + "»)" : ""));
   });
 }
 

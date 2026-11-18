@@ -25,7 +25,7 @@
   var RECL_PEDIDO = 0;
   var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
   var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
-    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1 };   // 18/11: + Costos
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1, marcarVentaMin: 1, cobrarVentaMin: 1, entregaMarcar: 1 };   // 18/11: + Costos
   var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
   function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
   function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }

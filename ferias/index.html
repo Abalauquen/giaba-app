@@ -14,7 +14,7 @@
 (function () {
   var PRUEBA = (function(){try{var q=new URLSearchParams(location.search).get("prueba");if(q==="1")localStorage.setItem("vf_prueba","1");if(q==="0")localStorage.removeItem("vf_prueba");return localStorage.getItem("vf_prueba")==="1";}catch(e){return false;}})();
   var LOCAL = "Local Dulcería";
-  var VIA = { appendCobro: 1, anularCobro: 1, cerrarFeria: 1, getEstadoPuesto: 1, getConfig: 1, getHistorialPuesto: 1, getDetalleFeria: 1 };
+  var VIA = { appendCobro: 1, anularCobro: 1, cerrarFeria: 1, getEstadoPuesto: 1, getConfig: 1, getHistorialPuesto: 1, getDetalleFeria: 1, feriaIniciada: 1 };
   // en prueba no se guarda NADA real: lo que no es lectura y no va a la bandeja de prueba se frena
   var LIBRES = { registrarTiemposApp: 1, vfToken: 1, vfProcesar: 1, validarAcceso: 1, buscarCuitFactura: 1 };   // 12/11: validarAcceso es lectura (sin esto, en prueba decía «PIN incorrecto»)
   var base = null, pidiendo = null, esperan = [], ultNudge = 0, via = "", cartel = null;
@@ -26,6 +26,8 @@
     cartel.textContent = t;
     cartel.style.background = via === "google" ? "#fee2e2" : PRUEBA ? "#fde68a" : "#d1fae5";
     cartel.style.color = via === "google" ? "#991b1b" : PRUEBA ? "#78350f" : "#065f46";
+    // 14/11 (Lucas 18:10): las vendedoras no ven el cartelito (solo Lucas y Adriana, o en modo prueba)
+    var a = quien(); cartel.style.display = PRUEBA || (a && /^(lucas|adriana)$/i.test(a.nombre)) ? "" : "none";
   }
 
   function lsG(k, f) { try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }
@@ -80,6 +82,7 @@
   function simClave(fecha, feria, ub) { return (fecha || hoyAR()) + "|" + (feria || "") + "|" + (ub || ""); }
   function simular(n, a) {
     var p = a[0] && typeof a[0] === "object" ? a[0] : (a[2] && typeof a[2] === "object" ? a[2] : {});
+    if (n === "guardarLlevado" && p.idApp) { var I = lsG("vfp_idapp", {}); if (I[p.idApp]) return { status: "ok", prueba: true, repetido: true }; I[p.idApp] = 1; lsS("vfp_idapp", I); }
     if (n === "guardarLlevado" || n === "reemplazarLlevado") {
       var S = lsG("vfp_llevado", {}), k = simClave(p.fecha, p.feria, p.ubicacion), ya = n === "guardarLlevado" ? (S[k] || []) : [], m = {};
       ya.concat(p.items || []).forEach(function (it) { if (!it || !it.sku) return; m[it.sku] = m[it.sku] || { sku: it.sku, nombre: it.nombre || it.sku, cant: 0 }; m[it.sku].cant += Number(it.cant) || 0; });
@@ -93,6 +96,7 @@
   var HACER = {
     appendCobro: function (a, ok, fail, g) {
       var p = a[0] || {};
+      if (PRUEBA && p.tipo === "Apertura") { var AP = lsG("vfp_aperturas", {}), ka = simClave(p.fechaFeria, p.feria, p.ubicacion); AP[ka] = (AP[ka] || []).filter(function (x) { return x.id !== p.id; }).concat([{ id: p.id, monto: Number(p.monto) || 0, vendedor: p.vendedor || "", hora: "" }]); lsS("vfp_aperturas", AP); }
       if (p.feria === LOCAL || !p.id) return g();
       llamar("vf_mandar", { p_fn: "appendCobro", p_args: [p], p_uid: String(p.id), p_prueba: PRUEBA }, function (err, j) {
         if (err) return PRUEBA ? fail(err === "sinpase" ? new Error("Sin pase") : err) : g();   // la base no contestó: por Google, como siempre
@@ -123,6 +127,21 @@
       llamar("vf_estado_puesto", { p_feria: String(a[0] || ""), p_ubicacion: String(a[1] || ""), p_prueba: PRUEBA }, function (err, j) {
         if (err || !j || j.status !== "ok") return PRUEBA ? fail(err === "sinpase" ? new Error("Sin pase") : err || new Error("Sin datos")) : g();
         ok(j);
+      });
+    },
+    // 15/11 (Lucas 08:46): «¿la feria ya está abierta?» desde la base (al toque) en vez de Google (varios segundos).
+    // Abierta = hay un cobro de hoy o una caja inicial cargada HOY (la que se dejó lista el día anterior no cuenta).
+    feriaIniciada: function (a, ok, fail, g) {
+      if (String(a[0]) === LOCAL || PRUEBA) return g();
+      llamar("vf_estado_puesto", { p_feria: String(a[0] || ""), p_ubicacion: String(a[1] || ""), p_prueba: false }, function (err, j) {
+        if (err || !j || j.status !== "ok") return g();
+        if (j.cerrada) return ok({ status: "ok", iniciada: false, cerrada: true, desde: "base" });
+        var nd = function (s) { var m = String(s || "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m ? ("0" + m[1]).slice(-2) + "/" + ("0" + m[2]).slice(-2) + "/" + m[3] : ""; };
+        var ap = j.aperturas || [];
+        if (!(Number(j.cobros) > 0) && ap.some(function (x) { return x.dia === undefined; })) return g();   // la base todavía no dice el día: que decida Google
+        var apHoy = ap.filter(function (x) { return nd(x.dia) === hoyAR(); });
+        var pv = j.porVendedor || {}, quien = Object.keys(pv).sort(function (x, y) { return (pv[y] || 0) - (pv[x] || 0); })[0] || (apHoy[0] || ap[0] || {}).vendedor || "";
+        ok({ status: "ok", iniciada: (Number(j.cobros) || 0) > 0 || apHoy.length > 0, quien: quien, cobros: j.cobros, apertura: Number(j.apertura) || 0, desde: "base" });
       });
     },
     // 12/11: «Ver cobros», la caja y el cierre leen la MISMA lista que el total (la base), no la de Google
@@ -185,6 +204,10 @@
       if (PRUEBA && !LIBRES[n] && !/^get/.test(n)) return function () {
         var a = Array.prototype.slice.call(arguments), r = simular(n, a);
         luego(function () { if (ok) ok(r, uo); });
+      };
+      if (PRUEBA && n === "getAperturasPuesto") return function () {
+        var a = Array.prototype.slice.call(arguments), L = lsG("vfp_aperturas", {})[simClave(a[2], a[0], a[1])] || [];
+        luego(function () { if (ok) ok({ status: "ok", aperturas: L, prueba: true }, uo); });
       };
       if (PRUEBA && n === "getStockFeria") return function () {
         var a = Array.prototype.slice.call(arguments), k = simClave(a[2], a[0], a[1]);
@@ -262,6 +285,19 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:24px;font-weight:800;line
 .choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .choice-btn{min-height:60px;padding:8px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Manrope',sans-serif;font-weight:700;font-size:16px;color:var(--ink);cursor:pointer;text-decoration:none}
 .choice-btn:active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.tg3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tg3>[hidden]{display:none!important}
+.tg3>#homePgc{grid-column:1 / -1}
+.tl3{background:var(--surface);border:2px solid var(--line-2);border-radius:18px;padding:14px 12px;min-height:104px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;gap:6px;text-align:left;color:var(--ink);font-family:'Manrope',sans-serif;cursor:pointer}
+.tl3 i{font-style:normal;font-size:28px;line-height:1}
+.tl3 b{font:800 16px 'Manrope',sans-serif;line-height:1.2}.tl3 small{color:var(--ink-soft);font-weight:600;font-size:12.5px;line-height:1.3}
+.tl3.w{grid-column:1 / -1;min-height:auto;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px}
+.tl3.w>span{display:flex;flex-direction:column;gap:2px}
+.tl3.y{background:var(--accent);border-color:var(--accent);color:var(--accent-ink,#1a1305)}.tl3.y small{color:rgba(26,19,5,.7)}
+.tl3 small.w3{color:var(--warn)}
+.sm3{flex-shrink:0;border:2px solid var(--accent);color:var(--accent);border-radius:999px;padding:6px 12px;font:800 14px 'Manrope',sans-serif;white-space:nowrap;margin-left:8px}
+.lnk3{display:block;text-align:center;color:var(--ink-mid);font-size:14px;font-weight:700;text-decoration:underline;padding:10px 4px}
+.sugerido .go3{align-self:flex-start;margin-top:8px;background:var(--accent);color:var(--accent-ink,#1a1305);font:800 16px 'Manrope',sans-serif;border-radius:12px;padding:10px 16px}
 .sugerido{background:var(--accent-soft);border:1.5px solid var(--accent);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;cursor:pointer}
 .sugerido b{font-family:'Manrope',sans-serif;font-size:17px;color:var(--accent)}
 .sugerido span{font-size:12px;color:#c9a27a}
@@ -782,8 +818,7 @@ body.v3f .graf2>[hidden]{display:none!important}
 @media (min-width:820px){
   body.v3f .screen{padding-left:max(24px,calc((100% - 640px) / 2));padding-right:max(24px,calc((100% - 640px) / 2))}
   body.v3f #screen-home,body.v3f #screen-mis,body.v3f #screen-det,body.v3f #screen-cal{padding-left:max(24px,calc((100% - 1120px) / 2));padding-right:max(24px,calc((100% - 1120px) / 2))}
-  body.v3f #homeBtns{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px!important}
-  body.v3f #homeBtns #homeRow2{display:contents}
+  body.v3f #homeBtns{grid-template-columns:repeat(4,minmax(0,1fr))}
   body.v3f #homeBtns>[hidden]{display:none!important}
   body.v3f #homeHoy,body.v3f #homeSeguir{max-width:560px}
   body.v3f #admBox:not([hidden]){display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"stats stats" "hoy prox";gap:16px 24px;align-items:start}
@@ -811,6 +846,7 @@ body.v3f .graf2>[hidden]{display:none!important}
 .cn-fil .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}.cn-fil .t b{font:800 18px 'Manrope',sans-serif}.cn-fil .t span{font-size:15px;color:var(--ink-mid)}
 .cn-fil button{min-height:48px;padding:0 14px;border-radius:12px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font:800 15px 'Manrope',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cn-fil button.no{border-color:var(--terra-ink);color:var(--terra-ink);background:transparent}.cn-fil button.ok{border-color:var(--good);color:var(--good);background:var(--good-soft)}
+.cn-bt2{display:flex;flex-direction:column;gap:6px;flex-shrink:0}.cn-fil button.des{min-height:38px;font-size:13.5px;color:var(--ink-mid);background:transparent}
 .cn-fil.falta{border:2px dashed var(--warn)}.cn-fil.falta .t span{color:var(--warn)}.cn-fil.fin{opacity:.5}.cn-fil.fin .t b{text-decoration:line-through}
 .cn-av{font-size:15px;font-weight:700;color:var(--warn);background:var(--warn-soft);border-radius:12px;padding:10px 12px;line-height:1.4;flex-shrink:0}.cn-av.ok{color:var(--good);background:var(--good-soft)}
 .cn-ins{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:14px;padding:12px}
@@ -1550,7 +1586,7 @@ window.PagoComun = (function(){
   function ctasV(v){ return cajaFeria(v) ? CTAS.concat(["Efectivo"]) : CTAS.slice(); }
   function ctaVLbl(c, v){ if (c !== "Efectivo") return c; var K = cajaFeria(v); return "Efectivo de la feria" + (K ? " · " + feriaNom(K) : ""); }
   function feriaSub(f){
-    var t = "vendió " + fm(f.vendido) + (f.sugerido && f.sugerido.dia != null ? " · día " + fm(f.sugerido.dia) + (f.sugerido.comision ? " + comisión " + fm(f.sugerido.comision) : "") : "") + (f.descuento ? " − sacó " + fm(f.descuento) : "") + (f.pagado ? " − pagado " + fm(f.pagado) : "");
+    var t = "vendió " + fm(f.vendido) + (f.sugerido && f.sugerido.dia != null ? " · día " + (f.sugerido.horas && f.sugerido.horas !== 8 ? "(" + String(f.sugerido.horas).replace(".", ",") + " h) " : "") + fm(f.sugerido.dia) + (f.sugerido.comision ? " + comisión " + fm(f.sugerido.comision) : "") + (f.sugerido.bono ? " + " + (f.sugerido.bonoMotivo || "bono").toLowerCase() + " " + fm(f.sugerido.bono) : "") : "") + (f.descuento ? " − sacó " + fm(f.descuento) : "") + (f.pagado ? " − pagado " + fm(f.pagado) : "");
     var tag = f.abierta || (f.hoy && f.abierta === undefined) ? '<small class="b">hoy · todavía abierta</small>' : f.hoy ? '<small class="b">hoy</small>' : "";
     return tag + (S.pre[clave(f)] ? '<small class="b">ya viene marcada</small>' : "") + '<small>' + esc(t) + '</small>';
   }
@@ -1576,26 +1612,27 @@ window.PagoComun = (function(){
       + '<button type="button" class="pg-btn" id="pgcVPagar" data-pg="vPagar">' + (S.busy ? "Guardando…" : "") + '</button></div>';
     return h + '<div class="pg-hint">' + (K ? "Sale de la caja de " + esc(feriaNom(K)) + "; lo de otras ferias cuenta como costo de ESAS ferias." : "Queda pagado y ella lo ve en «👛 Tu cuenta con Abalauquen».") + '</div>';
   }
-  // orden de pago: la feria más vieja primero; si le paga de más, lo de más va a la más nueva
+  // orden de pago: la feria más vieja primero. 14/11 (Lucas): si le paga de más, lo de más NO va a ninguna feria (queda como gasto del mes)
   function planV(v){
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }).sort(function(a, b){ return fnum(a.fecha) - fnum(b.fecha); }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0));
     var q = S.vmonto > 0 && S.vmonto < tt - 0.005 ? S.vmonto : tt;
     var P = sel.map(function(f){ var ap = r2(Math.min(q, f.falta)); q = r2(q - ap); return { f: f, ap: ap }; });
-    if (P.length && S.vmonto > tt + 0.005){ var u = P[P.length - 1]; u.extra = r2(S.vmonto - tt); u.ap = r2(u.ap + u.extra); }
+    P.extra = P.length && S.vmonto > tt + 0.005 ? r2(S.vmonto - tt) : 0;
     return P;
   }
   function prevV(){
     var vw = top(), v = vw && vw.v === "v" && vendDe(vw.nombre), box = $("pgcVPrev"), b = $("pgcVPagar"); if (!v || !box || !b) return;
-    var P = planV(v), tot = r2(P.reduce(function(a, x){ return a + x.ap; }, 0)), tt = r2(P.reduce(function(a, x){ return a + x.f.falta; }, 0)), parcial = tot < tt - 0.005;
+    var P = planV(v), tot = r2(P.reduce(function(a, x){ return a + x.ap; }, 0) + (P.extra || 0)), tt = r2(P.reduce(function(a, x){ return a + x.f.falta; }, 0)), parcial = tot < tt - 0.005;
     if (!S.busy) b.textContent = parcial ? "Pagar " + fm(tot) + " (pago parcial)" : "Pagar " + fm(tot);
     box.innerHTML = parcial ? P.map(function(x){ var nm = esc(feriaNom(x.f)); return x.ap <= 0 ? "⏳ " + nm + ": queda igual (" + fm(x.f.falta) + ")" : x.ap >= x.f.falta - 0.005 ? "✅ " + nm + ": queda <b>pagada</b>" : "🟡 " + nm + ": paga " + fm(x.ap) + " · <b>queda debiendo " + fm(x.f.falta - x.ap) + "</b>"; }).join("<br>")
-      : (S.vmonto > tt + 0.005 ? '<span class="pg-w">Le pagás ' + fm(P[P.length - 1].extra) + ' de más: quedan a cuenta de ' + esc(feriaNom(P[P.length - 1].f)) + '.</span>' : "");
+      : (P.extra ? '<span class="pg-w">Le pagás ' + fm(P.extra) + ' de más: se lo queda. Va como gasto del mes (no a ninguna feria) y <b>no</b> queda a cuenta.' + (S.vcta === "Efectivo" ? '<br>Lo de más no puede salir del efectivo de la feria: elegí una cuenta, o pagá lo justo.' : '') + '</span>' : "");
   }
   function pagarV(){
     var vw = top(), v = vw && vendDe(vw.nombre); if (!v || S.busy) return;
     var mi = $("pgcVMonto"); if (mi){ var x0 = pm(mi.value); S.vmonto = x0 > 0 ? r2(x0) : 0; }
     var ni = $("pgcNota"); if (ni) S.nota = ni.value.trim();
-    var P = planV(v).filter(function(x){ return x.ap > 0; }), cta = S.vcta, nota = S.nota; if (!P.length) return;
+    var P0 = planV(v), extra = P0.extra || 0, P = P0.filter(function(x){ return x.ap > 0; }), cta = S.vcta, nota = S.nota; if (!P.length) return;
+    if (extra && cta === "Efectivo"){ toast("Lo de más no puede salir del efectivo de la feria: elegí una cuenta", true); return; }
     S.busy = true; var bt = $("pgcVPagar"); if (bt){ bt.textContent = "Guardando…"; bt.disabled = true; }
     var ok = 0, tot = 0, err = "";
     var fin = function(){
@@ -1632,7 +1669,8 @@ window.PagoComun = (function(){
     var sig = function(k){
       if (k >= P.length){ fin(); return; }
       var x = P[k], b2 = $("pgcVPagar"); if (b2) b2.textContent = "Guardando " + (k + 1) + " de " + P.length + "…";
-      intento({ fecha: x.f.fecha, feria: x.f.feria, ubicacion: x.f.ubicacion || "", vendedora: v.nombre, medio: cta, montoActual: x.ap, deudas: [], nota: nota }, 1, function(b){ if (b){ ok++; tot = r2(tot + x.ap); } sig(k + 1); });
+      var ex = k === P.length - 1 ? extra : 0;   // lo de más va con el último pago, aparte de la feria
+      intento({ fecha: x.f.fecha, feria: x.f.feria, ubicacion: x.f.ubicacion || "", vendedora: v.nombre, medio: cta, montoActual: x.ap, deudas: [], nota: nota, extra: ex }, 1, function(b){ if (b){ ok++; tot = r2(tot + x.ap + ex); } sig(k + 1); });
     };
     sig(0);
   }
@@ -2108,14 +2146,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <button class="hoy3" id="homeSeguir" type="button" hidden><span class="k">ESTÁS COBRANDO</span><b id="homeSeguirTxt"></b><span class="go">Seguir cobrando ›</span></button>
   <button type="button" class="btn2" id="homeDescartar" hidden style="min-height:48px;font-size:15px;margin-top:-6px">✕ Descartar · ya no la estoy dejando lista</button>
   <div class="btn2" id="homeCerrada" hidden>🔒 Ya cerraste <span id="homeCerradaTxt"></span> · Sumar un cobro ›</div>
-  <div id="homeBtns" style="display:flex;flex-direction:column;gap:16px">
-  <div class="btn" id="homeArrancar">Arrancar feria</div>
+  <!-- 15/11 (mockup-ferias-inicio-cuadrados.html, aprobado): todo en cuadrados de a dos, como en Compras -->
+  <div id="homeBtns" class="tg3">
+  <button type="button" class="tl3 w y" id="homeArrancar"><i>▶</i><b>Arrancar feria</b></button>
   <!-- 08/11 (pagos unificados · solo Lucas por ahora): cuánto se les debe a las vendedoras y «Ver y pagar ›» (la pantalla común de pago) -->
   <div id="homePgc" hidden></div>
-  <div class="row2" id="homeRow2"><div class="btn2" id="homeMis">📋 Mis ferias (lo que vendí)</div><div class="btn2" id="homeCal">📅 Calendario</div></div>
-  <div class="btn2" id="homePrep" hidden>🫙 Dejar lista otra feria</div>
-  <div class="btn2" id="homeCan" hidden>🧺 Canastos</div>
-  <div class="btn2" id="homeVend" hidden>👛 Vendedoras · cuánto se les paga</div>
+  <button type="button" class="tl3" id="homeMis"><i>📋</i><b>Mis ferias</b><small>lo que vendí</small></button>
+  <button type="button" class="tl3" id="homeCal"><i>📅</i><b>Calendario</b><small>agregar y ver ferias</small></button>
+  <button type="button" class="tl3" id="homeCuenta" hidden><i>👛</i><b>Mi cuenta</b><small>cuánto te debemos</small></button>
+  <button type="button" class="tl3" id="homeCan" hidden><i>🧺</i><b>Canastos</b><small>qué falta reponer</small></button>
+  <button type="button" class="tl3" id="homeVend" hidden><i>👛</i><b>Vendedoras</b><small>cuánto se les paga</small></button>
   </div>
   <div id="admBox" hidden>
     <div id="admHoyW" style="display:flex;flex-direction:column;gap:10px"><span class="lbl3">Hoy</span><div id="admHoy" style="display:flex;flex-direction:column;gap:10px"></div></div>
@@ -2127,8 +2167,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <button class="cta3" id="homeCta" type="button" hidden><span class="t"><span id="homeCtaK">👛 Tu cuenta con Abalauquen</span><b id="homeCtaV"></b><small id="homeCtaT"></small></span><span class="go">Ver ›</span></button>
   <div id="homeCanAv" hidden style="display:flex;flex-direction:column;gap:12px"></div>
   <div id="homeCierrePend" hidden class="card" style="border:2px solid var(--accent);gap:6px"></div>
+  <div id="homePrepRes" hidden class="card" style="gap:6px"></div>
   <div id="homeAviso" hidden style="display:flex;flex-direction:column;gap:10px"></div>
   <div id="homeProx" hidden style="display:flex;flex-direction:column;gap:10px"><span class="lbl3" id="homeProxT">Tus próximas ferias</span><div id="homeProxList" style="display:flex;flex-direction:column;gap:10px"></div></div>
+  <!-- 14/11 (Lucas 21:36): «Dejar lista» ya está en cada feria del calendario; acá queda un link chico para una que no está -->
+  <a href="#" class="lnk3" id="homePrep" hidden>¿Una feria que no está en el calendario? Dejala lista acá ›</a>
 </div>
 
 <!-- 29/10 (Lucas 11:52): cuenta corriente de la vendedora (lo que se le debe y lo que ya se le pagó) -->
@@ -2165,12 +2208,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <input class="inp-date" id="calfFeriaOtra" placeholder="Escribí el nombre" hidden>
   <span class="label">Dónde</span><div class="chips" id="calfUbic"></div>
   <input class="inp-date" id="calfUbicOtra" placeholder="Escribí el lugar" hidden>
+  <!-- 15/11 (mockup-feria-mapa.html): lugar nuevo → «¿Es acá?» con el mapa, para que los km de la logística salgan bien -->
+  <div id="calfMapa" hidden style="display:flex;flex-direction:column;gap:8px"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label class="label" style="display:flex;flex-direction:column;gap:4px">Desde<input type="time" id="calfDesde" class="inp-date"></label><label class="label" style="display:flex;flex-direction:column;gap:4px">Hasta<input type="time" id="calfHasta" class="inp-date"></label></div>
   <span class="label">Quién va</span><div class="chips" id="calfVend"></div>
   <div id="calfExtra" style="display:flex;flex-direction:column;gap:10px">
     <span class="label">Documentación presentada</span><div class="seg" id="calfDoc"><div data-v="">Todavía no</div><div data-v="1">Sí, presentada</div></div>
     <span class="label">Estado</span><div class="seg" id="calfEst"><div data-v="Confirmada">Confirmada</div><div data-v="Suspendida">Cancelada (no se hace)</div></div>
     <span class="label">Observaciones</span><input class="inp-date" id="calfObs" placeholder="Opcional">
+    <!-- 14/11 (Lucas 21:31): si se carga, es lo que cuesta el puesto (0 = gratis); vacío = lo que se pague, como siempre -->
+    <span class="label">Valor del puesto ($)</span><input class="inp-date" id="calfPuesto" inputmode="numeric" placeholder="Vacío = lo que se pague · 0 = gratis">
   </div>
   <div class="btn" id="calfOk">Guardar</div>
   <div class="btn2" id="calfDel" hidden style="border-color:var(--terra);color:var(--terra-ink)">Borrar esta feria</div>
@@ -2194,7 +2241,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <h1 id="stepTitle">¿Quién está atendiendo?</h1>
     <div class="progress" id="progressDots"></div>
   </div>
-  <div class="sugerido" id="sugerido" hidden><span class="ey" style="color:#c9a27a" id="sugeridoEy"></span><b id="sugeridoTxt"></b><span>Tocá para arrancar así</span></div>
+  <div class="sugerido" id="sugerido" hidden><span class="ey" style="color:#c9a27a" id="sugeridoEy"></span><b id="sugeridoTxt"></b><span class="go3" id="sugeridoGo">▶ Arrancar esta feria</span></div>
   <div class="choice-grid" id="choiceGrid"></div>
 </div>
 
@@ -2478,7 +2525,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="btn" id="llRef" hidden style="background:var(--good);border-color:var(--good);color:#0c2a1c">+ Refuerzo de stock</div>
   <span class="lbl3" id="llPorSab">Lo que llevás</span>
   <div id="llList"><div class="empty">Cargando…</div></div>
-  <div class="btn2" id="llOtro">+ Otro producto</div>
+  <div class="btn2" id="llOtro">+ Agregar más productos</div>
   <div id="llAdd" hidden style="display:flex;flex-direction:column;gap:10px">
     <div class="chips" id="llSabores"></div>
     <div class="tams" id="llTams"></div>
@@ -2759,7 +2806,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     }); });
   }
 
-  var GIABA_BASE_URL = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec";
+  var GIABA_BASE_URL = "https://abalauquen.github.io/giaba-app/web/";
   var GIABA_NAV_APP = "ferias" === "local" ? "local" : "cobros";   // menú de navegación (Nav.html): en qué app estoy
   var GIABA_MODO = "ferias";
 </script>
@@ -2769,8 +2816,68 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // nombres de cuentas unificados en toda la app (16/10): en la planilla siguen con el nombre interno
   const CTA_LBL = { "Efectivo · Lucas": "Efectivo CABA", "Efectivo · Adriana": "Efectivo Fábrica", "Efectivo · Local Dulcería": "Efectivo Local", "Efectivo · Ferias CABA": "Efectivo Ferias CABA", "Efectivo · Ferias Sur": "Efectivo Ferias Sur", "MP Lucas": "MP CABA", "MP Abalauquen": "MP Fábrica" };
   function ctaN(s){ return String(s == null ? "" : s).replace(/Efectivo · Lucas|Efectivo · Adriana|Efectivo · Local Dulcería|Efectivo · Ferias CABA|Efectivo · Ferias Sur|MP Lucas|MP Abalauquen/g, function(m){ return CTA_LBL[m]; }); }
-  function lsGet(k,f){ try{ const v=localStorage.getItem(k); return v===null?f:JSON.parse(v);}catch(e){return f;} }
-  function lsSet(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  // 13/11 (Julieta, Parque Rivadavia: un cobro «sin subir» se perdió al recargar): lo PENDIENTE (cobros, anulaciones y cierres que
+  // todavía no llegaron) se guarda de tres maneras: memoria, localStorage (comprobando que quedó escrito; si está lleno se borran
+  // las copias de pantallas, que se pueden volver a traer) e IndexedDB (otra copia, por si el navegador pierde la primera).
+  // Al abrir, lo que esté en cualquiera de las copias y no figure como subido vuelve a la cola. Nada se borra hasta que el
+  // servidor (o la base) confirma: el servidor no duplica (busca el mismo ID).
+  const PEND_K = ["cf_queue", "cf_anul_pend", "cf_cierre_pend"], PEND_MEM = {}, PEND_MAL = {};
+  function lsGet(k,f){
+    try{ const v=localStorage.getItem(k); if (v===null) return PEND_MEM[k]!==undefined ? JSON.parse(JSON.stringify(PEND_MEM[k])) : f; return JSON.parse(v);}
+    catch(e){ return PEND_MEM[k]!==undefined ? JSON.parse(JSON.stringify(PEND_MEM[k])) : f; }
+  }
+  function lsSet(k,v){
+    if (PEND_K.indexOf(k) !== -1){ pendGuardar(k, v); return; }
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){}
+  }
+  function pendEscribir(k, s){ try { localStorage.setItem(k, s); return localStorage.getItem(k) === s; } catch(e){ return false; } }
+  function pendLiberar(){   // localStorage lleno: se borran las copias de pantallas (rc1|…, calendario, admin) — se vuelven a traer solas
+    try { const L = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (k && (/^rc1[|_]/.test(k) || k.indexOf("cal_cache") === 0 || k === "adm_cache")) L.push(k); } L.forEach(function(k){ localStorage.removeItem(k); }); } catch(e){}
+  }
+  function pendGuardar(k, v){
+    PEND_MEM[k] = JSON.parse(JSON.stringify(v === undefined ? null : v));
+    const s = JSON.stringify(v);
+    let ok = pendEscribir(k, s);
+    if (!ok){ pendLiberar(); ok = pendEscribir(k, s); }
+    PEND_MAL[k] = !ok;
+    pendIdb("put", k, v);
+    try { if (typeof pendAvisoMal === "function") pendAvisoMal(); } catch(e){}
+  }
+  let PEND_DB = null;
+  function pendIdbAbrir(){
+    if (PEND_DB) return PEND_DB;
+    PEND_DB = new Promise(function(ok, mal){
+      try { const r = indexedDB.open("giaba-pend", 1); r.onupgradeneeded = function(){ r.result.createObjectStore("kv"); };
+        r.onsuccess = function(){ ok(r.result); }; r.onerror = function(){ mal(r.error); }; setTimeout(function(){ mal(new Error("idb lento")); }, 3000); }
+      catch(e){ mal(e); }
+    });
+    PEND_DB.catch(function(){ PEND_DB = null; });
+    return PEND_DB;
+  }
+  function pendIdb(op, k, v){
+    return pendIdbAbrir().then(function(d){ return new Promise(function(ok){
+      try { const t = d.transaction("kv", op === "get" ? "readonly" : "readwrite"), st = t.objectStore("kv"), q = op === "get" ? st.get(k) : st.put(JSON.parse(JSON.stringify(v === undefined ? null : v)), k);
+        q.onsuccess = function(){ ok(op === "get" ? q.result : true); }; q.onerror = function(){ ok(null); }; }
+      catch(e){ ok(null); }
+    }); }).catch(function(){ return null; });
+  }
+  // ids ya confirmados (para no revivir algo que ya subió cuando se juntan las copias)
+  function pendSubido(id){ try { const L = JSON.parse(localStorage.getItem("cf_subidos") || "[]"); L.push(String(id)); localStorage.setItem("cf_subidos", JSON.stringify(L.slice(-400))); } catch(e){} }
+  function pendYaSubio(id){ try { return JSON.parse(localStorage.getItem("cf_subidos") || "[]").indexOf(String(id)) !== -1; } catch(e){ return false; } }
+  // al abrir: se juntan las copias (localStorage + IndexedDB) de cada lista pendiente
+  function pendRecuperar(cb){
+    let n = 0; const fin = function(){ if (++n === PEND_K.length && cb) cb(); };
+    PEND_K.forEach(function(k){
+      pendIdb("get", k).then(function(v){
+        const ls = lsGet(k, []), copia = Array.isArray(v) ? v : [];
+        const clave = function(x){ return String(x && (x.id || x.k) || ""); };
+        const ya = {}; (ls || []).forEach(function(x){ ya[clave(x)] = 1; });
+        const vuelven = copia.filter(function(x){ const c = clave(x); return c && !ya[c] && !pendYaSubio(k + ":" + c); });
+        if (vuelven.length) pendGuardar(k, (ls || []).concat(vuelven)); else if ((ls || []).length) pendIdb("put", k, ls);
+        fin();
+      });
+    });
+  }
   const el = (id) => document.getElementById(id);
   const MODO = (GIABA_MODO === "local") ? "local" : "ferias";
   const LOCAL = MODO === "local";
@@ -2810,6 +2917,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   };
   const NO_FERIAS = ["Local Dulcería","Feria Lago Puelo"];          // no aparecen en "Arrancar feria"
   const FERIAS_SIN_UBICACION = ["Feria El Bolsón","Feria Lago Puelo","Local Dulcería"];
+  // 16/11 (Lucas 20:48): El Bolsón a veces quedaba «Feria El Bolsón» (sin lugar, por el asistente) y a veces «· Plaza Pagano» (por el calendario) → siempre Plaza Pagano
+  const UBIC_FIJA = { "Feria El Bolsón": "Plaza Pagano" };
+  function ubicNorm(s){ if (s && UBIC_FIJA[s.feria] && !s.ubicacion) s.ubicacion = UBIC_FIJA[s.feria]; return s; }
   const FERIAS_SUR = ["Feria El Bolsón","Feria Lago Puelo","Local Dulcería"];
   const FERIAS_CABA = ["BA Market","Sabe La Tierra","Nuevos Sabores","Caminos y Sabores"];
   const MOTIVOS_AJUSTE = ["Vuelto por cobro de más","Error de medio de pago","Otro"];
@@ -2827,6 +2937,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   let CONFIG = lsGet("cf_config", DEFAULT_CONFIG);
   const SESSION_KEY = LOCAL ? "cf_session_local" : "cf_session";
   let session = lsGet(SESSION_KEY, null);
+  try { if (session) ubicNorm(session); } catch(e){}
 
   const SCREENS = { home: el("screen-home"), config: el("config"), pin: el("screen-pin"), loop: el("loop"), "ir-menu": el("screen-ir-menu"),
     caja: el("screen-caja"), ped: el("screen-ped"), hist: el("screen-hist"), cierre: el("screen-cierre"), apertura: el("screen-apertura"), cerrada: el("screen-cerrada"), llevo: el("screen-llevo"), volvio: el("screen-volvio"), lprod: el("screen-lprod"), post: el("screen-post"), mis: el("screen-mis"), det: el("screen-det"), cs: el("screen-cs"), anal: el("screen-anal"), cal: el("screen-cal"), calf: el("screen-calf"), calq: el("screen-calq"),
@@ -3048,6 +3159,20 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         setTimeout(function(){ pinBuffer=""; renderPinDots(); }, 600);
       }
     }
+    // 15/11 (Lucas 12:32): si este celu ya verificó este mismo PIN, entra al toque y se confirma con Google por detrás
+    // (antes esperaba ~5 s). Si Google dice que el PIN ya no es ese, se cierra la sesión y lo vuelve a pedir.
+    const yaVisto = lsGet("cf_auth_"+nombre, null);
+    if (gs() && yaVisto && yaVisto.pin === pinIngresado && yaVisto.apps){
+      manejarResultado({ status: 'ok', apps: yaVisto.apps, zona: yaVisto.zona });
+      google.script.run.withSuccessHandler(function(res){
+        if (res && res.status === 'ok'){ lsSet("cf_auth_"+nombre, { pin: pinIngresado, apps: res.apps, zona: res.zona }); const g = lsGet("giaba_auth", null); if (g && g.nombre === nombre){ g.apps = res.apps; g.zona = res.zona; lsSet("giaba_auth", g); } return; }
+        if (res && (res.status === 'denegado' || res.status === 'pin' || res.status === 'no_encontrado' || res.status === 'sin_pin' || res.status === 'error_pin' || res.status === 'incorrecto')){
+          lsSet("cf_auth_"+nombre, null); const g = lsGet("giaba_auth", null); if (g && g.nombre === nombre) lsSet("giaba_auth", null);
+          showToast("Tu PIN cambió: ingresalo de nuevo", true); setTimeout(function(){ location.reload(); }, 1500);
+        }
+      }).withFailureHandler(function(){}).validarAcceso(nombre, pinIngresado);
+      return;
+    }
     if (gs()){
       google.script.run.withSuccessHandler(manejarResultado)
         .withFailureHandler(function(){
@@ -3080,20 +3205,42 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function prepCurso(){ const pc = lsGet("prep_curso", null); if (!pc || !pc.fecha || Date.now() - (pc.t || 0) > 18 * 36e5) return null; const d = fDate(pc.fecha); if (isNaN(d.getTime()) || d < new Date(new Date().setHours(0, 0, 0, 0))) return null; return pc; }
   function seguirPrep(pc){
     PREP = { fecha: pc.fecha, txt: pc.txt, sesionReal: session, canasto: pc.canasto || null };   // 08/11: vuelve con el canasto que había elegido
-    session = { vendedor: pc.vendedor, feria: pc.feria, ubicacion: pc.ubicacion || "", dia: "prep-" + pc.fecha, prep: pc.fecha };
+    session = ubicNorm({ vendedor: pc.vendedor, feria: pc.feria, ubicacion: pc.ubicacion || "", dia: "prep-" + pc.fecha, prep: pc.fecha });
     abrirApertura(function(){ abrirLlevo(true); });
   }
   function prepGuardarCanasto(id){ if (!PREP) return; PREP.canasto = id; const pc = lsGet("prep_curso", null); if (pc && pc.fecha === PREP.fecha){ pc.canasto = id; lsSet("prep_curso", pc); } }
   function terminarPrep(msg){
     lsSet("prep_curso", null);
-    const t = PREP ? PREP.txt : "";
+    const t = PREP ? PREP.txt : "", P0 = PREP && session ? { fecha: PREP.fecha, feria: session.feria, ubicacion: session.ubicacion || "", txt: t } : null;
     if (PREP){ session = PREP.sesionReal; PREP = null; }
-    showToast(msg || ("Feria del " + t + " lista ✓"));
+    showToast(msg || ("Feria del " + t + " · revisando que quedó guardada…"));
     renderHome();
+    if (P0) prepVerificar(P0);
+  }
+  // 13/11 (Lucas dejó lista la de Parque Rivadavia: la caja inicial quedó, lo que llevaba NO, y la app no avisó):
+  // al terminar «Dejar lista» se le pregunta al servidor qué quedó guardado y se muestra claro, sí o NO.
+  function prepVerificar(P0){
+    const box = el("homePrepRes"); if (!box) return;
+    box.hidden = false; box.className = "card"; box.innerHTML = '<b>Feria del ' + esc(P0.txt || P0.fecha) + ' · ' + esc(P0.ubicacion || P0.feria) + '</b><span class="hint">Revisando que quedó guardada…</span>';
+    if (!gs()){ box.innerHTML = '<b>⚠ Sin señal: no pude revisar si quedó guardada</b><span class="hint">Volvé a «Dejar lista» con señal para comprobarlo.</span>'; return; }
+    let st = null, ap = null, n = 0;
+    const fin = function(){
+      if (++n < 2) return;
+      const frascos = st && st.llevado ? st.llevado.reduce(function(a, x){ return a + (Number(x.cant) || 0); }, 0) : null;
+      const caja = ap && ap.aperturas ? ap.aperturas.reduce(function(a, x){ return a + (Number(x.monto) || 0); }, 0) : null;
+      const okS = frascos > 0, okC = caja !== null && ap.aperturas.length > 0, sinDato = frascos === null || caja === null;
+      box.className = "card"; box.style.border = "2px solid " + (okS && okC ? "var(--good)" : "var(--terra)");
+      box.innerHTML = '<b>' + (okS && okC ? "✓ Feria del " + esc(P0.txt || P0.fecha) + " lista" : "⚠ La feria del " + esc(P0.txt || P0.fecha) + " NO quedó completa") + ' · ' + esc(P0.ubicacion || P0.feria) + '</b>'
+        + '<span>' + (frascos === null ? "❓ Lo que lleva: no pude leerlo" : okS ? "✓ Lleva " + frascos + " frasco" + (frascos === 1 ? "" : "s") : "✗ Lo que lleva: NO está guardado") + '</span>'
+        + '<span>' + (caja === null ? "❓ Caja inicial: no pude leerla" : okC ? "✓ Caja inicial " + formatMoney(caja) : "✗ Caja inicial: NO está guardada") + '</span>'
+        + (okS && okC ? "" : '<span class="hint">' + (sinDato ? "Probá de nuevo con señal." : "Tocá «Dejar lista» y cargá lo que falta.") + '</span>');
+    };
+    google.script.run.withSuccessHandler(function(r){ st = r && r.status === "ok" ? r : null; fin(); }).withFailureHandler(function(){ fin(); }).getStockFeria(P0.feria, P0.ubicacion, P0.fecha);
+    google.script.run.withSuccessHandler(function(r){ ap = r && r.status === "ok" ? r : null; fin(); }).withFailureHandler(function(){ fin(); }).getAperturasPuesto(P0.feria, P0.ubicacion, P0.fecha);
   }
   // ---- sesión del día ----
   function sesionDeHoy(){ return session && session.vendedor && session.feria && session.dia === todayKey(); }
-  function guardarSesion(s){ session = s; lsSet(SESSION_KEY, s); }
+  function guardarSesion(s){ session = ubicNorm(s); lsSet(SESSION_KEY, s); }
 
   // ---- inicio de ferias ----
   function renderHome(){
@@ -3118,16 +3265,21 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("homeCan").hidden = !esAdmin() || LOCAL;
     el("homeVend").hidden = !esAdmin() || LOCAL;
     pintarHomePgc();
+    const traeCal = !LOCAL && a && a.pin && gs() && Date.now() - (HOME_CAL_T || 0) > 60000;
+    if (traeCal) HOME_CAL_T = Date.now();
     renderHoy(seguir || cerradaHoy);
     // 29/10 (Lucas 11:52): la vendedora ve siempre sus próximas ferias (al toque, de lo guardado; después se actualiza)
     if (!LOCAL && a && a.pin) pintarProx(lsGet(fxKey(), null)); else pintarProx(null);
     // 29/10 (Lucas 10:48): la feria asignada en el calendario aparece sola (antes dependía de lo último guardado en el celu)
-    if (!LOCAL && a && a.pin && gs() && Date.now() - (HOME_CAL_T || 0) > 60000){ HOME_CAL_T = Date.now();
+    if (traeCal){
       calTraer("", "", function(r){ if (r && SCREENS.home && !SCREENS.home.hidden){ pintarProx(r); if (!(sesionDeHoy())) renderHoy(false); } }); }
     // vendedora: "Mis ferias" a lo ancho (el calendario se abre tocando una próxima feria) · Lucas / Adriana: Resumen + Calendario
-    el("homeMis").textContent = esAdmin() ? "📊 Resumen" : "📋 Mis ferias (lo que vendí)";
-    el("homeCal").hidden = !esAdmin() || LOCAL;
-    el("homeRow2").style.gridTemplateColumns = el("homeCal").hidden ? "1fr" : "";
+    // 15/11 (cuadrados): vendedora: Mis ferias · Calendario · Mi cuenta · Otra feria · Lucas / Adriana: Arrancar · Canastos · Vendedoras · Resumen · Calendario
+    tl3(el("homeMis"), esAdmin() ? "📊" : "📋", esAdmin() ? "Resumen" : "Mis ferias", esAdmin() ? "cómo van las ferias" : "lo que vendí");
+    el("homeCal").hidden = LOCAL;
+    tl3(el("homeCal"), "📅", "Calendario", esAdmin() ? "agregar y ver ferias" : "mis próximas ferias");
+    el("homeCuenta").hidden = !ctaVe();
+    ["homeArrancar","homePgc","homeCan","homeVend","homeMis","homeCal","homeCuenta"].forEach(function(id, i){ el(id).style.order = esAdmin() ? i : ({ homeMis: 1, homeCal: 2, homeCuenta: 3, homeArrancar: el("homeArrancar").classList.contains("w") ? 0 : 4 })[id] || 5; });
     showScreen("home");
     pintarCierrePend();
     cargarCta();
@@ -3140,9 +3292,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function ctaVe(){ const a = auth(); return !LOCAL && !!(a && a.pin && a.nombre) && !esAdmin(); }
   function pintarCtaHome(r){
     const b = el("homeCta");
-    if (!ctaVe() || !r || r.status !== "ok"){ b.hidden = true; return; }
+    b.hidden = true;   // 15/11 (cuadrados): ahora es el cuadrado «Mi cuenta»
+    if (!ctaVe() || !r || r.status !== "ok") return;
     const s = Number(r.saldo) || 0, n = (r.ferias || []).length, ult = (r.pagos || [])[0];
-    b.hidden = false; b.classList.toggle("ok", s <= 0.5);
+    tl3(el("homeCuenta"), "👛", "Mi cuenta", s > 0.5 ? "te debemos " + formatMoney(s) : "estás al día ✓");
+    b.classList.toggle("ok", s <= 0.5);
     el("homeCtaK").textContent = s > 0.5 ? "👛 Te debemos" : "👛 Tu cuenta con Abalauquen";
     el("homeCtaV").textContent = s > 0.5 ? formatMoney(s) : "Estás al día ✓";
     el("homeCtaT").textContent = s > 0.5 ? n + (n === 1 ? " feria sin pagar" : " ferias sin pagar") : (ult ? "Último pago: " + formatMoney(ult.monto) + " · " + String(ult.fecha).slice(0, 5) : "No te debemos nada");
@@ -3180,6 +3334,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         + (x.vendido ? '<span class="hint" style="margin-top:-4px">Vendiste ' + formatMoney(x.vendido) + '</span>' : '')
         + fila("Pago por el día", formatMoney(x.dia || 0))
         + (x.comision ? fila("+ Comisión", formatMoney(x.comision)) : "")
+        + (x.bono ? fila("+ " + esc(x.bonoMotivo || "Bono"), formatMoney(x.bono)) : "")
         + (x.descuento ? fila("− Lo que sacaste", "− " + formatMoney(x.descuento)) : "")
         + (x.pagado ? fila("− Ya te pagamos", "− " + formatMoney(x.pagado)) : "")
         + fila("Falta pagarte", formatMoney(x.falta), "tot") + '</div>';
@@ -3190,6 +3345,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     }).join("") || (F.length ? "" : '<div class="hint">Todavía no hay pagos en los últimos 60 días.</div>');
   }
   el("homeCta").addEventListener("click", abrirCta);
+  el("homeCuenta").addEventListener("click", abrirCta);
+  // cuadrado: ícono, nombre y una línea chica que dice para qué es
+  function tl3(b, ic, tit, sub, warn){ b.innerHTML = '<i>' + ic + '</i>' + (b.classList.contains("w") ? '<span>' : '') + '<b>' + esc(tit) + '</b>' + (sub ? '<small' + (warn ? ' class="w3"' : '') + '>' + esc(sub) + '</small>' : '') + (b.classList.contains("w") ? '</span>' : ''); }
   el("ctaBack").addEventListener("click", function(){ renderHome(); });
   // 28/10 (v3): la feria de hoy sale del calendario: un toque y arranca (sin elegir quién, feria ni lugar)
   let HOY_SUG = null, HOME_CAL_T = 0;
@@ -3203,11 +3361,31 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       el("hoyLugar").textContent = HOY_SUG.ubicacion || HOY_SUG.feria;
       el("hoySub").textContent = HOY_SUG.feria + (HOY_SUG.hora ? " · " + HOY_SUG.hora : "");
       hoyPedidos(HOY_SUG);
+      hoyAbierta(HOY_SUG);
+    }
+    // 14/11 (Lucas 18:36): mientras llega el calendario, la vendedora ve «Buscando tu feria de hoy…» (no el botón de elegir a mano)
+    const buscando = !HOY_SUG && !ocupado && !LOCAL && !esAdmin() && a && a.pin && gs() && !lsGet(calKey(), null) && Date.now() - (HOME_CAL_T || 0) < 8000;
+    el("homeHoy").querySelector(".go").hidden = buscando;
+    if (buscando){
+      box.hidden = false; HOY_SUG = null;
+      el("hoyK").textContent = "BUSCANDO TU FERIA DE HOY…"; el("hoyLugar").textContent = "un momento"; el("hoySub").textContent = "Mirando el calendario"; el("hoyPed").hidden = true;
+      setTimeout(function(){ if (SCREENS.home && !SCREENS.home.hidden && !sesionDeHoy()) renderHoy(false); }, 8200);
     }
     // con la feria de hoy arriba, "otra feria" queda como botón común; si no, el botón amarillo para arrancar
-    const otra = !!HOY_SUG || ocupado;
-    arr.className = otra ? "btn2" : "btn";
-    arr.textContent = HOY_SUG ? "¿Hoy vas a otra feria? Elegila acá" : (esAdmin() && !LOCAL ? "▶ Arrancar una feria" : (ocupado ? "Arrancar otra feria" : "Arrancar feria"));
+    const otra = !!HOY_SUG || ocupado || buscando;
+    // 15/11 (cuadrados): sin feria de hoy, «Arrancar» va grande y amarillo; si ya está la de hoy arriba, es el cuadrado «Otra feria»
+    if (esAdmin() && !LOCAL){ arr.className = "tl3 w y"; tl3(arr, "▶", "Arrancar una feria", "vos o una vendedora"); }
+    else if (otra){ arr.className = "tl3"; tl3(arr, "🔀", "Otra feria", HOY_SUG || buscando ? "hoy voy a otra" : "arrancar otra"); }
+    else { arr.className = "tl3 w y"; tl3(arr, "▶", "Arrancar feria", ""); }
+    if (!esAdmin()) arr.style.order = arr.classList.contains("w") ? 0 : 4;
+  }
+  // 14/11 (Lucas 23:25): si la feria de hoy ya la abrió alguien (o vos desde otro celu), la tarjeta dice «Seguir cobrando» y entra directo a cobrar
+  let HOY_ABIERTA = null;
+  function hoyAbierta(x){
+    const go = el("homeHoy").querySelector(".go"), k = "hoyab_" + todayKey() + "|" + x.feria + "|" + (x.ubicacion || "");
+    const pinta = function(r){ HOY_ABIERTA = r && r.iniciada ? r : null; if (HOY_ABIERTA){ el("hoyK").textContent = "YA ESTÁ ABIERTA" + (r.quien ? " · LA ABRIÓ " + String(r.quien).toUpperCase() : ""); go.textContent = "Seguir cobrando ›"; } else go.textContent = "Arrancar la feria ›"; };
+    pinta(lsGet(k, null));
+    if (gs()) google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok"){ lsSet(k, r.iniciada ? r : null); if (HOY_SUG && HOY_SUG.feria === x.feria && HOY_SUG.ubicacion === x.ubicacion && !SCREENS.home.hidden) pinta(r); } }).withFailureHandler(function(){}).feriaIniciada(x.feria, x.ubicacion || "");
   }
   // "📦 2 pedidos para entregar" en la tarjeta de hoy (queda guardado para que aparezca al toque la próxima vez)
   function hoyPedidos(x){
@@ -3216,14 +3394,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (gs()) google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok"){ const n = (r.pedidos || []).length; lsSet(k, n); pinta(n); } }).withFailureHandler(function(){}).getPedidosFeriaHoy(x.feria, x.ubicacion || "");
   }
   el("homeHoy").addEventListener("click", function(){
-    const a = auth(); if (!HOY_SUG || !a){ startWizard(); return; }
+    const a = auth(); if (!HOY_SUG && el("homeHoy").querySelector(".go").hidden) return;   // todavía buscando
+    if (!HOY_SUG || !a){ startWizard(); return; }
     PREP = null; buildWizardSteps(); wizardAnswers = { vendedor: a.nombre, zona: a.zona }; wizardStart = 1;
     empezarSesion(HOY_SUG.feria, HOY_SUG.ubicacion);
   });
   el("homeDescartar").addEventListener("click", function(){ lsSet("prep_curso", null); HOME_PREP = null; renderHome(); showToast("Listo, descartada · lo que ya guardaste queda guardado"); });
   el("homeSeguir").addEventListener("click", function(){ if (HOME_PREP){ const pc = HOME_PREP; HOME_PREP = null; seguirPrep(pc); return; } continuarFeria(); });
   el("homeArrancar").addEventListener("click", function(){ PREP = null; startWizard(); });
-  el("homePrep").addEventListener("click", function(){ PREP = { fecha: "", txt: "", sesionReal: session }; startWizard(); });
+  el("homePrep").addEventListener("click", function(e){ e.preventDefault(); PREP = { fecha: "", txt: "", sesionReal: session }; startWizard(); });
   el("homeMis").addEventListener("click", function(){ abrirMis("home"); });
   el("admVerCal").addEventListener("click", function(){ abrirCal(); });
   // ===== 28/10 (Ferias v3 · tanda 2): inicio de Lucas / Adriana =====
@@ -3246,7 +3425,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function admAuto(){
     if (document.visibilityState !== "visible" || !SCREENS.home || SCREENS.home.hidden || !esAdmin() || !gs()) return;
     const a = auth(); if (!a || !a.pin) return;
-    google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok" && !SCREENS.home.hidden){ try { rcSet("getFeriasHoyAdmin", [!!LOCAL, todayKey()], r); } catch(e){} pintarAdm(r); admHora(); } })
+    google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok" && !SCREENS.home.hidden){ try { rcSet("getFeriasHoyAdmin", [!!LOCAL, todayKey()], r); } catch(e){} pintarAdm(r); admHora();
+        // 15/11 (Lucas 21:30): si antes se cortó la señal, quedaba «Sin señal · es lo de las 18:44» aunque ya se estuviera actualizando
+        rcViejo(el("admBox"), false); RC_TOK.home = (RC_TOK.home || 0) + 1;
+        // y la tarjeta de lo que se les debe a las vendedoras, si había fallado, se vuelve a pedir
+        const pg = el("homePgc"); if (pg && !pg.hidden && /No pude traer/.test(pg.textContent || "")) pintarHomePgc(); } })
       .withFailureHandler(function(){}).getFeriasHoyAdmin(a.nombre, a.pin, !!LOCAL);
   }
   function loopAuto(){ if (document.visibilityState === "visible" && SCREENS.loop && !SCREENS.loop.hidden && session && gs()) { try { refreshTotal(); } catch(e){} } }
@@ -3267,9 +3450,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       return '<button class="fc3' + (x.cerrada ? ' ce' : ' ab') + '" type="button" data-hi="' + i + '"><div class="row"><span class="n">' + esc((x.ubicacion || x.feria) + (x.vendedores.length ? " · " + x.vendedores.join(", ") : "")) + '</span>'
         + '<span class="d">' + (x.cerrada ? "cerró " + esc(x.hora) : "abierta " + esc(x.abrio)) + '</span></div>'
         + '<div class="row"><span class="d">' + x.cobros + ' cobro' + (x.cobros === 1 ? '' : 's') + ' · ' + formatMoney(x.bruto) + '</span>' + (x.va ? '<span class="va3' + (g ? '' : w ? ' w' : ' n') + '">' + esc(x.va) + '</span>' : '') + '</div>'
-        + (bar !== null ? '<span class="mb3"><i style="width:' + bar + '%"></i></span><span class="d">' + x.pctDia + ' % de lo que vende ' + DIA_UN[dow] + ' ahí' + (x.cerrada ? '' : ' (a esta hora suele llevar ' + formatMoney(x.promHora) + ')') + '</span>'
-          : '<span class="d">Todavía no hay ' + DIA_UN[dow].replace("un ", "") + ' anteriores acá para comparar</span>') + '</button>'
-        + (x.cerrada ? '' : smBloque(x, i));
+        + (bar !== null ? '<span class="mb3"' + (x.ref ? ' style="opacity:.55"' : '') + '><i style="width:' + bar + '%"></i></span>' : '')
+        // 15/11 (Lucas 15:33): «＋ Sumarme» chiquito adentro de la tarjeta, a la derecha (antes era un botón grande abajo de cada feria)
+        + '<div class="row" style="display:flex;flex-wrap:nowrap;align-items:center;justify-content:space-between;gap:8px"><span class="d" style="flex:1;min-width:0">' + (bar !== null ? cmpTxt(x, dow)
+          : 'Todavía no hay ' + DIA_UN[dow].replace("un ", "") + ' anteriores acá para comparar') + '</span>'
+        + (x.cerrada || SM_AB === i ? '' : '<span class="sm3" role="button" data-sm="' + i + '">＋ Sumarme</span>') + '</div></button>'
+        + (x.cerrada || SM_AB !== i ? '' : smBloque(x, i));
     }).concat((r.sinArrancar || []).map(function(x, i){ return pfCard(x, "h" + i, true); }));
     el("admHoyW").hidden = !hoy.length; el("admHoy").innerHTML = hoy.join("");
     pfBind(el("admHoy"), r);
@@ -3285,6 +3471,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     // 🫙 Dejar lista (o ✓ Lista · ver, o 👤 Quién va) y ✕ Cancelar (no se borra: queda en rojo, con "↺ Se hace igual")
     const px = r.proximas || [];
     void px; el("admProxW").hidden = true;   // 02/11 (v3 Ferias): ahora van en #fxProx (agrupadas por día, con filtro de zona)
+  }
+  // 15/11 (Lucas 21:31): cerrada → «▲ 15 % más que la última vez acá» (no «115 %»); abierta → cuánto lleva del día (avance)
+  function cmpTxt(x, dow){
+    const contra = x.ref ? String(x.ref).replace(/^vs\.\s*/, "") : DIA_UN[dow] + " normal ahí";
+    let t;
+    if (x.cerrada){ const d = x.pctDia - 100; t = d === 0 ? "Igual que " + contra : (d > 0 ? "▲ " + d + " % más que " : "▼ " + (-d) + " % menos que ") + contra; }
+    else t = x.pctDia + (x.ref ? " % de lo que se vendió " + contra + " (a esta hora llevaba " : " % de lo que vende " + DIA_UN[dow] + " ahí (a esta hora suele llevar ") + formatMoney(x.promHora) + ")";
+    return x.ref ? '<span style="opacity:.75">' + esc(t) + '</span>' : esc(t);
   }
   // 30/10 (Lucas): Lucas o Adriana se suman a cobrar en una feria abierta (cubrir a una vendedora) a su nombre o al de quien atendía
   let SM_AB = -1;
@@ -3324,7 +3518,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const on = function(sel, fn){ Array.prototype.forEach.call(box.querySelectorAll(sel), function(b){ b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); }); };
     const repinta = function(){ pintarAdm(r); };
     on("[data-pfp]", function(b){ const x = pfDe(r, b.dataset.pfp); if (x) prepararDesdeAdm(x); });
-    on("[data-pfq]", function(b){ const x = pfDe(r, b.dataset.pfq), c = lsGet("cal_cache", null), y = c && c.ferias ? c.ferias.filter(function(z){ return z.id === x.id; })[0] : null;
+    on("[data-pfq]", function(b){ const x = pfDe(r, b.dataset.pfq), c = lsGet(calKey(), null), y = c && c.ferias ? c.ferias.filter(function(z){ return z.id === x.id; })[0] : null;
       if (y){ CAL.d = c; FER3.sel = y.fecha; CAL.volver = "home"; calQuien(y); } else abrirCal(fDate(x.fecha)); });
     on("[data-pfc]", function(b){ PF_AB = b.dataset.pfc; PF_OTRO = false; repinta(); });
     on("[data-pfx]", function(){ PF_AB = ""; PF_OTRO = false; repinta(); });
@@ -3338,7 +3532,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     b.textContent = "Guardando…"; b.disabled = true;
     const g = x.ag;
     google.script.run.withSuccessHandler(function(res){
-      if (res && res.status === "ok"){ x.cancelada = estado === "Suspendida"; x.motivo = obs; x.ag.estado = estado; x.ag.obs = obs; PF_AB = ""; PF_OTRO = false; lsSet("adm_cache", r); lsSet("cal_cache", null); pintarAdm(r);
+      if (res && res.status === "ok"){ x.cancelada = estado === "Suspendida"; x.motivo = obs; x.ag.estado = estado; x.ag.obs = obs; PF_AB = ""; PF_OTRO = false; lsSet("adm_cache", r); lsSet(calKey(), null); pintarAdm(r);
         showToast(estado === "Suspendida" ? "Cancelada · queda en rojo en el calendario y en la planilla" : "Vuelve a estar confirmada"); }
       else { b.disabled = false; b.textContent = "No se pudo · probá de nuevo"; }
     }).withFailureHandler(function(){ b.disabled = false; b.textContent = "Sin señal · probá de nuevo"; })
@@ -3398,8 +3592,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function lunes(d){ const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay()+6)%7)); return x; }
   function hsTxt(x){ const h = function(t){ return String(t||"").replace(/:00$/,"").replace(/^0/,""); }; return x.desde ? h(x.desde) + " a " + h(x.hasta) + " h" : ""; }
   function calTraer(desde, hasta, cb){
-    const a = auth(); if (!a || !gs()){ cb(lsGet(fxKey(), null) || lsGet("cal_cache", null)); return; }
-    google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok"){ CAL.d = r; if (!desde){ FER3.d = r; lsSet(fxKey(), r); lsSet("cal_cache", Object.assign({}, r, { ferias: (r.ferias || []).filter(function(x){ return !x.soloVer; }) })); } } cb(r); }).withFailureHandler(function(){ cb(null); }).getAgendaFeriasV3(a.nombre, a.pin, desde || "", hasta || "");
+    const a = auth(); if (!a || !gs()){ cb(lsGet(fxKey(), null) || lsGet(calKey(), null)); return; }
+    google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok"){ CAL.d = r; if (!desde){ FER3.d = r; lsSet(fxKey(), r); lsSet(calKey(), Object.assign({}, r, { ferias: (r.ferias || []).filter(function(x){ return !x.soloVer; }) })); } } cb(r); }).withFailureHandler(function(){ cb(null); }).getAgendaFeriasV3(a.nombre, a.pin, desde || "", hasta || "");
   }
   // ===== 02/11 (v3 Ferias): «Próximas ferias» agrupadas por día + filtro «Todas · CABA · Sur» + calendario de mes =====
   // Datos: getAgendaFeriasV3 (= getAgendaFerias + zona, stock listo y, para Adriana, las de CABA para mirar: soloVer).
@@ -3630,6 +3824,27 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (otraInp){ otraInp.hidden = c.dataset.v !== "__otra"; if (!otraInp.hidden) otraInp.focus(); }
     }); });
   }
+  // ===== 15/11 · lugar nuevo en el mapa =====
+  let CALMAP = { dir: "", t: 0, q: "" };
+  function calMapaReset(){ CALMAP = { dir: "", t: 0, q: "" }; const b = el("calfMapa"); if (b){ b.hidden = true; b.innerHTML = ""; } }
+  function calMapaBuscar(q){
+    const b = el("calfMapa"), a = auth(), ub = el("calfUbicOtra").value.trim(); if (!a || !gs() || (!ub && !q)) return;
+    const feria = calVal(el("calfFeria"), el("calfFeriaOtra")) || "Sabe La Tierra", tk = ++CALMAP.t;
+    b.hidden = false; b.innerHTML = '<span class="label">Buscando «' + esc(q || ub) + '» en el mapa…</span>';
+    google.script.run.withSuccessHandler(function(r){
+      if (tk !== CALMAP.t) return;
+      if (!r || r.status !== "ok" || r.conocido || r.vacio || r.noAplica){ b.hidden = true; b.innerHTML = ""; return; }
+      if (r.noEncontro){ b.innerHTML = '<span class="label">No lo encontré en el mapa</span><div style="display:flex;gap:6px"><input class="inp-date" id="calfMapaQ" placeholder="Dirección o esquina" style="flex:1"><span class="chip" id="calfMapaQok">Buscar</span></div><span class="hint" style="font-size:13px;color:var(--ink-soft)">Si no, se guarda igual y los km se ponen después.</span>'; calMapaBind(); return; }
+      b.innerHTML = '<span class="label">¿Es acá?</span>' + (r.mapa ? '<img src="' + r.mapa + '" alt="" style="width:100%;border-radius:14px;border:2px solid var(--line-2)">' : '')
+        + '<div style="background:var(--surface);border-radius:14px;padding:10px 12px"><b>' + esc(r.dir) + '</b>' + (r.kmIda ? '<br><small style="color:var(--ink-soft)">desde ' + esc(r.desde) + ' ≈ ' + String(r.kmIda).replace(".", ",") + ' km de ida</small>' : '') + '</div>'
+        + '<div class="row2"><div class="chip' + (CALMAP.dir === r.dir ? ' active' : '') + '" id="calfMapaSi" style="justify-content:center">✓ Sí, es acá</div><div class="chip" id="calfMapaNo" style="justify-content:center">Corregir dirección</div></div>'
+        + '<div id="calfMapaCor" hidden style="display:flex;gap:6px"><input class="inp-date" id="calfMapaQ" placeholder="Dirección o esquina (ej. Las Heras y Pueyrredón)" style="flex:1"><span class="chip" id="calfMapaQok">Buscar</span></div>';
+      el("calfMapaSi").onclick = function(){ CALMAP.dir = r.dir; el("calfMapaSi").classList.add("active"); showToast("Listo: los km salen de esta dirección"); };
+      el("calfMapaNo").onclick = function(){ CALMAP.dir = ""; el("calfMapaSi").classList.remove("active"); el("calfMapaCor").hidden = false; el("calfMapaQ").focus(); };
+      calMapaBind();
+    }).withFailureHandler(function(){ if (tk === CALMAP.t){ b.hidden = true; b.innerHTML = ""; } }).logiBuscarLugar(a.nombre, a.pin, { feria: feria, ubic: ub, q: q || "" });
+  }
+  function calMapaBind(){ const ok = el("calfMapaQok"); if (ok) ok.onclick = function(){ const q = el("calfMapaQ").value.trim(); if (q.length >= 3) calMapaBuscar(q); }; }
   function calVal(box, otraInp){ const c = box.querySelector(".chip.active"); if (!c) return ""; return c.dataset.v === "__otra" ? (otraInp ? otraInp.value.trim() : "") : c.dataset.v; }
   function calSeg(box, v){ Array.prototype.forEach.call(box.children, function(x){ x.classList.toggle("on", x.dataset.v === v); x.onclick = function(){ Array.prototype.forEach.call(box.children, function(y){ y.classList.toggle("on", y === x); }); }; }); }
   function calForm(x, modoFija){
@@ -3648,10 +3863,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const fDef = esSur ? (fOp.filter(function(f){ return /bols|puelo/i.test(f); })[0] || "Feria El Bolsón") : "Sabe La Tierra";
     calChips(el("calfFeria"), fOp, x ? x.feria : fDef, el("calfFeriaOtra"));
     calChips(el("calfUbic"), o.ubicaciones, x ? x.ubic : "", el("calfUbicOtra"));
+    calMapaReset(); el("calfUbicOtra").value = "";
+    el("calfUbicOtra").onchange = function(){ if (el("calfUbicOtra").value.trim().length >= 4) calMapaBuscar(""); };
     qvChips(el("calfVend"), o.vendedores, x ? x.vend : "");
     el("calfDesde").value = x && x.desde || "11:00"; el("calfHasta").value = x && x.hasta || "19:00";
     calSeg(el("calfDoc"), x && x.doc ? "1" : ""); calSeg(el("calfEst"), x && x.estado === "Suspendida" ? "Suspendida" : "Confirmada");
     el("calfObs").value = x && x.obs || "";
+    el("calfPuesto").value = x && x.puesto !== null && x.puesto !== undefined ? String(x.puesto) : "";
     el("calfDel").hidden = !x || (!!modoFija && !x.ubic);
     el("calfOk").textContent = "Guardar";
     showScreen("calf");
@@ -3694,7 +3912,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const vend = qvVal(el("calqVend"));
     b.dataset.ocup = 1; b.textContent = "Guardando…";
     const fin = function(r){ delete b.dataset.ocup; b.textContent = "Guardar";
-      if (r && r.status === "ok"){ showToast((vend ? "Va " + vend : "Quedó sin nadie") + (ids.length > 1 ? " · " + ids.length + " días" : "") + " ✓"); lsSet("cal_cache", null); lsSet("adm_cache", null); calVolver(); }
+      if (r && r.status === "ok"){ showToast((vend ? "Va " + vend : "Quedó sin nadie") + (ids.length > 1 ? " · " + ids.length + " días" : "") + " ✓"); lsSet(calKey(), null); lsSet("adm_cache", null); calVolver(); }
       else showToast((r && r.msg) || "No se pudo guardar", true); };
     google.script.run.withSuccessHandler(fin).withFailureHandler(function(){ fin(null); }).cambiarQuienVaAgenda(a.nombre, a.pin, { ids: ids, vend: vend });
   });
@@ -3715,7 +3933,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     Array.prototype.forEach.call(el("calBody").querySelectorAll("[data-fx]"), function(c){ c.addEventListener("click", function(){ calForm(F.filter(function(f){ return f.id === c.dataset.fx; })[0], true); }); });
     el("fxAdd").addEventListener("click", function(){ calForm(null, true); });
   }
-  el("homeCal").addEventListener("click", function(){ abrirCal(new Date()); });
+  el("homeCal").addEventListener("click", function(){ if (!esAdmin()){ FER3.modoTmp = ""; abrirCal(); return; } abrirCal(new Date()); });
   el("calBack").addEventListener("click", function(){ if (FER3.fijas){ abrirCal(fDate(FER3.sel || fStr(new Date()))); return; } FER3.modoTmp = ""; showScreen("home"); homeCalRefrescar(); });
   el("calAdd").addEventListener("click", function(){ CAL.volver = ""; CAL.d = fxDatos(true) || CAL.d; calForm(null, false); });
   el("calFijas").addEventListener("click", calFijas);
@@ -3725,9 +3943,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("calfOk").addEventListener("click", function(){
     const a = auth(), b = el("calfOk"); if (!a || !gs() || b.dataset.ocup) return;
     const p = { feria: calVal(el("calfFeria"), el("calfFeriaOtra")), ubic: calVal(el("calfUbic"), el("calfUbicOtra")), desde: el("calfDesde").value, hasta: el("calfHasta").value, vend: qvVal(el("calfVend")) };
+    if (CALMAP.dir && !el("calfUbicOtra").hidden) p.lugarDir = CALMAP.dir;
     if (!p.ubic){ showToast("Elegí dónde es", true); return; }
     b.dataset.ocup = 1; b.textContent = "Guardando…";
-    const fin = function(r, msg){ delete b.dataset.ocup; b.textContent = "Guardar"; if (r && r.status === "ok"){ showToast(msg); lsSet("cal_cache", null); FER3.mes = {}; if (CAL.fija){ const nf = r.fijas; abrirCal(fDate(FER3.sel)); if (FER3.d) FER3.d.fijas = nf; CAL.d = Object.assign({}, CAL.d || {}, { fijas: nf }); calFijas(); } else calVolver(); } else showToast((r && r.msg) || "No se pudo guardar", true); };
+    const fin = function(r, msg){ delete b.dataset.ocup; b.textContent = "Guardar"; if (r && r.status === "ok"){ showToast(msg); lsSet(calKey(), null); FER3.mes = {}; if (CAL.fija){ const nf = r.fijas; abrirCal(fDate(FER3.sel)); if (FER3.d) FER3.d.fijas = nf; CAL.d = Object.assign({}, CAL.d || {}, { fijas: nf }); calFijas(); } else calVolver(); } else showToast((r && r.msg) || "No se pudo guardar", true); };
     if (CAL.fija){
       const dc = el("calfDow").querySelector(".chip.active"); if (!dc){ delete b.dataset.ocup; b.textContent = "Guardar"; showToast("Elegí qué día de la semana", true); return; }
       p.dia = +dc.dataset.v; p.id = CAL.fija.id;
@@ -3741,6 +3960,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const dh = el("calfDiaHasta").value; if (dh){ if (dh < dv){ delete b.dataset.ocup; b.textContent = "Guardar"; showToast("El «hasta» tiene que ser después del día", true); return; } p.fechaHasta = dh.split("-").reverse().join("/"); }
     p.doc = (el("calfDoc").querySelector(".on") || {}).dataset ? el("calfDoc").querySelector(".on").dataset.v === "1" : false;
     p.estado = el("calfEst").querySelector(".on") ? el("calfEst").querySelector(".on").dataset.v : "Confirmada"; p.obs = el("calfObs").value;
+    const pv = String(el("calfPuesto").value || "").replace(/[^\d]/g, ""); p.puesto = pv === "" ? "" : Number(pv);
     FER3.sel = p.fecha;
     google.script.run.withSuccessHandler(function(r){ fin(r, r && r.fija ? "Guardada · se repite sola ✓" : r && r.dias ? "Feria guardada · " + r.dias + " días ✓" : "Feria guardada ✓"); }).withFailureHandler(function(){ fin(null); }).guardarAgendaFeria(a.nombre, a.pin, p);
   });
@@ -3748,7 +3968,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const a = auth(), b = el("calfDel"); if (!a || !gs()) return;
     if (!b.dataset.conf){ b.dataset.conf = 1; b.textContent = "Tocá de nuevo para borrarla"; setTimeout(function(){ delete b.dataset.conf; b.textContent = "Borrar esta feria"; }, 3000); return; }
     delete b.dataset.conf; b.textContent = "Borrando…";
-    const ok = function(r){ b.textContent = "Borrar esta feria"; if (r && r.status === "ok"){ showToast("Borrada"); lsSet("cal_cache", null); FER3.mes = {}; if (CAL.fija){ const nf = r.fijas; abrirCal(fDate(FER3.sel)); if (FER3.d) FER3.d.fijas = nf; CAL.d = Object.assign({}, CAL.d || {}, { fijas: nf }); calFijas(); } else calVolver(); } else showToast("No se pudo borrar", true); };
+    const ok = function(r){ b.textContent = "Borrar esta feria"; if (r && r.status === "ok"){ showToast("Borrada"); lsSet(calKey(), null); FER3.mes = {}; if (CAL.fija){ const nf = r.fijas; abrirCal(fDate(FER3.sel)); if (FER3.d) FER3.d.fijas = nf; CAL.d = Object.assign({}, CAL.d || {}, { fijas: nf }); calFijas(); } else calVolver(); } else showToast("No se pudo borrar", true); };
     if (CAL.fija) google.script.run.withSuccessHandler(ok).guardarFijasAgenda(a.nombre, a.pin, ((CAL.d && CAL.d.fijas) || []).filter(function(f){ return f.id !== CAL.fija.id; }));
     else google.script.run.withSuccessHandler(ok).guardarAgendaFeria(a.nombre, a.pin, { id: CAL.ed.id, borrar: true });
   });
@@ -3793,7 +4013,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function empezarSesion(feria, ubicacion){
     if (PREP){
       // no pisa la sesión de hoy: sesión de mentira solo en memoria, con la fecha de la feria
-      session = { vendedor: wizardAnswers.vendedor, feria: feria, ubicacion: ubicacion||"", dia: "prep-" + PREP.fecha, prep: PREP.fecha };
+      session = ubicNorm({ vendedor: wizardAnswers.vendedor, feria: feria, ubicacion: ubicacion||"", dia: "prep-" + PREP.fecha, prep: PREP.fecha });
       lsSet("prep_curso", { por: (auth() || {}).nombre || "", vendedor: session.vendedor, feria: feria, ubicacion: ubicacion || "", fecha: PREP.fecha, txt: PREP.txt, t: Date.now() });
       // 28/10 (Lucas 20:30): si ya estaba lista, la caja se muestra con «Editar» (no se carga dos veces, pero se puede cambiar)
       abrirApertura(function(){ abrirLlevo(true); });
@@ -3801,7 +4021,27 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     }
     guardarSesion({ vendedor: wizardAnswers.vendedor, feria: feria, ubicacion: ubicacion||"", dia: todayKey(), abriendo: !LOCAL });
     const m = lsGet("cf_dias", {}); m[String(new Date().getDay())] = { feria: feria, ubicacion: ubicacion||"" }; lsSet("cf_dias", m);
-    seguirApertura();
+    // 14/11 (Lucas 18:36 y 23:25): si esa feria ya la abrió alguien hoy (caja inicial de hoy, un cobro o el chequeo del canasto), te sumás:
+    // directo a cobrar, sin pedir cambio ni stock. Sirve para otra vendedora, para Lucas y para la misma vendedora desde otro celu.
+    if (LOCAL || !gs() || lsGet(aperturaKey(), null) !== null){ seguirApertura(); return; }
+    if (HOY_ABIERTA && HOY_SUG && HOY_SUG.feria === feria && (HOY_SUG.ubicacion || "") === (ubicacion || "")){ sumarseAbierta(HOY_ABIERTA); return; }
+    let resuelto = false;
+    const normal = function(){ if (resuelto) return; resuelto = true; seguirApertura(); };
+    setTimeout(normal, 9000);
+    showToast("Revisando si la feria ya está abierta…");
+    google.script.run.withSuccessHandler(function(r){
+      if (resuelto) return;
+      if (!r || r.status !== "ok" || !r.iniciada){ normal(); return; }
+      resuelto = true;
+      sumarseAbierta(r);
+    }).withFailureHandler(normal).feriaIniciada(feria, ubicacion || "");
+  }
+  function sumarseAbierta(r){
+    lsSet(aperturaKey(), Number(r.apertura) || 0);
+    lsSet(cnChkKey(), { stockOk: true, sumado: true });
+    const yo = String((session && session.vendedor) || "").toLowerCase(), q = String(r.quien || "");
+    showToast(q && q.toLowerCase() !== yo ? "Te sumás a la feria de " + q + " · vas directo a cobrar" : "La feria ya está abierta · seguís cobrando");
+    abrirLoop();
   }
   // 29/10 (Lucas 10:48): abrir la feria es un camino (chequeo → caja → stock → cobrar). Si en el medio se toca «atrás»,
   // no se salta a cobrar: queda «Seguir abriendo la feria» y retoma donde estaba.
@@ -3942,18 +4182,22 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   });
   el("apBack").addEventListener("click", function(){ if (PREP){ const p = PREP; startWizard(); PREP = p; return; } if (session && session.abriendo){ renderHome(); return; } startWizard(); });
   // 27/10 (v3): la feria de hoy sale del calendario (la de quien atiende; si es admin, la primera de hoy)
+  // 15/11 (Lucas 08:48): el calendario guardado en el celu es de CADA usuario (si Lucas entró como Sofía, a Julieta no le ofrece la feria de Sofía)
+  function calKey(){ return "cal_cache_" + String((auth() || {}).nombre || "").toLowerCase(); }
   function sugerenciaCalendario(){
-    const c = lsGet("cal_cache", null); if (!c || !c.ferias) return null;
+    const c = lsGet(calKey(), null); if (!c || !c.ferias) return null;
     const hoy = fStr(new Date()), quien = String(wizardAnswers.vendedor || (auth() || {}).nombre || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").slice(0, 4);
     const L = c.ferias.filter(function(x){ return x.fecha === hoy && x.estado !== "Suspendida" && !x.cerrada; });   // 29/10: la ya cerrada no se ofrece
     const mia = L.filter(function(x){ return String(x.vend || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z]+/).some(function(w){ return w && w.slice(0, 4) === quien; }); })[0];
-    const x = mia || (c.admin ? null : L[0]); if (!x) return null;
+    // sin la suya, solo una feria de hoy que no tenga a nadie asignado (nunca la de otra vendedora)
+    const x = mia || (c.admin ? null : L.filter(function(z){ return !String(z.vend || "").trim(); })[0]); if (!x) return null;
     const hs = function(h){ return String(h || "").replace(/:00$/, "").replace(/^0/, ""); };
     // 29/10: si la fila del calendario no dice qué feria es, se deduce del lugar / la zona (antes arrancaba siempre como «Sabe La Tierra»)
     const za = String((auth() || {}).zona || wizardAnswers.zona || "").toLowerCase();
     const fer = x.feria || (/bols|pagano|puelo/i.test(x.ubic || "") || /sur|f[aá]brica|bols/.test(za) ? "Feria El Bolsón" : "Sabe La Tierra");
-    return { feria: fer, ubicacion: FERIAS_SIN_UBICACION.indexOf(fer) !== -1 && !x.ubic ? "" : x.ubic, hora: x.desde ? hs(x.desde) + " a " + hs(x.hasta) + " h" : "" };
+    return { feria: fer, ubicacion: FERIAS_SIN_UBICACION.indexOf(fer) !== -1 && !x.ubic ? (UBIC_FIJA[fer] || "") : x.ubic, hora: x.desde ? hs(x.desde) + " a " + hs(x.hasta) + " h" : "" };
   }
+  let WIZ_CAL_PEND = false;
   function renderWizardStep(i){
     if (i >= wizardSteps.length){ empezarSesion(wizardAnswers.feria, wizardAnswers.ubicacion); return; }
     const step = wizardSteps[i];
@@ -3965,9 +4209,17 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const sug = sugCal || (step.key === "feria" && !PREP ? sugerenciaDelDia() : null);
     el("stepEyebrow").textContent = PREP ? "Dejar lista la feria" + (PREP.txt ? " · " + PREP.txt : "") : "Arrancar feria";
     el("sugerido").hidden = !sug;
-    if (sug){
+    // 13/11 (Julieta, link nuevo): si el calendario todavía no llegó al celu, se pide y la feria de hoy aparece apenas llega (antes no sugería nada)
+    if (step.key === "feria" && !PREP && !sugCal && !lsGet(calKey(), null) && gs()){
+      el("sugerido").hidden = false; el("sugerido").onclick = null;
+      el("sugeridoGo").hidden = true;
+      el("sugeridoEy").textContent = "Buscando la feria de hoy en el calendario…"; el("sugeridoTxt").textContent = sug ? sug.feria + (sug.ubicacion ? " · " + sug.ubicacion : "") : "un momento";
+      if (!WIZ_CAL_PEND){ WIZ_CAL_PEND = true; const tit = step.title;
+        calTraer("", "", function(){ WIZ_CAL_PEND = false; if (SCREENS.config && !SCREENS.config.hidden && el("stepTitle").textContent === tit && lsGet(calKey(), null)) renderWizardStep(i); }); }
+    }
+    if (sug && !(step.key === "feria" && !PREP && !sugCal && !lsGet(calKey(), null) && gs())){
       el("sugeridoEy").textContent = sugCal ? "Según el calendario de hoy" + (sugCal.hora ? " · " + sugCal.hora : "") : "Como el último " + DIAS[new Date().getDay()];
-      el("sugeridoTxt").textContent = sug.feria + (sug.ubicacion ? " · " + sug.ubicacion : "");
+      el("sugeridoTxt").textContent = sug.feria + (sug.ubicacion ? " · " + sug.ubicacion : ""); el("sugeridoGo").hidden = false;
       el("sugerido").onclick = function(){ wizardAnswers.feria = sug.feria; wizardAnswers.ubicacion = sug.ubicacion; empezarSesion(sug.feria, sug.ubicacion); };
     }
     const grid = el("choiceGrid"); grid.innerHTML = "";
@@ -4022,7 +4274,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // ---- cola de envío (funciona sin señal) ----
   function getQueue(){ return lsGet("cf_queue", []); }
   function setQueue(q){ lsSet("cf_queue", q); }
-  function removeFromQueue(id){ setQueue(getQueue().filter(function(x){ return x.id !== id; })); }
+  function removeFromQueue(id){ pendSubido("cf_queue:" + id); setQueue(getQueue().filter(function(x){ return x.id !== id; })); }
   let sending = false, sendingDesde = 0;
   // (20/10) si el celu cortó la conexión (cambio a WhatsApp, sin señal) la respuesta puede no llegar nunca:
   // a los 40 s se da por perdida y se reintenta (el servidor no duplica: busca el mismo ID)
@@ -4057,6 +4309,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   window.addEventListener("online", flushQueue);
   setInterval(flushQueue, 30000);
+  // 13/11: al abrir, se recupera lo pendiente de cualquiera de las copias (localStorage / IndexedDB) y se manda
+  pendRecuperar(function(){ try { renderTotal(); flushQueue(); flushAnul(); flushCierre(); } catch(e){} });
+  function pendAvisoMal(){ try { if (PEND_MAL.cf_queue || PEND_MAL.cf_cierre_pend) renderTotal(); } catch(e){} }
   // al volver a la app (después de WhatsApp, etc.) se sube lo pendiente y se actualiza el total enseguida
   document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible"){ flushQueue(); if (session && !SCREENS.loop.hidden) refreshTotal(); } });
 
@@ -4099,7 +4354,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (allPend){
       st.className = "sync wait"; st.textContent = "";
       banner.hidden = false;
-      banner.textContent = "⚠ " + allPend + " movimiento" + (allPend===1?"":"s") + " sin subir a la planilla. No cierres la app: se suben solos cuando vuelve la señal.";
+      banner.textContent = "⚠ " + allPend + " sin subir. Quedan guardados en el celu (aunque cierres o recargues la app) y se suben solos cuando vuelve la señal."
+        + (PEND_MAL.cf_queue ? " ⚠ El celu no deja guardar: no borres los datos de la app y avisale a Lucas." : "");
     } else {
       banner.hidden = true;
       st.className = srv ? "sync ok" : "sync wait";
@@ -4187,10 +4443,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function pintaLlevo(){
     const list = el("llList"); list.innerHTML = "";
     el("llPorSab").hidden = !LL.items.length;
-    // 29/10 (Lucas 21:50): con la lista vacía, los sabores ya abiertos para cargar a mano (antes había que encontrar «+ Otro producto»)
-    if (!LL.items.length && el("llAdd").hidden && !LL.sabor){ el("llAdd").hidden = false; el("llOtro").textContent = "Listo, cerrar"; el("llOtro").hidden = true; }
+    // 29/10 (Lucas 21:50): con la lista vacía, los sabores ya abiertos para cargar a mano (antes había que encontrar «+ Agregar más productos»)
+    if (!LL.items.length && el("llAdd").hidden && !LL.sabor){ el("llAdd").hidden = false; el("llOtro").textContent = "✓ Listo, no agrego más"; el("llOtro").hidden = true; }
     else if (LL.items.length) el("llOtro").hidden = false;
-    if (!LL.items.length) list.innerHTML = '<div class="empty" style="font-size:16px">' + (LL.refuerzo ? 'Tocá "+ Otro producto" y elegí qué llega de refuerzo' : LL.cero ? 'Empezás de cero: tocá un sabor y elegí cuántos de cada tamaño' : (LL.sug || LL.rec || LL.vol ? 'Usá una opción de arriba o tocá «✏️ Cargar producto por producto» para empezar de cero' : 'Tocá «✏️ Cargar producto por producto» y elegí qué llevás')) + '</div>';
+    if (!LL.items.length) list.innerHTML = '<div class="empty" style="font-size:16px">' + (LL.refuerzo ? 'Tocá "+ Agregar más productos" y elegí qué llega de refuerzo' : LL.cero ? 'Empezás de cero: tocá un sabor y elegí cuántos de cada tamaño' : (LL.sug || LL.rec || LL.vol ? 'Usá una opción de arriba o tocá «✏️ Cargar producto por producto» para empezar de cero' : 'Tocá «✏️ Cargar producto por producto» y elegí qué llevás')) + '</div>';
     else if (LL.refuerzo){
       const h = document.createElement("div"); h.className = "pre-ll";
       h.innerHTML = '<span class="hint">Esto <b>se suma</b> a lo que ya llevaste hoy. Elegí abajo lo que llega de refuerzo. Si algo figura sin stock te deja sumarlo igual (queda marcado para revisar).</span>';
@@ -4252,7 +4508,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     LL.items.forEach(function(it){ if (!it.cant) return; const pr = LL.prods.filter(function(x){ return x.sku === it.sku; })[0]; const k = pr ? tamDe(pr) : it.nombre; if (!porT[k]){ porT[k] = 0; orden.push(k); } porT[k] += it.cant; });
     el("llTot").hidden = !orden.length || !!LL.refuerzo;
     el("llTotP").innerHTML = orden.map(function(k){ return '<span><b>' + porT[k] + '</b> × ' + esc(k) + '</span>'; }).join("");
-    el("llOk").textContent = (PREP ? prepOkTxt() : (LL.refuerzo ? "Sumar refuerzo" : (LL.edit ? "Guardar cambios" : (LL.inicio ? "✓ Listo, a vender" : "Guardar"))));
+    // 15/11 (Lucas 20:28): abriendo el stock del día sin tocar nada, el botón no dice «Guardar cambios» (confundía): dice «✓ Está bien así»
+    const sinCambios = LL.edit && llFirma(LL.items) === llBaseFirma();
+    el("llOk").textContent = sinCambios ? (PREP ? "✓ Está bien así" : "✓ Está bien así · volver") : (PREP ? prepOkTxt() : (LL.refuerzo ? "Sumar refuerzo" : (LL.edit ? "Guardar cambios" : (LL.inicio ? "✓ Listo, a vender" : "Guardar"))));
     llDraftGuardar();
   }
   // frascos sueltos que quedan libres, descontando lo elegido suelto y lo que se va en combos
@@ -4361,7 +4619,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 29/10 (Lucas 12:15): guardar nunca se traba por el stock, el canasto ni productos con «hay 0». Si algo falta, dice qué.
   function llFin(){ guardandoLL = false; el("llOk").style.opacity = 1; }
   function llNoGuardo(r, txt){ llFin(); showToast((r && r.msg) || txt || "No se pudo guardar · probá de nuevo", true); }
+  // 15/11 (Sofi 11:18 y Juli 12:24: «Guardar cambios» llegó sin el cambio): si el número se escribió con el teclado y se tocó Guardar
+  // sin cerrar el teclado, el número todavía no estaba tomado. Antes de guardar se cierra el teclado (así se toma lo escrito).
+  function tomarEscrito(){ const a = document.activeElement; if (a && a.classList && a.classList.contains("stp-n")) a.blur(); }
   el("llOk").addEventListener("click", function(){
+    tomarEscrito();
     if (guardandoLL || !LL) return;
     if (!LL.ok){ showToast(LL.err ? "No se pudo leer el stock (sin señal): tocá «Atrás» y volvé a entrar" : "Esperá: estoy trayendo el stock", true); return; }
     const pedFalta = PED_LL.filter(function(p){ return !PED_OK[p.id]; });
@@ -4374,19 +4636,28 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       guardandoLL = true; el("llOk").style.opacity = .6;
       google.script.run.withSuccessHandler(function(r){
         guardandoLL = false; el("llOk").style.opacity = 1;
-        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); showToast("Refuerzo sumado ✓"); abrirLoop(); }
+        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); showToast("Refuerzo sumado ✓"); abrirLoop(); }
         else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
         else llNoGuardo(r);
       }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
-        .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, refuerzo: true });
+        .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, refuerzo: true, idApp: llIdApp(items) });
       return;
     }
     const fechaP = PREP ? PREP.fecha : null;
+    // 16/11 (Lucas): arrancando de «lo que volvió», antes de guardar se muestra qué sumaste o sacaste (así se ve si falta algo, ej. las 2 moras)
+    if (!LL.edit && LL.pre && LL.pre.vol && LL.vol && !LL.resumenOk){ llResumenVolvio(items); return; }
     if (LL.edit){
+      // qué cambió respecto de lo que estaba guardado (para que se vea al toque si se tomó o no)
+      const antes = {}; (LL.ya || []).forEach(function(x){ antes[x.sku] = { n: Number(x.cant) || 0, nom: x.nombre }; });
+      const ahora = {}; items.forEach(function(x){ ahora[x.sku] = { n: x.cant, nom: x.nombre }; });
+      const dif = Object.keys(Object.assign({}, antes, ahora)).filter(function(k){ return (antes[k] || {}).n !== (ahora[k] || {}).n; })
+        .map(function(k){ return ((ahora[k] || antes[k]).nom || k) + " " + ((antes[k] || {}).n || 0) + " → " + ((ahora[k] || {}).n || 0); });
+      if (!dif.length){ lsSet(llDraftKey(), null); if (PREP) terminarPrep(); else abrirLoop(); return; }   // nada que guardar
+      var cambiosTxt = dif.length ? "Guardado ✓ " + dif.slice(0, 3).join(" · ") + (dif.length > 3 ? " y " + (dif.length - 3) + " más" : "") : "";
       guardandoLL = true; el("llOk").style.opacity = .6;
       google.script.run.withSuccessHandler(function(r){
         guardandoLL = false; el("llOk").style.opacity = 1;
-        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); if (PREP) terminarPrep(); else { showToast("Stock corregido ✓"); abrirLoop(); } }
+        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); if (PREP) terminarPrep(); else { showToast(cambiosTxt || "Stock corregido ✓"); abrirLoop(); } }
         else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
         else llNoGuardo(r);
       }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
@@ -4396,14 +4667,40 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     guardandoLL = true; el("llOk").style.opacity = .6;
     google.script.run.withSuccessHandler(function(r){
       guardandoLL = false; el("llOk").style.opacity = 1;
-      if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); if (PREP) terminarPrep(); else { showToast("Stock cargado ✓"); abrirLoop(); } }
+      if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); if (PREP) terminarPrep(); else { showToast("Stock cargado ✓"); abrirLoop(); } }
       else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
       else llNoGuardo(r);
     }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
-      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP });
+      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP, idApp: llIdApp(items) });
   });
+  function llResumenVolvio(items){
+    const base = {}, ahora = {}, nom = {};
+    (LL.vol.items || []).forEach(function(x){ base[x.sku] = (base[x.sku] || 0) + (Number(x.cant) || 0); nom[x.sku] = x.nombre || nom[x.sku]; });
+    items.forEach(function(x){ ahora[x.sku] = (ahora[x.sku] || 0) + x.cant; nom[x.sku] = x.nombre || nom[x.sku]; });
+    const L = Object.keys(Object.assign({}, base, ahora)).map(function(k){ return { k: k, d: (ahora[k] || 0) - (base[k] || 0) }; }).filter(function(x){ return x.d; })
+      .sort(function(a, b){ return b.d - a.d; });
+    const ov = document.createElement("div");
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+    ov.innerHTML = '<div style="background:var(--bg);border-radius:22px 22px 0 0;padding:18px 16px 22px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:12px">'
+      + '<b style="font-size:19px">Antes de guardar</b><span class="hint">Sobre lo que volvió el ' + esc(String(LL.vol.fecha || "").slice(0, 5)) + ' de ' + esc(String(LL.vol.feria || "").split(" · ").pop()) + ':</span>'
+      + (L.length ? '<div style="display:flex;flex-direction:column;gap:6px">' + L.map(function(x){ return '<div style="display:flex;justify-content:space-between;gap:10px;background:var(--surface);border-radius:12px;padding:10px 12px;font-size:16px"><span>' + esc(nom[x.k] || x.k) + '</span><b style="color:' + (x.d > 0 ? 'var(--good)' : 'var(--warn)') + '">' + (x.d > 0 ? '+' : '−') + Math.abs(x.d) + '</b></div>'; }).join("") + '</div>'
+        : '<div style="background:var(--surface);border-radius:12px;padding:12px;font-size:16px">No sumaste ni sacaste nada: queda igual que lo que volvió.</div>')
+      + '<span class="hint">¿Falta algo? Tocá «Corregir» y sumalo.</span>'
+      + '<div class="row2"><div class="btn2" id="llResNo">Corregir</div><div class="btn" id="llResSi">✓ Sí, guardar</div></div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector("#llResNo").onclick = function(){ ov.remove(); };
+    ov.querySelector("#llResSi").onclick = function(){ ov.remove(); LL.resumenOk = true; el("llOk").click(); };
+  }
+  // 13/11: el mismo guardado (mismos productos, misma feria) lleva el mismo número: si se reintenta o se toca dos veces, el servidor lo suma una sola vez.
+  // Cambia apenas se guardó bien (otro refuerzo después = otro número).
+  function llIdApp(items){
+    const firma = JSON.stringify([session && session.feria, session && session.ubicacion, PREP ? PREP.fecha : todayKey(), LL && LL.refuerzo ? 1 : 0, (items || []).map(function(x){ return [x.sku, x.cant]; })]);
+    const g = lsGet("ll_idapp", null);
+    if (g && g.f === firma) return g.id;
+    const id = makeId(); lsSet("ll_idapp", { f: firma, id: id }); return id;
+  }
   el("llSkip").addEventListener("click", function(){ if (PREP) terminarPrep(); else abrirLoop(); });
-  el("llOtro").addEventListener("click", function(){ el("llAdd").hidden = !el("llAdd").hidden; if (el("llAdd").hidden){ LL.sabor = null; el("screen-llevo").classList.remove("ll-foco"); } el("llOtro").textContent = el("llAdd").hidden ? "+ Otro producto" : "Listo, cerrar"; if (!el("llAdd").hidden) setTimeout(function(){ el("llAdd").scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 50); });
+  el("llOtro").addEventListener("click", function(){ el("llAdd").hidden = !el("llAdd").hidden; if (el("llAdd").hidden){ LL.sabor = null; el("screen-llevo").classList.remove("ll-foco"); } el("llOtro").textContent = el("llAdd").hidden ? "+ Agregar más productos" : "✓ Listo, no agrego más"; if (!el("llAdd").hidden) setTimeout(function(){ el("llAdd").scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 50); });
   // 28/10 (mockup): "El jueves pasado acá llevaste…" con lo que llevó por presentación y "↻ Llevar lo mismo"
   // base: lo mismo que se llevó la última vez a esta feria (en el orden de siempre); se ajusta a mano o se usa la recomendación
   // ---- borrador de «¿Qué llevás?» (por feria y día): si sale a la mitad, al volver se le ofrece seguir ----
@@ -4463,7 +4760,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       box.hidden = true; pintaLlevo(); showToast("Cargué lo mismo · ajustá lo que cambie");
     });
   }
-  // 30/10 (Lucas): opción clara de empezar de cero (antes solo estaba «+ Otro producto» abajo)
+  // 30/10 (Lucas): opción clara de empezar de cero (antes solo estaba «+ Agregar más productos» abajo)
   const LL_CERO = '<div class="btn2" id="llCero" style="margin-top:10px">✏️ Empezar de cero · elijo producto por producto</div>';
   function llCeroBind(box){
     const b = el("llCero"); if (!b) return;
@@ -4561,6 +4858,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     return cob > 0 && llev > 0 && vol >= llev ? cob : false;
   }
   el("voOk").addEventListener("click", function(){
+    tomarEscrito();
     const sc = voSinContar();
     if (sc){ showToast("Hiciste " + sc + " cobro" + (sc === 1 ? "" : "s") + " pero figura que volvió todo. Bajá con − los frascos que se vendieron.", true); return; }
     if (FS.cierre){ guardarConteo(); cnAntesDeRevision(); return; }
@@ -5143,6 +5441,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       + '<br>× ' + (l.precio ? fm2(l.precio) + ' el litro (ticket ' + esc(l.zona) + ' del ' + esc(String(l.precioFecha).slice(0, 5)) + ')' : 'falta un ticket de combustible con litros')
       + '<br>+ ' + nr(l.mantPct, 1) + ' % de mantenimiento (mantenimiento vehicular ÷ nafta, últimos 3 meses)'
       + (l.comparten > 1 ? '<br>÷ ' + l.comparten + ' ferias ese día (comparten el viaje)' : '')
+      + (l.alMinimo ? '<br>= ' + fm2(l.calculado) + ' → <b>se toma el mínimo de ' + fm2(l.minimo) + '</b> (ninguna feria cuesta menos: ida, vuelta y el tiempo)' : '')
       + '<div style="display:flex;gap:6px;align-items:center;margin-top:8px"><input class="em-inp" id="lgKm" inputmode="decimal" placeholder="km por vuelta" style="height:44px;max-width:150px"><span class="chip" id="lgKmOk" style="height:44px">Corregir km</span></div></div>';
     return h;
   }
@@ -5223,7 +5522,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     box.innerHTML = '<span class="ey">Pago a vendedoras</span>' + ls.map(function(x, i){
       const sg = x.sugerido, deu = (x.deudas || []).reduce(function(a, d){ return a + d.monto; }, 0), tot = x.falta + deu;
       let h = '<div style="display:flex;flex-direction:column;gap:3px;padding:6px 0;border-bottom:1px solid var(--line)"><b style="font-size:15px">' + esc(x.vendedora) + ' <small style="color:var(--ink-soft);font-weight:600;font-size:15px">vendió ' + formatMoney(x.vendido) + '</small></b>'
-        + filaR("Día", formatMoney(sg.dia)) + (sg.comision ? filaR("Comisión " + sg.pct + " %", formatMoney(sg.comision)) : (sg.min && !sg.llega ? '<span class="hint">No llegó a ' + formatMoney(sg.min) + ' para la comisión</span>' : ''))
+        + filaR("Día" + (sg.horas && sg.horas !== 8 ? " (" + String(sg.horas).replace(".", ",") + " h)" : ""), formatMoney(sg.dia)) + (sg.comision ? filaR("Comisión " + sg.pct + " %", formatMoney(sg.comision)) : (sg.min && !sg.llega ? '<span class="hint">No llegó a ' + formatMoney(sg.min) + ' para la comisión</span>' : ''))
+        + (sg.bono ? filaR("+ " + esc(sg.bonoMotivo || "Bono"), formatMoney(sg.bono)) : '')
         + (x.descuento ? filaR("− Lo que sacó (comida / personal)", "− " + formatMoney(x.descuento), "neg") : '')
         + (x.pagado ? filaR("− Ya pagado", "− " + formatMoney(x.pagado), "neg") : '')
         + (x.deudas || []).map(function(d){ return filaR("+ Quedó sin pagar " + esc(d.feria) + " " + esc(d.fecha.slice(0,5)), formatMoney(d.monto)); }).join("")
@@ -5716,7 +6016,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     google.script.run.withSuccessHandler(function(r){
       anulando = false;
       const ok = r && (r.status === 'ok' || r.status === 'not_found');
-      if (ok || (r && r.status === 'denegado' && Date.now() - x.t > 86400000)) { lsSet("cf_anul_pend", lsGet("cf_anul_pend", []).filter(function(y){ return y.id !== x.id; })); refreshTotal(); flushAnul(); }
+      if (ok || (r && r.status === 'denegado' && Date.now() - x.t > 86400000)) { pendSubido("cf_anul_pend:" + x.id); lsSet("cf_anul_pend", lsGet("cf_anul_pend", []).filter(function(y){ return y.id !== x.id; })); refreshTotal(); flushAnul(); }
       else if (r && r.status === 'denegado') showToast((r.msg || "No se pudo anular") + " · avisale a Lucas o Adriana", true);
     }).withFailureHandler(function(){ anulando = false; }).anularCobro(x.id, a.nombre, a.pin, x.origen === "Lista" ? "Cola" : x.origen);
   }
@@ -6006,15 +6306,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     let n = 0;
     const pinta = function(){
       if (SCREENS.home.hidden) return;
-      box.innerHTML = ""; let hay = false;
+      box.innerHTML = ""; let nRep = 0, nNo = 0;
       zonas.forEach(function(z){
         const r = R[z]; if (!r || r.status !== "ok") return;
         const zt = zonas.length > 1 ? cnZonaTxt(r.zona) : "";
-        const h = cnNoLlegoHtml(r.noLlego, zt) + (r.canastos || []).map(function(c, i){ return cnTk(c, i, zt); }).join("");
-        if (!h) return;
-        const w = document.createElement("div"); w.style.cssText = "display:contents"; w.innerHTML = h; box.appendChild(w); cnBindTk(w, r); hay = true;
+        // 14/11 (Lucas 21:34): los canastos ya no se listan en el inicio; el botón «🧺 Canastos» dice cuántos hay que reponer
+        nRep += (r.canastos || []).filter(function(c){ return cnReponerN(c) > 0; }).length; nNo += (r.noLlego || []).length;
       });
-      box.hidden = !hay;
+      box.hidden = true;
+      tl3(el("homeCan"), "🧺", "Canastos", nNo ? "⚠ " + nNo + " no llegó" + (nRep ? " · " + nRep + " para reponer" : "") : (nRep ? nRep + " para reponer" : "están completos"), !!(nNo || nRep));
     };
     zonas.forEach(function(z){
       google.script.run.withSuccessHandler(function(r){ R[z] = r; if (++n === zonas.length) pinta(); })
@@ -6290,7 +6590,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const faltaM = Math.max(0, c.muestrasMax - c.muestras);
     let h = (c.faltan.length || c.reponer.length || faltaM) ? '<div class="cn-av">Antes de llevarlo, reponé:</div>' : '<div class="cn-av ok">✓ El ' + esc(c.nombre) + ' está completo.</div>';
     h += c.faltan.map(function(sb){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(sb) + ' 40 g</b><span>degustación · falta</span></span><button type="button" class="ok" data-su="' + esc(sb) + '">+ Sumar</button></div>'; }).join("");
-    h += c.ins.filter(function(x){ return x.estado !== "ok"; }).map(function(x){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(x.nombre) + '</b><span>' + CN_EST[x.estado] + ' · ' + esc(x.pres) + '</span></span><button type="button" class="ok" data-ri="' + x.id + '">+ Repuse</button></div>'; }).join("");
+    h += c.ins.filter(function(x){ return x.estado !== "ok"; }).map(function(x){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(x.nombre) + '</b><span>' + CN_EST[x.estado] + ' · ' + esc(x.pres) + '</span></span><span class="cn-bt2"><button type="button" class="ok" data-ri="' + x.id + '">+ Repuse</button><button type="button" class="des" data-de="' + x.id + '">Desestimar</button></span></div>'; }).join("");
     if (faltaM) h += '<div class="cn-fil falta"><span class="t"><b>Mostrador: falta' + (faltaM > 1 ? 'n ' : ' ') + faltaM + ' combo' + (faltaM > 1 ? 's' : '') + ' de 6 minis</b><span>se vendi' + (faltaM > 1 ? 'eron' : 'ó') + '</span></span><button type="button" class="ok" data-mu="1">+ Repuse</button></div>';
     if (c.muestras) h += '<span class="hint">Mostrador: ' + cnMostr(c.muestras) + ', ya sumados en lo que llevás (se pueden vender).</span>';
     box.innerHTML = h;
@@ -6302,6 +6602,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     Array.prototype.forEach.call(box.querySelectorAll("[data-ri]"), function(b){ b.addEventListener("click", function(){ b.disabled = true; b.textContent = "…";
       google.script.run.withSuccessHandler(function(r){ done(r, "Repuesto ✓"); }).withFailureHandler(function(){ showToast("Sin señal", true); })
         .canastoReponer({ canasto: c.id, tipo: "ins", id: b.dataset.ri, cant: 1, quien: quien, puesto: session.ubicacion || session.feria, idApp: makeId() }); }); });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-de]"), function(b){ b.addEventListener("click", function(){ b.disabled = true; b.textContent = "…";
+      google.script.run.withSuccessHandler(function(r){ done(r, "Desestimado · no toca el stock"); }).withFailureHandler(function(){ showToast("Sin señal", true); })
+        .canastoReponer({ canasto: c.id, tipo: "desestimar", id: b.dataset.de, quien: quien, puesto: session.ubicacion || session.feria, idApp: makeId() }); }); });
     Array.prototype.forEach.call(box.querySelectorAll("[data-mu]"), function(b){ b.addEventListener("click", function(){ b.disabled = true; b.textContent = "…";
       google.script.run.withSuccessHandler(function(r){ done(r, "Muestra repuesta ✓"); setTimeout(function(){ cnLlevoMuestras(cnLlevoSel()); }, 1500); }).withFailureHandler(function(){ showToast("Sin señal", true); })
         .canastoReponer({ canasto: c.id, tipo: "muestra", cant: 1, quien: quien, puesto: session.ubicacion || session.feria, idApp: makeId() }); }); });
@@ -6531,7 +6834,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     // 12/11: stock + caja en un solo pedido (cerrarFeria): si llega a Google, queda todo cerrado aunque no vuelva la respuesta
     google.script.run.withSuccessHandler(function(res){
       fin();
-      if (res && res.status === "ok"){ cierrePendSet(cierrePend().filter(function(y){ return y.k !== x.k; })); showToast("✓ Se mandó el cierre de " + (x.caja.ubicacion || x.caja.feria)); flushCierre(); }
+      if (res && res.status === "ok"){ pendSubido("cf_cierre_pend:" + x.k); cierrePendSet(cierrePend().filter(function(y){ return y.k !== x.k; })); showToast("✓ Se mandó el cierre de " + (x.caja.ubicacion || x.caja.feria)); flushCierre(); }
     }).withFailureHandler(fin).cerrarFeria({ stock: x.stock && !x.stockOk ? x.stock : null, caja: x.caja });
   }
   window.addEventListener("online", flushCierre); setInterval(flushCierre, 15000);
@@ -7121,7 +7424,7 @@ window.SSV = (function(){
     $("ssvSum").hidden = !n;
     if (n){
       let h = '<span>Salen del stock de <b>' + esc(S.dep) + '</b>: ' + esc(porPres_(S.items)) + '</span>';
-      if (S.motivo === "Me lo llevo yo") h += '<span>🙋 Se descuenta de lo que te pagan por esta feria, al costo del frasco (no al precio de venta). Al cerrar, no cuenta como vendido.</span>';
+      if (S.motivo === "Me lo llevo yo") h += '<span>🙋 Se descuenta de lo que te pagan por esta feria, a precio empleado (más barato que en la feria). Hasta 4 frascos por feria. Al cerrar, no cuenta como vendido.</span>';
       if (D.admin){ const c = S.items.reduce(function(t, it){ const p = D.productos.filter(function(x){ return x.sku === it.sku; })[0]; return t + (p ? costoDe(p) : 0) * (Number(it.cant)||0); }, 0);
         h += '<span>Costo (va a "' + esc(LBL[S.motivo] || "Salidas") + '" en la rentabilidad del mes): <b>' + plata(c) + '</b></span>'; }
       $("ssvSum").innerHTML = h;
@@ -7168,6 +7471,7 @@ window.SSV = (function(){
     const p = { dep: S.dep, motivo: S.motivo, items: S.items.map(function(it){ return { sku: it.sku, cant: it.cant }; }), desde: S.desde, feria: S.feria || "", ubicacion: S.ubicacion || "", fecha: S.fecha || "", nota: $("ssvNota").value.trim() };
     run("guardarSalidaSinVenta", [p]).then(function(r){
       busy = false;
+      if (r && r.status === "ok" && r.descEmpleado){ try { const b = document.createElement("div"); b.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:18px;z-index:9999;background:#17283a;color:#8cc8ff;border:2px solid #8cc8ff;border-radius:16px;padding:14px 16px;font-weight:800;font-size:16px;line-height:1.35;box-shadow:0 6px 24px rgba(0,0,0,.5)"); b.innerHTML = "🙋 Descuento empleado: $ " + Number(r.descEmpleado).toLocaleString("es-AR", { maximumFractionDigits: 0 }) + '<br><span style="font-weight:600;font-size:14px">Se descuenta de lo que te pagamos por esta feria</span>'; b.addEventListener("click", function(){ b.remove(); }); document.body.appendChild(b); setTimeout(function(){ b.remove(); }, 9000); } catch (e) {} }   // 13/11 (Lucas)
       if (r && r.status === "ok"){ aviso("Salida guardada · " + porPres_(p.items.map(function(x){ const it = S.items.filter(function(y){ return y.sku === x.sku; })[0]; return { sku: x.sku, nombre: it ? it.nombre : x.sku, cant: x.cant }; })) + " menos en " + r.dep); S.items = []; $("ssvNota").value = ""; recargar(); if (typeof S.listo === "function") S.listo(r); }
       else { aviso((r && r.msg) || "Sin señal: no se guardó", true); pintar(); }
     });

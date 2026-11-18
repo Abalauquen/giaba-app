@@ -1259,7 +1259,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 .pa-card.w{border-color:#6b4a1e}.pa-card.r{border-color:#6b2a2a}.pa-card.g{border-color:#2f6b3e}
 .pa-ct{font-weight:800;font-size:17px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .pa-tb{width:100%;border-collapse:collapse;font-size:15px}.pa-tb td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}.pa-tb td:last-child{text-align:right;white-space:nowrap;padding-left:10px}
-.pa-tb tr:last-child td{border-bottom:0;font-weight:800}
+.pa-tb tr:last-child td{border-bottom:0;font-weight:800}.pa-tb.pa-g tr:last-child td{font-weight:inherit}
 .pa-ln{font-size:15px;color:var(--ink-mid);line-height:1.4}.pa-ln b{color:var(--ink)}
 .pa-why{font-size:13.5px;color:var(--ink-soft);line-height:1.4;border-top:1px dashed var(--line-2);padding-top:8px}
 .pa-row{display:flex;gap:8px;flex-wrap:wrap}.pa-row .btn{flex:1;min-width:120px;min-height:50px;font-size:16px}
@@ -1421,15 +1421,22 @@ function paCargar(){
   });
 }
 const paTag = a => a.tipo === "publicacion" ? `<span class="tag ${a.queda_pct < 10 ? "r" : "w"}">deja ${Math.round(a.queda_pct)} %</span>`
-  : a.tipo === "desparejo" ? '<span class="tag w">más barato que la manga</span>'
+  : a.tipo === "falta" ? '<span class="tag b">no está en la lista</span>'
+  : a.tipo === "desparejo" ? (a.detalle && a.detalle.alt ? `<span class="tag w">manga ${a.sugerido < a.actual ? "cara" : "barata"} vs. frasco</span>` : '<span class="tag w">más barato que la manga</span>')
   : a.detalle && a.detalle.bajoCosto ? '<span class="tag r">bajo el costo</span>' : `<span class="tag w">margen bajo</span>`;
 function paTarjeta(a){
   const d = a.detalle || {}, mal = a.tipo === "publicacion" ? a.queda_pct < 10 : !!d.bajoCosto;
   let h = `<div class="pa-card ${mal ? "r" : "w"}" id="pa-${esc(a.id).replace(/[^\w-]/g, "_")}"><div class="pa-ct"><span>${esc(a.titulo)}</span>${paTag(a)}</div>`;
   h += `<table class="pa-tb">${(d.lineas || []).map(l => `<tr><td>${esc(l[0])}</td><td>${f0(l[1])}</td></tr>`).join("")}</table>`;
   if (d.contiene) h += `<div class="pa-ln" style="font-size:13.5px">Trae: ${esc(d.contiene)}</div>`;
-  h += `<div class="pa-ln">${esc(d.texto || "")} → precio sugerido <b>${f0(a.sugerido)}</b> (${a.sugerido >= a.actual ? "+" : ""} ${f0(a.sugerido - a.actual)})</div>`;
-  h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">Subir a ${f0(a.sugerido)}</button><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
+  if (d.alt){   // 18/11: manga y frasco ligados: mover uno o el otro
+    h += `<div class="pa-ln">${esc(d.texto || "")}</div>`;
+    h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">Manga a ${f0(a.sugerido)}</button><button class="btn y" onclick="paMandar(${A(a.id)}, 'aplicarAlt', ${d.alt.precio}, '')">Frasco 3,7 kg a ${f0(d.alt.precio)}</button></div>`;
+    h += `<div class="pa-row"><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio (manga)</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
+  } else {
+    h += `<div class="pa-ln">${esc(d.texto || "")}${a.actual ? ` → precio sugerido <b>${f0(a.sugerido)}</b> (${a.sugerido >= a.actual ? "+" : ""} ${f0(a.sugerido - a.actual)})` : ""}</div>`;
+    h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">${a.actual ? "Subir" : "Agregarlo"} a ${f0(a.sugerido)}</button><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
+  }
   h += `<div class="pa-x" hidden></div>`;
   h += `<div class="pa-why">Si elegís «Dejarlo así» no te lo vuelvo a preguntar hasta que el costo cambie más de un 5 %.${d.link ? ` · <a href="${esc(d.link)}" target="_blank" style="color:var(--blue)">ver publicación</a>` : ""}</div></div>`;
   return h;
@@ -1444,7 +1451,7 @@ function paPint(){
   }
   if (!L.length) h += `<div class="empty">Nada para revisar 👌</div>`;
   // juntas por tipo: publicaciones · listas · desparejos
-  const G = [["publicacion", "Tienda Nube y Mercado Libre"], ["margen", "Listas mayoristas"], ["desparejo", "Desparejos entre tamaños"]];
+  const G = [["publicacion", "Tienda Nube y Mercado Libre"], ["margen", "Listas mayoristas"], ["desparejo", "Manga 4 kg y frasco 3,7 kg"], ["falta", "Faltan en la lista"]];
   // 18/11: las listas del mismo producto van juntas en una tarjeta («te las muestra juntas para cambiarlas de una», mockup)
   G.forEach(g => { const X = L.filter(a => a.tipo === g[0]); if (!X.length) return;
     h += `<div class="grp">${g[1]} · ${X.length}</div>`;
@@ -1462,11 +1469,16 @@ function paGrupo(k, X){
   const prod = String(X[0].titulo).split(" · ")[0], mal = X.some(a => a.detalle && a.detalle.bajoCosto), d0 = X[0].detalle || {};
   const tot = X.reduce((t, a) => t + (a.sugerido - a.actual), 0), meta = X.some(a => a.detalle && a.detalle.meta && a.detalle.meta > a.sugerido);
   let h = `<div class="pa-card ${mal ? "r" : "w"}" id="pag-${esc(k).replace(/[^\w-]/g, "_")}"><div class="pa-ct"><span>${esc(prod)}</span>${paTag(X[0])}</div>`;
-  h += `<table class="pa-tb"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">hoy → sugerido</td></tr>` + X.map(a => `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b></td></tr>`).join("") + `</table>`;
-  if (X[0].tipo === "desparejo"){ const mg = (d0.lineas || [])[0]; h += `<div class="pa-ln">${esc(d0.texto ? String(d0.texto).split(" De a poco")[0] : "")}${mg ? " Manga 4 kg en " + esc(String(mg[0]).replace(/^Manga 4 kg \(|\)$/g, "")) + ": <b>" + f0(mg[1]) + "</b>." : ""}</div>`; }
+  h += `<table class="pa-tb pa-g"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">hoy → sugerido</td></tr>` + X.map(a => `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b></td></tr>`).join("") + `</table>`;
+  if (d0.alt) h += `<div class="pa-ln">${esc(String(d0.texto || "").replace(/ La manga hoy está.*$/, ""))} Te muestro cómo quedan ligadas en cada lista: movés las mangas o los frascos.</div>`;
+  else if (X[0].tipo === "desparejo"){ const mg = (d0.lineas || [])[0]; h += `<div class="pa-ln">${esc(d0.texto ? String(d0.texto).split(" De a poco")[0] : "")}${mg ? " Manga 4 kg en " + esc(String(mg[0]).replace(/^Manga 4 kg \(|\)$/g, "")) + ": <b>" + f0(mg[1]) + "</b>." : ""}</div>`; }
   else h += `<div class="pa-ln">${esc(String(d0.texto || "").split(" De a poco")[0])}</div>`;
   if (meta) h += `<div class="pa-ln">De a poco: cada vez se sugiere subir como mucho un 10 %. La meta completa está en «una por una».</div>`;
-  h += `<div class="pa-row"><button class="btn y" onclick="paGrupoSubir(${A(k)})">Subir las ${X.length} (+ ${f0(tot / X.length)} c/u en promedio)</button></div>`;
+  if (d0.alt){
+    h = h.replace(/<td style="color:var\(--ink-soft\)">hoy → sugerido<\/td>/, '<td style="color:var(--ink-soft)">manga hoy → ligada · o frasco</td>');
+    h = h.replace(/(<table class="pa-tb">[\s\S]*?<\/table>)/, X.length ? '<table class="pa-tb pa-g"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">manga hoy → ligada · o frasco</td></tr>' + X.map(a => `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b><br><small style="color:var(--ink-soft)">o frasco ${a.detalle.alt.actual ? f0(a.detalle.alt.actual) + " → " : ""}${f0(a.detalle.alt.precio)}</small></td></tr>`).join("") + '</table>' : "$1");
+    h += `<div class="pa-row"><button class="btn y" onclick="paGrupoMandar(${A(k)}, 'aplicar', '')">Mover las ${X.length} mangas</button><button class="btn y" onclick="paGrupoMandar(${A(k)}, 'aplicarAlt', '')">Mover los ${X.length} frascos</button></div>`;
+  } else h += `<div class="pa-row"><button class="btn y" onclick="paGrupoSubir(${A(k)})">${X.every(a => !a.actual) ? "Agregar las " + X.length : "Subir las " + X.length + " (+ " + f0(tot / X.length) + " c/u en promedio)"}</button></div>`;
   h += `<div class="pa-row"><button class="btn ol" onclick="paAbrir(${A(k)})">Ver una por una</button><button class="btn" onclick="paGrupoDejar(${A(k)})">Dejarlas así</button></div>`;
   h += `<div class="pa-x" hidden></div><div class="pa-why">Si elegís «Dejarlas así» no te lo vuelvo a preguntar hasta que el costo cambie más de un 5 %.</div></div>`;
   return h;
@@ -1484,13 +1496,14 @@ async function paGrupoMandar(k, accion, nota){
   for (let i = 0; i < X.length; i++){
     const a = X[i];
     if (b){ b.hidden = false; b.innerHTML = `<div class="load"><div class="spin"></div><span>${accion === "aplicar" ? "Cambiando" : "Guardando"} ${i + 1} de ${X.length}…</span></div>`; }
-    const r = await run("responderPrecioAlerta", a.id, accion, accion === "aplicar" ? a.sugerido : 0, nota);
-    if (r && r.status === "ok"){ PA.alertas = PA.alertas.filter(x => x.id !== a.id); PA.hechas.push({ id: a.id, titulo: a.titulo, ok: accion === "aplicar", precio: a.sugerido, nota: accion === "dejar" ? nota : "" }); }
+    const pr = accion === "aplicar" ? a.sugerido : accion === "aplicarAlt" ? a.detalle.alt.precio : 0;
+    const r = await run("responderPrecioAlerta", a.id, accion, pr, nota);
+    if (r && r.status === "ok"){ PA.alertas = PA.alertas.filter(x => x.id !== a.id); PA.hechas.push({ id: a.id, titulo: accion === "aplicarAlt" ? a.detalle.alt.nombre + " · " + (String(a.titulo).split(" · ")[1] || "") : a.titulo, ok: accion !== "dejar", precio: pr, nota: accion === "dejar" ? nota : "" }); }
     else mal.push(a.titulo + ": " + ((r && r.msg) || "sin señal"));
   }
   PAH = PA;
   const hechos = X.filter(a => !PA.alertas.some(x => x.id === a.id));
-  if (!mal.length) paHecha(document.getElementById("pag-" + String(k).replace(/[^\w-]/g, "_")), hechos.map(a => (accion === "aplicar" ? "✓ " : "· ") + a.titulo + " → " + (accion === "aplicar" ? f0(a.sugerido) : "dejado así")).join("<br>"), true);
+  if (!mal.length) paHecha(document.getElementById("pag-" + String(k).replace(/[^\w-]/g, "_")), hechos.map(a => (accion !== "dejar" ? "✓ " : "· ") + esc(accion === "aplicarAlt" ? a.detalle.alt.nombre + " · " + (String(a.titulo).split(" · ")[1] || "") : a.titulo) + " → " + (accion === "aplicar" ? f0(a.sugerido) : accion === "aplicarAlt" ? f0(a.detalle.alt.precio) : "dejado así")).join("<br>"), true);
   else paPint();
   if (mal.length) t("No se pudo: " + mal.join(" · "), true); else t(accion === "aplicar" ? "Listo: " + X.length + " precios cambiados" : "Listo");
 }
@@ -1518,8 +1531,9 @@ function paMandar(id, accion, precio, nota){
       document.querySelectorAll("#pa-" + String(id).replace(/[^\w-]/g, "_") + " .pa-row .btn").forEach(x => x.disabled = false);
       if (b) b.innerHTML = `<div class="pa-err">No se pudo: ${esc(r && r.msg || "sin señal")}. Probá de nuevo.</div>`; return; }
     PA.alertas = PA.alertas.filter(x => x.id !== id);
-    PA.hechas.push({ id: id, titulo: a.titulo, ok: accion === "aplicar", precio: r.precio || precio, nota: accion === "dejar" ? nota : "" });
-    PAH = PA; paHecha(document.getElementById("pa-" + String(id).replace(/[^\w-]/g, "_")), accion === "aplicar" ? "✓ " + a.titulo + " → " + f0(r.precio || precio) : "· " + a.titulo + " → dejado así" + (nota ? " («" + nota + "»)" : ""));
+    const tit = accion === "aplicarAlt" ? a.detalle.alt.nombre + " · " + (String(a.titulo).split(" · ")[1] || "") : a.titulo;
+    PA.hechas.push({ id: id, titulo: tit, ok: accion !== "dejar", precio: r.precio || precio, nota: accion === "dejar" ? nota : "" });
+    PAH = PA; paHecha(document.getElementById("pa-" + String(id).replace(/[^\w-]/g, "_")), accion !== "dejar" ? "✓ " + tit + " → " + f0(r.precio || precio) : "· " + a.titulo + " → dejado así" + (nota ? " («" + nota + "»)" : ""));
   });
 }
 

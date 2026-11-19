@@ -3115,8 +3115,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 window.SSV = (function(){
   "use strict";
   const $ = function(id){ return document.getElementById(id); };
-  const ICO = { "Degustación":"🍯", "Familia / amigos":"👪", "Regalo a cliente":"🎁", "Se rompió":"💥" };
-  const LBL = { "Degustación":"Degustaciones", "Familia / amigos":"Familia / amigos", "Regalo a cliente":"Regalos a clientes", "Se rompió":"Roturas" };
+  const ICO = { "Degustación":"🍯", "Familia / amigos":"👪", "Regalo a cliente":"🎁", "Se rompió":"💥", "Me lo llevo yo":"🙋" };   // 19/11: faltaba (decía «undefined»)
+  const LBL = { "Degustación":"Degustaciones", "Familia / amigos":"Familia / amigos", "Regalo a cliente":"Regalos a clientes", "Se rompió":"Roturas", "Me lo llevo yo":"Se descuenta del pago (no es pérdida)" };
   let S = null, D = null, busy = false;
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
   function plata(n){ return "$ " + Number(n||0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -3147,7 +3147,7 @@ window.SSV = (function(){
     return o.map(function(k){ return g[k] + " × " + k; }).join(" · "); }
   function costoDe(p){ return p.costo ? (p.costo[S.dep] || 0) : 0; }
   function pintar(){
-    $("ssvMot").innerHTML = D.motivos.map(function(m){ return '<div data-m="'+esc(m)+'" class="'+(S.motivo===m?"on":"")+'">'+ICO[m]+' '+esc(m)+'</div>'; }).join("");
+    $("ssvMot").innerHTML = D.motivos.map(function(m){ return '<div data-m="'+esc(m)+'" class="'+(S.motivo===m?"on":"")+'">'+(ICO[m]||"•")+' '+esc(m)+'</div>'; }).join("");
     $("ssvDepW").hidden = D.depositos.length < 2;
     $("ssvDep").innerHTML = D.depositos.map(function(d){ return '<div data-d="'+esc(d)+'" class="'+(S.dep===d?"on":"")+'">'+esc(d)+'</div>'; }).join("");
     const q = sinAc($("ssvQ").value).trim().split(/\s+/).filter(String);
@@ -3177,7 +3177,7 @@ window.SSV = (function(){
     $("ssvUltT").textContent = D.admin ? "Últimas salidas" : "Las que cargaste hoy";
     const porId = {}; ult.forEach(function(x){ (porId[x.id] = porId[x.id] || []).push(x); });
     $("ssvUlt").innerHTML = Object.keys(porId).slice(0, 10).map(function(id){ const g = porId[id], x = g[0];
-      return '<div><span>' + (x.fecha ? esc(x.fecha) + ' ' : '') + esc(x.hora) + ' · ' + ICO[x.motivo] + ' ' + g.map(function(y){ return y.cant + ' × ' + esc(y.nombre); }).join(', ') + ' · ' + esc(x.dep) + '</span><button data-an="' + esc(id) + '">Anular</button></div>'; }).join("");
+      return '<div><span>' + (x.fecha ? esc(x.fecha) + ' ' : '') + esc(x.hora) + ' · ' + (ICO[x.motivo] || "•") + ' ' + g.map(function(y){ return y.cant + ' × ' + esc(y.nombre); }).join(', ') + ' · ' + esc(x.dep) + '</span><button data-an="' + esc(id) + '">Anular</button></div>'; }).join("");
   }
   function bind(){
     $("ssvBox").addEventListener("click", function(e){
@@ -3214,10 +3214,12 @@ window.SSV = (function(){
     const p = { dep: S.dep, motivo: S.motivo, items: S.items.map(function(it){ return { sku: it.sku, cant: it.cant }; }), desde: S.desde, feria: S.feria || "", ubicacion: S.ubicacion || "", fecha: S.fecha || "", nota: $("ssvNota").value.trim() };
     run("guardarSalidaSinVenta", [p]).then(function(r){
       busy = false;
-      if (r && r.status === "ok"){ aviso("Salida guardada · " + p.items.length + (p.items.length === 1 ? " producto" : " productos") + " menos en " + r.dep); S.items = []; $("ssvNota").value = ""; recargar(); if (typeof S.listo === "function") S.listo(r); }
+      if (r && r.status === "ok"){ aviso("Salida guardada · " + p.items.length + (p.items.length === 1 ? " producto" : " productos") + " menos en " + r.dep + teoTxt(r)); S.items = []; $("ssvNota").value = ""; recargar(); if (typeof S.listo === "function") S.listo(r); }
       else { aviso((r && r.msg) || "Sin señal: no se guardó", true); pintar(); }
     });
   }
+  // 19/11 (Lucas): un producto de La Teodora que sale suma a lo que les debemos (a precio distribuidor); la plata solo la ven los admin
+  function teoTxt(r){ const t = r && r.teodora; if (!t) return ""; if (t.error) return " · La Teodora: se les avisa en un rato"; return D && D.admin && t.total ? " · suma $ " + Math.round(t.total).toLocaleString("es-AR") + " a lo que le debemos a La Teodora" : " · avisado a La Teodora"; }
   let bound = false;
   // o: { desde:'Stock'|'Feria'|'Local'|'Ventas', feria, ubicacion, fecha, dep, toast(msg,mal), listo(r) }
   function abrir(o){

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#1b1b1c">
 <link rel="icon" href="../icono.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../icono-192.png">
+<style>html,body,button,a,input,select,label,[onclick],[data-sku]{touch-action:manipulation}</style>
 <script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "movimientos";</script>
 <script src="gsr.js"></script>
 <script>
@@ -781,6 +782,7 @@ h1{margin:4px 0 0;font-size:28px;line-height:1.15}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{min-height:48px;padding:0 16px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px}
 .chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.chip.lleva{border-color:var(--good);background:var(--good-soft);color:var(--good)}
 .chip.dash{border-style:dashed;background:transparent;color:var(--ink-mid)}
 .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;display:inline-block}
 .seg2,.seg3{display:grid;gap:8px}.seg2{grid-template-columns:1fr 1fr}.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -885,6 +887,7 @@ details.hist .h{font-size:15px;color:var(--ink-soft);line-height:1.6;padding-bot
 .tm{min-height:68px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px;font-weight:800;font-size:17px}
 .tm small{font-size:14px;color:var(--ink-mid);font-weight:700}
 .tm.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.tm small.dst{display:block;opacity:.7;font-weight:600}
 .tm.lleva{border-color:var(--good);background:var(--good-soft);color:var(--good)}
 .tm.sin small{color:var(--warn)}
 .addbox{background:var(--bg);border-radius:14px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -1741,6 +1744,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 28/10 (Lucas): 300, 454, 830 y minis van en packs; mangas, membrillos y gigantes en cajas
   function esCaja(p){ return (Number(p.tamano) || 0) >= 2000 || (/membrillo/i.test(p.sabor || "") && !/jalea/i.test(p.nombre || "")); }
   function stockEn(p, dep){ return dep === "CABA" ? p.stockCaba : p.stockFabrica; }
+  // 19/11 (Lucas): 2 kg, 3 kg y 4 kg son mangas, no frascos (el 3,7 kg sí es frasco)
+  function esManga(p){ const t = Number(p && p.tamano) || 0; return /manga/i.test(String((p && p.nombre) || "") + " " + String((p && p.label) || "")) || (t >= 2000 && t !== 3700 && !/membrillo/i.test((p && p.sabor) || "")); }
+  function udes(p, n){ return esManga(p) ? (n === 1 ? "manga" : "mangas") : (n === 1 ? "frasco" : "frascos"); }
   // 30/10 (sin etiquetar · informativo, no bloquea): apartados en Fábrica hasta etiquetarlos (no están en «hay»)
   function seEn(p, dep){ return dep === "CABA" || !p ? 0 : (Number(p.sinEtiq) || 0); }
   function nuevoEnvio(origen, destino){
@@ -2281,7 +2287,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       return;
     }
     sabores.forEach(function(s){
-      const b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.innerHTML = dot(s) + " " + esc(s);
+      // 19/11 (Lucas): el sabor que ya tiene algo en el envío queda en verde con ✓ (se puede tocar para seguir cargando)
+      const va = E.items.filter(function(i){ return i.tipo === "prod" && i.cantidad > 0 && i.prod.sabor === s; }).length;
+      const b = document.createElement("button"); b.type = "button"; b.className = "chip" + (va ? " lleva" : ""); b.innerHTML = (va ? "✓ " : dot(s) + " ") + esc(s);
       b.addEventListener("click", function(){ P.sabor = s; P.prod = null; renderSabores(); renderTamanos(); });
       box.appendChild(b);
     });
@@ -2318,10 +2326,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         const b = document.createElement("button"); b.type = "button";
         b.className = "tm" + (P.prod===p ? " on" : (ya ? " lleva" : "")) + (st <= 0 ? " sin" : "");
         const se = seEn(p, E.origen);
-        b.innerHTML = (P.por === "tam" ? dot(p.sabor) + " " + esc(p.sabor) : esc(lab(p))) + '<small>' + (ya ? "✓ va " + fmt(ya.cantidad) : (st > 0 ? "hay " + fmt(st) + (se ? "" : " en " + esc(E.origen)) : "sin stock en " + esc(E.origen))) + (se ? " · 🏷️ " + fmt(se) + " sin etiquetar" : "") + '</small>';
+        b.innerHTML = (P.por === "tam" ? dot(p.sabor) + " " + esc(p.sabor) : esc(lab(p))) + '<small>' + (ya ? "✓ va " + fmt(ya.cantidad) : (st > 0 ? "hay " + fmt(st) + (se ? "" : " en " + esc(E.origen)) : "sin stock en " + esc(E.origen))) + (se ? " · 🏷️ " + fmt(se) + " sin etiquetar" : "") + '</small>'
+          + '<small class="dst">' + (Number(stockEn(p, E.destino)) > 0 ? "hay " + fmt(stockEn(p, E.destino)) + " en " + esc(E.destino) : "no hay en " + esc(E.destino)) + '</small>';   // 19/11 (Lucas): y cuánto hay donde llega
         b.addEventListener("click", function(){
           if (P.prod !== p) pCommit();   // 08/11 (Lucas): lo cargado en el producto anterior queda guardado en el envío
-          P.prod = p; pCargarCant(p);
+          P.prod = p; P.borrar = false; pCargarCant(p);
           el("pPackLbl").textContent = (esCaja(p) ? "Cajas ×" : "Packs ×") + packDe(p);
           renderModo(); renderTamanos();
         });
@@ -2332,27 +2341,28 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     Array.prototype.forEach.call(el("pModo").children, function(d){ d.classList.toggle("on", d.dataset.m === P.modo); });
     pCantSub();
   }
-  function pCantSub(){ el("pCantSub").textContent = P.modo === "p" && P.prod ? "= " + fmt(cantUnidades()) + " frascos" : "unidades"; }
+  function pCantSub(){ el("pCantSub").textContent = P.modo === "p" && P.prod ? "= " + fmt(cantUnidades()) + " " + udes(P.prod, cantUnidades()) : "unidades"; }
   Array.prototype.forEach.call(el("pModo").children, function(d){
     d.addEventListener("click", function(){ P.modo = d.dataset.m; renderModo(); validarP(); });
   });
   document.querySelectorAll("[data-pd]").forEach(function(b){
     b.addEventListener("click", function(){
       const v = Math.max(0, (parseInt(el("pCant").value,10) || 0) + parseInt(b.dataset.pd,10));
-      el("pCant").value = v || ""; validarP();
+      el("pCant").value = v; if (!v) P.borrar = true; validarP();
     });
   });
-  el("pCant").addEventListener("input", validarP);
+  el("pCant").addEventListener("input", function(){ P.borrar = el("pCant").value.trim() === "" || (parseInt(el("pCant").value, 10) || 0) === 0; validarP(); });
   function cantUnidades(){
     const n = parseInt(el("pCant").value,10) || 0;
     return P.modo === "p" && P.prod ? n * packDe(P.prod) : n;
   }
   function validarP(){
     const ok = P.prod && cantUnidades() > 0;
+    const saca = P.prod && !ok && P.borrar && E && E.items.some(function(i){ return i.tipo === "prod" && i.prod.sku === P.prod.sku; });
     const nP = E ? E.items.filter(function(i){ return i.tipo === "prod" && i.cantidad > 0; }).length : 0;
-    el("pAgregar").classList.toggle("off", !ok && !(nP && !P.prod));
+    el("pAgregar").classList.toggle("off", !ok && !saca && !(nP && !P.prod));
     // 08/11 (Lucas): sin producto elegido, el botón no queda apagado: vuelve al envío con lo ya cargado
-    el("pAgregar").textContent = ok ? "✓ Listo · " + fmt(cantUnidades()) + " u. · volver al envío" : (nP && !P.prod ? "✓ Listo · volver al envío (" + nP + " producto" + (nP === 1 ? "" : "s") + ")" : "+ Agregar al envío");
+    el("pAgregar").textContent = saca ? "✕ Sacarlo · volver al envío" : ok ? "✓ Listo · " + fmt(cantUnidades()) + " u. · volver al envío" : (nP && !P.prod ? "✓ Listo · volver al envío (" + nP + " producto" + (nP === 1 ? "" : "s") + ")" : "+ Agregar al envío");
     if (P.prod) pCantSub();
     return ok;
   }
@@ -2361,7 +2371,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!P.prod) return false;
     const n = cantUnidades();
     const k = P.idx >= 0 ? P.idx : E.items.findIndex(function(i){ return i.tipo === "prod" && i.prod.sku === P.prod.sku; });
-    if (n <= 0){ return false; }
+    if (n <= 0){   // 19/11 (Lucas: «le pongo 0 y me vuelve a poner 36»): en 0 o vacío, sale del envío
+      if (k < 0 || el("pCant").value.trim() === "" && !P.borrar) return false;
+      const nom = nomProd(E.items[k].prod); E.items.splice(k, 1); P.idx = -1; P.borrar = false;
+      toast("✕ " + nom + " sale del envío"); renderItems(); recalcular(); validar();
+      return true;
+    }
     if (k >= 0){ if (E.items[k].cantidad === n && E.items[k].prod === P.prod) return false; E.items[k] = { tipo: "prod", prod: P.prod, cantidad: n, ns: !!E.items[k].ns }; }
     else insertarProd({ tipo: "prod", prod: P.prod, cantidad: n });
     P.idx = -1;
@@ -2377,6 +2392,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("pBack").addEventListener("click", function(){ pCommit(); }, true);   // volver también guarda lo que quedó escrito
   el("pAgregar").addEventListener("click", function(){
     if (!P.prod && E && E.items.some(function(i){ return i.tipo === "prod" && i.cantidad > 0; })){ show("envio"); return; }
+    if (P.prod && P.borrar && cantUnidades() <= 0){ pCommit(); show("envio"); return; }
     if (!validarP()){ toast(!P.prod ? "Elegí sabor y tamaño" : "Poné cuántos van", true); return; }
     pCommit();
     show("envio");

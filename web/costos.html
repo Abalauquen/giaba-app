@@ -1260,7 +1260,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 .pa-ct{font-weight:800;font-size:17px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .pa-tb{width:100%;border-collapse:collapse;font-size:15px}.pa-tb td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:top}.pa-tb td:last-child{text-align:right;white-space:nowrap;padding-left:10px}
 .pa-tb tr:last-child td{border-bottom:0;font-weight:800}.pa-tb.pa-g tr:last-child td{font-weight:inherit}
-.pa-lg{white-space:nowrap}.pa-lo{color:var(--ink-soft);font-size:.92em}.pa-lo b{color:var(--ink)}
+.pa-lt td{border-bottom:0;padding:3px 0}.pa-lt .pa-lh td{text-align:left;padding-top:10px;border-top:1px solid var(--line);font-weight:700}.pa-lt tr:nth-child(2) td{border-top:0}
 .pa-ln{font-size:15px;color:var(--ink-mid);line-height:1.4}.pa-ln b{color:var(--ink)}
 .pa-why{font-size:13.5px;color:var(--ink-soft);line-height:1.4;border-top:1px dashed var(--line-2);padding-top:8px}
 .pa-row{display:flex;gap:8px;flex-wrap:wrap}.pa-row .btn{flex:1;min-width:120px;min-height:50px;font-size:16px}
@@ -1473,10 +1473,11 @@ function paGrupo(k, X){
   // 19/11 (Lucas 22:50): en manga ↔ frasco se ven las dos opciones en cada lista: mover la manga o mover el frasco
   const ali = a => (a.detalle && a.detalle.alt) || null;
   h += d0.alt
-    ? `<table class="pa-tb pa-g"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">hoy → ligado</td></tr>` + X.map(a => { const al = ali(a);
-        return `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td><span class="pa-lg">Manga ${f0(a.actual)} → <b>${f0(a.sugerido)}</b></span>${al ? `<br><span class="pa-lg pa-lo">o Frasco ${al.actual ? f0(al.actual) + " → " : ""}<b>${f0(al.precio)}</b></span>` : ""}</td></tr>`; }).join("") + `</table>`
+    ? `<table class="pa-tb pa-g pa-lt"><tr><td style="color:var(--ink-soft)"></td><td style="color:var(--ink-soft)">hoy → nuevo</td></tr>` + X.map(a => { const al = ali(a);
+        return `<tr class="pa-lh"><td colspan="2">${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td></tr><tr><td>Manga 4 kg</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b></td></tr>`
+          + (al ? `<tr><td>Frasco 3,7 kg</td><td>${al.actual ? f0(al.actual) : "—"} → <b>${f0(al.precio)}</b>${al.actual ? "" : `<br><small style="color:var(--ink-soft)">no está en esta lista</small>`}</td></tr>` : ""); }).join("") + `</table>`
     : `<table class="pa-tb pa-g"><tr><td style="color:var(--ink-soft)">Lista</td><td style="color:var(--ink-soft)">hoy → sugerido</td></tr>` + X.map(a => `<tr><td>${esc(String(a.titulo).split(" · ")[1] || a.canal)}</td><td>${f0(a.actual)} → <b>${f0(a.sugerido)}</b></td></tr>`).join("") + `</table>`;
-  if (d0.alt) h += `<div class="pa-ln">${esc(String(d0.texto || "").replace(/ La manga hoy está.*$/, ""))} En cada lista: o movés la manga, o movés el frasco (con uno alcanza).</div>`;
+  if (d0.alt) h += `<div class="pa-ln">${esc(String(d0.texto || "").replace(/ La manga hoy está.*$/, ""))} Para que queden parejas por kilo alcanza con cambiar una de las dos: la manga o el frasco. Abajo elegís cuál.</div>`;
   else if (X[0].tipo === "desparejo"){ const mg = (d0.lineas || [])[0]; h += `<div class="pa-ln">${esc(d0.texto ? String(d0.texto).split(" De a poco")[0] : "")}${mg ? " Manga 4 kg en " + esc(String(mg[0]).replace(/^Manga 4 kg \(|\)$/g, "")) + ": <b>" + f0(mg[1]) + "</b>." : ""}</div>`; }
   else h += `<div class="pa-ln">${esc(String(d0.texto || "").split(" De a poco")[0])}</div>`;
   if (meta) h += `<div class="pa-ln">De a poco: cada vez se sugiere subir como mucho un 10 %. La meta completa está en «una por una».</div>`;

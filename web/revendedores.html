@@ -174,7 +174,70 @@
       });
     });
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|validarAcceso|biSubirAhora|borradoresListar|reclamosDeVenta|get)/;
+  // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
+  var RT_NO = {}, RT_NO_MS = 10 * 60000;
+  try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  var RTL = null, RTL_T = 0, RTL_ESP = [];
+  function rtLista(cb) {
+    if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
+    RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    conPase(function (p) {
+      if (!p) return fin(null);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; fin(null); } }, 4000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, lista: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); if (!j || j.status !== "ok") return fin(null);
+          var o = { fns: {}, guarda: {}, todo: false }; (j.fns || []).forEach(function (f) { o.fns[f] = 1; }); (j.guarda || []).forEach(function (f) { o.guarda[f] = 1; }); o.todo = !!o.guarda["*"]; fin(o); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); fin(null); });
+    });
+  }
+  try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  function porPublica(n, args, cb) {
+    var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
+    if (!u || !u.url || !u.key) return cb(null);
+    var h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 30000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+  }
+  function porGuardar(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  function porRuntime(n, args, cb) {
+    if (Date.now() < (RT_NO[n] || 0)) return cb(null);
+    if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
+    if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (listo) return; listo = true; clearTimeout(tmo);
+          if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
+          if (j && j.status === "token") lsS("ap_pase", null);
+          if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
+          cb(null);
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
@@ -182,6 +245,27 @@
       if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
       var v = tt[k]; if (typeof v !== "function") return v;
       var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      // 19/11 · páginas públicas (visitas, retiro del cliente): cuando la base es la dueña, van a la base sin usuario
+      if (PUBLICAS[n]) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porPublica(n, args, function (res) {
+          if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
+      // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
+      if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
+        var args = arguments;
+        porGuardar(n, args, function (res) {
+          if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
       if (FN_BASE[n]) return function () {
         var args = arguments;
         fnBase(n, args, function (r) {
@@ -223,7 +307,16 @@
         try {
           deBase(n, args, function (d) {
             if (hecho) return; hecho = true; clearTimeout(tope);
-            if (d === null || d === undefined) return porGoogle();
+            if (d === null || d === undefined) {
+              // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
+              // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
+              clearTimeout(tope);
+              return porRuntime(n, args, function (x) {
+                if (x === null || x === undefined) return porGoogle();
+                try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
+                recordar(kM, x); if (ok) ok(x, uo);
+              });
+            }
             try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
             recordar(kM, d);
             if (ok) ok(d, uo);
@@ -248,7 +341,7 @@
     if (!(window.google && google.script && google.script.run)) return false;
     base = google.script.run;
     try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
-    conPase(function () {});
+    conPase(function () { rtLista(function () {}); });
     return true;
   }
   if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
@@ -404,6 +497,8 @@ select.txt{appearance:auto}
 .pres b{color:var(--ink)}
 .plist{display:flex;flex-direction:column;gap:12px}
 @media (min-width:1024px){.plist.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+/* 19/11 · pedidos y pagos */
+.kp3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 4px}.kp3>div{background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:10px}.kp3 b{display:block;font-size:17px}.kp3 span{font-size:12px;color:var(--ink-soft)}.kp3 .wo{border-color:var(--warn)}
 /* consignación */
 .rd{display:flex;flex-direction:column;gap:10px;background:var(--bg);border:2px solid var(--line);border-radius:16px;padding:12px}
 .rd .h{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
@@ -1182,6 +1277,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
  <div class="plist two" id="lstL"></div>
 </div>
 
+<!-- 19/11 (Lucas, mockup-revendedoras-pedidos.html): pedidos, consignaciones y pagos de cada revendedora -->
+<div class="screen wide" id="s-rp" hidden>
+ <div class="topbar"><button class="back" onclick="ir('lst')">‹ Revendedoras</button><span class="pill s2" id="rpYo"></span></div>
+ <h1 id="rpTit">📋 Pedidos y pagos</h1>
+ <div id="rpBody"></div>
+</div>
+
 <!-- A · ALTA / EDITAR -->
 <div class="screen" id="s-alta" hidden>
  <div class="topbar"><button class="back" onclick="ir('lst')">‹ Revendedoras</button><span class="pill" id="altaPill">Nueva</span></div>
@@ -1264,7 +1366,7 @@ function cargar(){
   if(r.status!=="ok"){t(r.msg||"No se pudo cargar");if(!D){$("iniCarga").textContent=r.msg||"No se pudo cargar";$("aprL").innerHTML='<div class="wrb">'+esc(r.msg||"No se pudo cargar")+'</div>';}return r;}
   D=r;YO=r.yo;ADMIN=!!r.admin;
   P=(r.productos||[]).slice().sort((a,b)=>gOrd(a.sku)-gOrd(b.sku)||String(a.nombre).localeCompare(b.nombre));PM={};P.forEach(p=>PM[p.sku]=p);
-  CL={};(r.clientes||[]).forEach(c=>CL[c.id]=c);O=r.pedidos||[];CONS=r.consignaciones||[];COMS=r.comisiones||[];RENDS=r.rendiciones||[];DEU=r.deudas||[];
+  CL={};(r.clientes||[]).forEach(c=>CL[c.id]=c);O=r.pedidos||[];CONS=r.consignaciones||[];COMS=r.comisiones||[];RENDS=r.rendiciones||[];DEU=r.deudas||[];PAGOS=r.pagos||[];
   REVS=r.revendedoras||[];PERF=r.perfil||{};
   return r;
  });
@@ -1583,8 +1685,42 @@ function detalle(id){
  if(o.estado==="apr"&&o.vm&&o.pago==="ef"&&!o.efectivo&&o.est!=="cob"&&o.aq==="com")h+=`<button class="btn y" onclick="accion('marcarEfectivoRev','${esc(o.id)}','Anotado: efectivo en tus manos',this)">💵 El cliente me pagó en efectivo</button>`;
  if(o.estado==="apr"&&o.vm&&o.ent==="yo"&&!o.entregado&&o.tipo!=="cons")h+=`<button class="btn g" onclick="accion('marcarEntregadoRev','${esc(o.id)}','Listo · marcado como entregado',this)">✓ Ya lo entregué</button>`;
  if(o.estado==="esp")h+=`<button class="btn" onclick="accion('anularPedidoRev','${esc(o.id)}','Pedido cancelado',this)">✕ Cancelar el pedido</button>`;
+ // 19/11 (Lucas): desde Pedidos y pagos, lo de la venta mayorista ahí mismo
+ if(ADMIN&&o.vm&&o.estado==="apr"){
+  const debe=o.vmTotal?Math.max(0,o.vmTotal-o.cobrado):0;
+  h+=`<div class="r"><span>Cobrado</span><b>${fm(o.cobrado)}${debe>0.5?" · debe "+fm(debe):""}</b></div>`;
+  if(debe>0.5)h+=`<button class="btn y" onclick="cerrar();hCobro('${esc(o.id)}',0)">💵 Me pagó</button>`;
+  if(o.fact&&!o.fact.hecha)h+=btnFact(o.vm,o.letra||"",o.total);
+  const mu=BASE+SEP+"app=mayoristas&ped="+encodeURIComponent(o.vm);
+  h+=`<a class="btn" href="${esc(mu)}" target="_top">🔁 Cambiar productos · en Mayoristas › ✏️ Editar</a><a class="btn" style="color:var(--terra-ink);border-color:var(--terra)" href="${esc(mu)}" target="_top">✕ Anular · el stock vuelve al depósito</a>`;
+ }
  h+=`<button class="btn" onclick="cerrar()">Cerrar</button>`;
  $("sh").innerHTML=h;$("ov").hidden=false;
+}
+/* ===== 19/11 · PEDIDOS Y PAGOS DE UNA REVENDEDORA (Lucas / Adriana) ===== */
+let RP=null,PAGOS=[];
+function rpAbrir(n){RP=n;ir("rp");}
+function rpPeds(rev){return O.filter(o=>o.rev===rev&&o.estado!=="anu"&&o.est!=="anu");}
+function rpTot(rev){let debe=0,pago=0,com=0;rpPeds(rev).forEach(o=>{if(o.vm&&o.vmTotal){debe+=Math.max(0,o.vmTotal-o.cobrado);pago+=o.cobrado;}com+=(o.aq==="rev"?0:(o.com||0));});
+ RENDS.filter(x=>x.rev===rev).forEach(x=>{if(x.vm&&x.vmTotal){debe+=Math.max(0,x.vmTotal-x.cobrado);pago+=x.cobrado;}com+=(x.aq==="rev"?0:(x.comision||0));});
+ return {debe:Math.round(debe),pago:Math.round(pago),com:Math.round(com)};}
+function pintRp(){
+ const r=REVS.filter(x=>x.nombre===RP)[0];if(!r){ir("lst");return;}
+ $("rpYo").textContent=YO;$("rpTit").textContent="📋 "+String(r.completo||r.nombre).split(" ")[0]+" · pedidos y pagos";
+ const k=rpTot(r.nombre),ps=rpPeds(r.nombre).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+ let h=`<div class="kp3"><div class="${k.debe>0.5?"wo":""}"><span>Te debe</span><b>${fm(k.debe)}</b></div><div><span>Te pagó</span><b>${fm(k.pago)}</b></div><div><span>Comisión</span><b>${k.com?fm(k.com):"a ella: −"+pT(r.nombre)}</b></div></div>`;
+ h+=`<div class="lbl">Pedidos</div>`+(ps.length?ps.map(o=>{const e=EST[o.est]||EST.apr,debe=o.vm&&o.vmTotal?Math.max(0,o.vmTotal-o.cobrado):0;
+  return `<button class="vc ${e[1]}" onclick="detalle('${esc(o.id)}')"><div class="rw"><span class="n">${esc(o.id)} · ${esc(o.cliente)}</span><span class="go">›</span></div><div class="hint">${dTxt(o.fecha)}${o.vm?" · "+esc(o.vm):""}${o.dep?" · sale de "+esc(o.dep):""}</div>
+   <div class="rw" style="gap:6px;flex-wrap:wrap;justify-content:flex-start"><span class="tag ${e[2]}">${e[0]}</span>${o.vm?(debe>0.5?`<span class="tag o">Debe ${fm(debe)}</span>`:`<span class="tag g">Pagado</span>`):""}${o.fact?(o.fact.hecha?`<span class="tag g">Factura ${esc(o.letra||"")} ${esc(o.fact.numero||"")}</span>`:o.vm?`<span class="tag o">Factura ${esc(o.letra||"")} pendiente</span>`:""):""}</div></button>`;}).join(""):'<div class="hint">Todavía no hay pedidos.</div>');
+ const cs=CONS.filter(c=>c.rev===r.nombre&&c.estado==="activa");
+ if(cs.length)h+=`<div class="lbl">📦 En consignación</div>`+cs.map(c=>{const q=(c.items||[]).reduce((a,i)=>a+(Number(i.cant)||0),0),rs=RENDS.filter(x=>x.cons===c.id),vend=rs.reduce((a,x)=>a+(Number(x.vendidos)||0),0),tot=rs.reduce((a,x)=>a+(x.vmTotal||x.total||0),0),cob=rs.reduce((a,x)=>a+(x.cobrado||0),0),falta=Math.max(0,(c.avisar||15)-(c.dias||0));
+  return `<button class="vc wo" onclick="abrirCon('${esc(c.id)}')"><div class="rw"><span class="n">📦 ${esc(c.comercio)}</span><span class="go">›</span></div><div class="hint">lo dejó el ${dTxt(c.desde)}${c.ultima?" · última rendición "+dTxt(c.ultima):""} · rinde cada ${c.avisar||15} días</div>
+   <div class="r"><span>Le queda en el comercio</span><b>${q} frascos</b></div><div class="hint">${(c.items||[]).filter(i=>i.cant>0).map(i=>i.cant+" "+esc((PM[i.sku]&&PM[i.sku].nombre)||i.nombre||i.sku)).join(" · ")}</div>
+   ${rs.length?`<div class="r"><span>Vendió y rindió</span><b>${vend} frascos · ${fm(tot)}</b></div><div class="r"><span>Cobrado</span><b>${fm(cob)}${tot-cob>0.5?" · debe "+fm(tot-cob):""}</b></div>`:""}
+   <span class="tag ${falta<=3?"o":"x"}">${falta?"Le toca rendir en "+falta+" día"+(falta===1?"":"s"):"Le toca rendir"}</span></button>`;}).join("");
+ const pg=PAGOS.filter(x=>x.rev===r.nombre).slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+ if(pg.length)h+=`<div class="lbl">Pagos que te hizo</div><div class="card">`+pg.slice(0,30).map(x=>`<div class="r"><span>${dTxt(x.fecha)} · ${esc(x.modo||"")}${x.cuenta?" · "+esc(x.cuenta):""}</span><b>${fm(x.monto)}</b></div>`).join("")+`</div>`;
+ $("rpBody").innerHTML=h;
 }
 function accion(fn,id,ok,b){if(b.disabled)return;b.disabled=true;run(fn,id).then(function(r){b.disabled=false;if(r.status!=="ok"){t(r.msg||"No se pudo");return;}cerrar();t(ok);cargar().then(()=>{if(!$("s-mis").hidden)pintMis();});});}
 /* ===== D · CONSIGNACIÓN ===== */
@@ -1766,6 +1902,7 @@ function pintLst(){
  <div class="hint">${esc(r.iva||"sin condición de IVA")}${r.cuit?" · CUIT "+esc(r.cuit):""}${r.tel?" · "+esc(r.tel):""}${r.feria?" · también vende en ferias":""}</div>
  <div class="r"><span>Comisión base</span><b>${pT(r.nombre)}</b></div>
  <div class="r"><span>Escalones del mes</span><b>${es?es+" cargados":"sin cargar"}</b></div>
+ ${(()=>{const k=rpTot(r.nombre);return `<div class="r"><span>Te debe</span><b${k.debe>0.5?' style="color:var(--warn)"':''}>${fm(k.debe)}</b></div><button class="btn y" onclick="rpAbrir('${esc(r.nombre)}')">📋 Pedidos y pagos</button>`;})()}
  <div class="row2"><button class="btn" onclick="editarRev('${esc(r.nombre)}')">✏️ Datos y acceso</button><button class="btn ol" onclick="abrirEsc('${esc(r.nombre)}')">💸 Comisión</button></div></div>`;}).join("")||'<div class="hint">Todavía no hay revendedoras. Tocá «＋ Nueva revendedora».</div>';
 }
 function nuevaRev(){E={nombre:"",completo:"",cuit:"",iva:"",tel:"",mail:"",pin:"",feria:false,activo:true,arca:false,nuevo:true};$("altaTit").textContent="＋ Nueva revendedora";$("altaPill").textContent="Nueva";ir("alta");}
@@ -1826,10 +1963,10 @@ function copiar(b){if(b.disabled)return;b.disabled=true;guardarEsc(true).then(fu
  run("copiarComisionRev",SELR).then(function(x){b.disabled=false;cerrar();if(x.status!=="ok"){t(x.msg||"No se pudo copiar");return;}t("Copiado a todas ("+x.n+")");cargar().then(()=>ir("lst"));});});}
 
 /* ===== navegación ===== */
-const PANT=["noauth","ini","p1","p2","p3","p4","mis","con","apr","com","lst","alta","esc"];
+const PANT=["noauth","ini","p1","p2","p3","p4","mis","con","apr","com","lst","alta","esc","rp"];
 function ir(s){
  PANT.forEach(x=>{const e=$("s-"+x);if(e)e.hidden=x!==s;});
- if(D){if(s==="ini")pintIni();if(s==="p2")pintP2();if(s==="p3")pintP3();if(s==="mis")pintMis();if(s==="con")pintCon();if(s==="apr")pintApr();if(s==="com")pintCom();if(s==="lst")pintLst();if(s==="alta")pintAlta();if(s==="esc")pintEsc();}
+ if(D){if(s==="ini")pintIni();if(s==="p2")pintP2();if(s==="p3")pintP3();if(s==="mis")pintMis();if(s==="con")pintCon();if(s==="apr")pintApr();if(s==="com")pintCom();if(s==="lst")pintLst();if(s==="rp")pintRp();if(s==="alta")pintAlta();if(s==="esc")pintEsc();}
  else if(s==="ini")pintIni();
  window.scrollTo(0,0);
 }

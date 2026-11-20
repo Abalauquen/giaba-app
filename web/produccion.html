@@ -174,7 +174,70 @@
       });
     });
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|validarAcceso|biSubirAhora|borradoresListar|reclamosDeVenta|get)/;
+  // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
+  var RT_NO = {}, RT_NO_MS = 10 * 60000;
+  try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  var RTL = null, RTL_T = 0, RTL_ESP = [];
+  function rtLista(cb) {
+    if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
+    RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    conPase(function (p) {
+      if (!p) return fin(null);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; fin(null); } }, 4000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, lista: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); if (!j || j.status !== "ok") return fin(null);
+          var o = { fns: {}, guarda: {}, todo: false }; (j.fns || []).forEach(function (f) { o.fns[f] = 1; }); (j.guarda || []).forEach(function (f) { o.guarda[f] = 1; }); o.todo = !!o.guarda["*"]; fin(o); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); fin(null); });
+    });
+  }
+  try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  function porPublica(n, args, cb) {
+    var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
+    if (!u || !u.url || !u.key) return cb(null);
+    var h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 30000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+  }
+  function porGuardar(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  function porRuntime(n, args, cb) {
+    if (Date.now() < (RT_NO[n] || 0)) return cb(null);
+    if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
+    if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (listo) return; listo = true; clearTimeout(tmo);
+          if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
+          if (j && j.status === "token") lsS("ap_pase", null);
+          if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
+          cb(null);
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
@@ -182,6 +245,27 @@
       if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
       var v = tt[k]; if (typeof v !== "function") return v;
       var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      // 19/11 · páginas públicas (visitas, retiro del cliente): cuando la base es la dueña, van a la base sin usuario
+      if (PUBLICAS[n]) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porPublica(n, args, function (res) {
+          if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
+      // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
+      if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
+        var args = arguments;
+        porGuardar(n, args, function (res) {
+          if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
       if (FN_BASE[n]) return function () {
         var args = arguments;
         fnBase(n, args, function (r) {
@@ -223,7 +307,16 @@
         try {
           deBase(n, args, function (d) {
             if (hecho) return; hecho = true; clearTimeout(tope);
-            if (d === null || d === undefined) return porGoogle();
+            if (d === null || d === undefined) {
+              // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
+              // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
+              clearTimeout(tope);
+              return porRuntime(n, args, function (x) {
+                if (x === null || x === undefined) return porGoogle();
+                try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
+                recordar(kM, x); if (ok) ok(x, uo);
+              });
+            }
             try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
             recordar(kM, d);
             if (ok) ok(d, uo);
@@ -248,7 +341,7 @@
     if (!(window.google && google.script && google.script.run)) return false;
     base = google.script.run;
     try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
-    conPase(function () {});
+    conPase(function () { rtLista(function () {}); });
     return true;
   }
   if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
@@ -678,6 +771,8 @@ textarea.txt{height:96px}
 .v3-pt .st{font-size:15px;font-weight:800;padding:5px 12px;border-radius:999px;background:var(--good-soft);color:var(--good)}
 .v3-pt.r .st{background:var(--terra-dk);color:var(--terra-ink)} .v3-pt.y .st{background:var(--accent-soft);color:var(--accent)}
 .v3-pt .d{font-size:16px;color:var(--ink-mid);font-weight:600}
+.v3-pt .pch{display:flex;gap:6px;flex-wrap:wrap}.v3-pt .pc{font-size:14px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v3-pt .pc.r{background:var(--terra-dk);color:var(--terra-ink)} .v3-pt .pc.x{background:var(--surface-2,var(--line));color:var(--ink-mid)}
 .v3-pt .ver{min-height:50px;border-radius:14px;border:2px solid var(--accent);color:var(--accent);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center}
 .v3-mini{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
 .v3-mini div{background:var(--bg);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -3278,9 +3373,17 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const bx = x.brixMin === null ? 'sin Brix' : 'Brix ' + String(x.brixMin).replace(".", ",") + (x.brixMin === x.brixMax ? '' : '–' + String(x.brixMax).replace(".", ",")) + '°';
       const kg = x.kg ? fmt(x.kg, 1) + ' kg envasados' : (x.frascos ? 'envasada' : 'sin envasar');
       return '<div class="v3-pt ' + cls + '" data-p="' + esc(x.id) + '"><div class="row"><span class="n">' + sabDot(x.sabor) + esc(x.sabor) + '</span><span class="lote">' + esc(x.label) + '</span></div>'
-        + '<div class="row"><span class="d">' + (x.cacerolas ? x.cacerolas + ' cac. · ' : '') + kg + ' · ' + bx + (x.rehechaDe ? ' · rehecha de ' + esc(x.rehechaDeLabel) : '') + '</span><span class="st">' + esc(est) + '</span></div><span class="ver">Ver partida ›</span></div>';
+        + '<div class="row"><span class="d">' + (x.cacerolas ? x.cacerolas + ' cac. · ' : '') + kg + ' · ' + bx + (x.rehechaDe ? ' · rehecha de ' + esc(x.rehechaDeLabel) : '') + '</span><span class="st">' + esc(est) + '</span></div>' + ptChips(x) + '<span class="ver">Ver partida ›</span></div>';
     }).join("") : '<span class="hint">' + (PT.data ? "No hay partidas con ese filtro." : "Cargando…") + '</span>';
     el("ptLista").querySelectorAll("[data-p]").forEach(function(r){ r.addEventListener("click", function(){ abrirFicha(r.dataset.p); }); });
+  }
+  // 19/11 (mockup-partidas-notas): 📝 la nota que escribió alguien · rendimiento bajo (5 puntos menos que lo normal del sabor) · lo que se le puso de más
+  function ptChips(x){
+    const c = [], n = x.notas || [], p = x.pusimos || [];
+    if (n.length){ const t = n[0].length > 40 ? n[0].slice(0, 38).trim() + "…" : n[0]; c.push('<span class="pc">📝 «' + esc(t) + '»' + (n.length > 1 ? ' +' + (n.length - 1) : '') + '</span>'); }
+    if (x.rendBajo) c.push('<span class="pc r">rendimiento bajo · ' + x.rend + ' %</span>');
+    if (p.length) c.push('<span class="pc x">Le pusimos: ' + esc(p.join(", ")) + '</span>');
+    return c.length ? '<div class="pch">' + c.join("") + '</div>' : '';
   }
   // 27/10 (fix53): ficha de la partida en tarjetas grandes · 29/10 (rev): volver frascos y reclamos para todos los de Producción
   function abrirFicha(id){
@@ -3310,7 +3413,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       : '<span class="t">Entró a la olla</span>' + (P.cacerolas ? '<b>' + fmt(entra, 1) + ' kg</b><small>' + P.cacerolas + ' cac. · ' + fmt(P.fruta, 1) + ' fruta + ' + fmt(P.azucar, 1) + ' azúcar</small>' : '<b>—</b><small>se elaboró otro día</small>');
     let h = '<div class="v3-card"><div class="v3-flow"><div class="box">' + izq + '</div><div class="arr">→</div>'
       + '<div class="box"><span class="t">Salió envasado</span>' + (P.kg ? '<b>' + fmt(P.kg, 1) + ' kg</b><small>en ' + tams.length + ' presentaci' + (tams.length === 1 ? 'ón' : 'ones') + '</small>' : '<b>—</b><small>sin envasar este día</small>') + '</div></div>'
-      + (P.rend ? '<div class="v3-rend"><div class="row"><span>Rendimiento</span><span>' + P.rend + ' %</span></div><div class="v3-bar"><i style="width:' + Math.min(100, P.rend) + '%;background:' + (P.rend >= 75 ? 'var(--good)' : 'var(--warn)') + '"></i></div></div>' : '')
+      + (P.rend ? '<div class="v3-rend"><div class="row"><span>Rendimiento</span><span>' + P.rend + ' %</span></div><div class="v3-bar"><i style="width:' + Math.min(100, P.rend) + '%;background:' + (P.rend >= 75 && !P.rendBajo ? 'var(--good)' : 'var(--warn)') + '"></i></div>'
+        + (P.rendNormal ? '<span class="hint">' + (P.rendBajo ? '⚠ Rindió menos de lo normal · ' : '') + 'lo normal en ' + esc(P.sabor) + ' es ' + (P.rendNormal.min === P.rendNormal.max ? P.rendNormal.prom + ' %' : P.rendNormal.min + '–' + P.rendNormal.max + ' %') + '</span>' : '') + '</div>' : '')
       + (tams.length ? '<div class="v3-pres">' + tams.map(function(t){ return '<span><b>' + P.porTam[t] + '</b> × ' + tamTxt(t) + '</span>'; }).join("") + '</div>' : '') + '</div>';
     if (P.cacerolas){
       const ex = (P.extras || []);
@@ -3325,6 +3429,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (P.quien) h += '<span class="hint">Elaboró ' + esc(P.quien) + '</span>';
       h += '</div>';
     }
+    if ((P.notas || []).length) h += '<div class="v3-card"><div class="v3-ct">📝 Notas</div>' + P.notas.map(function(t){ return '<div style="padding:4px 0">«' + esc(t) + '»</div>'; }).join("") + (P.quienNota ? '<span class="hint">' + esc(P.quienNota) + ' · ' + esc(P.fecha) + '</span>' : '') + '</div>';
     el("pfDatos").innerHTML = h;
     const C = { "Elaborada": "var(--good)", "Brix": "var(--good)", "Reclamo": "var(--terra-ink)", "Vuelven": "var(--warn)", "Rehecha": "var(--accent)",
       "Apartado": "var(--ap)", "Apartados": "var(--ap)", "Vuelve a la venta": "var(--good)", "Se tira": "var(--terra-ink)", "Reusado": "var(--good)", "Lleva": "var(--accent)" };   // 06/11 (apartados)

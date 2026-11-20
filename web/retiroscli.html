@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Depósito Abalauquen · Saavedra</title>
+<meta name="theme-color" content="#1b1b1c">
+<link rel="icon" href="../icono.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icono-192.png">
+<style>html,body,button,a,input,select,label,[onclick],[data-sku]{touch-action:manipulation}</style>
+<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "retiroscli"; self.GIABA_SUPA = {"url":"https://hreocusmmfsdhasbqchw.supabase.co","key":"sb_publishable_BSKM0wDa4mEwvrZuJ1F0oQ_-5Wp8k_b"};</script>
+<script src="gsr.js"></script>
+<script>
+/* 17/11/2026 · TODA LA APP LEE DIRECTO DE LA BASE, COMO FERIAS (zPantallas.gs · Lucas 21:30).
+   Las pantallas son las mismas; cambia el «cable» de las lecturas: lo que el servidor ya armó para vos y no cambió desde
+   entonces se lee directo de la base (≈0,5 s) en vez de esperar a Google (≈5 s por pedido). Si cambió algo, si la base no
+   contesta o si recién guardaste algo, va por Google como siempre. Los guardados siguen por Google, igual que hoy. */
+(function () {
+  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
+  var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
+  // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
+  var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
+  // 18/11: qué lista se muestra con lo guardado ya puesto (solo esas). Lo demás que se guarda en la base (compras, producción, costos…)
+  // va por Google por un minuto, que primero termina lo pendiente de la base (VMB_ANTES) y así lo muestra bien.
+  var RECL_PEDIDO = 0;
+  var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
+  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1, marcarVentaMin: 1, cobrarVentaMin: 1, entregaMarcar: 1 };   // 18/11: + Costos
+  var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
+  function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
+  function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
+  // el pedido recién guardado, puesto en la lista de Mayoristas (y los totales de arriba rehechos como los arma getPedidosVM)
+  function ponerPedido(ped) {
+    var d = MEM["getPedidosVM|[]"]; if (!d || !d.pedidos || !ped || !ped.id) return;
+    var porSku = {}; d.pedidos.forEach(function (x) { (x.items || []).forEach(function (i) { if (i.sku && i.n) porSku[i.sku] = i; }); });
+    (ped.items || []).forEach(function (i) { var o = porSku[i.sku]; i.n = o ? o.n : (i.nombre || i.sku); i.g = o ? o.g : 0; });
+    var j = -1; d.pedidos.forEach(function (x, i) { if (x.id === ped.id) j = i; });
+    if (j >= 0) { if (!ped.fact) ped.fact = d.pedidos[j].fact; d.pedidos[j] = ped; } else d.pedidos.unshift(ped);
+    var aC = 0, nC = 0, nE = 0, uE = 0;
+    d.pedidos.forEach(function (p) { if (p.estado === "Anulado") return; if (p.total - p.cobrado > 0.5) { aC += p.total - p.cobrado; nC++; } if (p.estadoEntrega !== "Entregado") { nE++; uE += p.unidades; } });
+    d.aCobrar = aC; d.nCobrar = nC; d.nEntregar = nE; d.uEntregar = uE;
+  }
+  // 18/11 · la venta minorista recién guardada en la base, puesta arriba en Ventas minoristas (y en el resumen del mes)
+  function ponerVentaMin(vn) {
+    var d = MEM["getVentasMin|[]"]; if (!d || !d.pedidos || !vn || !vn.id) return;
+    if (d.pedidos.some(function (x) { return x.id === vn.id; })) return;
+    d.pedidos.unshift(vn);
+    if (d.resumen && d.admin) { var r = d.resumen[vn.canal] = d.resumen[vn.canal] || { n: 0, bruto: 0, neto: 0, unidades: 0 }; r.n++; r.bruto += vn.bruto || 0; r.neto += vn.neto || 0; r.unidades += vn.unidades || 0; }
+  }
+  // 17/11 · borradores 100 % en la base (zBorradoresBase.gs): listar, guardar y borrar sin Google
+  var BZ = { borradoresListar: ["bz_listar", ["p_app"]], borradorGuardar: ["bz_guardar", ["p_app", "p_id", "p_titulo", "p_json"]], borradorBorrar: ["bz_borrar", ["p_id"]] }, BZ_OFF_HASTA = 0;
+  function bzBase(n, args, cb) {
+    if (Date.now() < BZ_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var b = { p_token: p.token }, a = Array.prototype.slice.call(args, 2);
+      BZ[n][1].forEach(function (k, i) { b[k] = a[i] === undefined || a[i] === null ? "" : String(a[i]); });
+      rpc(p, b, function (err, r) {
+        if (err || !r) return cb(null);
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { BZ_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        cb(r);
+      }, BZ[n][0], 8000);
+    });
+  }
+  // el movimiento recién guardado, puesto en Caja (saldos, lista y el mes) como lo arma getCaja
+  function ponerMov(m) {
+    var d = MEM["getCaja|[]"]; if (!d || !d.recientes || !m || !m.id) return;
+    if (d.recientes.some(function (x) { return x.id === m.id; })) return;
+    var u = d.recientes[0] || {}, prevCta = 0;
+    for (var i = 0; i < d.recientes.length; i++) if (d.recientes[i].cuenta === m.cuenta) { prevCta = d.recientes[i].saldoCta || 0; break; }
+    m.saldoCta = Math.round((prevCta + m.monto) * 100) / 100; m.saldoTot = Math.round(((u.saldoTot || 0) + m.monto) * 100) / 100;
+    d.recientes.unshift(m);
+    if (d.saldos) d.saldos[m.cuenta] = Math.round(((d.saldos[m.cuenta] || 0) + m.monto) * 100) / 100;
+    if (m.monto < 0) { d.salidasMes = (d.salidasMes || 0) - m.monto; var k = m.categoria || "Otro"; if (k === "Sueldos ferias") k = "Empleados";
+      if (d.resumenMes) d.resumenMes[k] = (d.resumenMes[k] || 0) - m.monto;
+      if (d.resumenDet) (d.resumenDet[k] = d.resumenDet[k] || []).push({ id: m.id, fecha: m.fecha, detalle: m.detalle, aQuien: m.aQuien, cuenta: m.cuenta, monto: -m.monto, cat: m.categoria }); }
+    else d.entradasMes = (d.entradasMes || 0) + m.monto;
+  }
+  // 18/11 · etapa 3: lo que hace una función DENTRO de la base (supabase/functions). cb(respuesta) o cb(null) = Google
+  var FN_BASE = { guardarPreciosPublicaciones: ["precios-publicaciones", function (a) { return { canal: a[0], cambios: a[1] }; }, 60000] };
+  function fnBase(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var cfg = FN_BASE[n], body = cfg[1](Array.prototype.slice.call(args, 2)); body.token = p.token;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, cfg[2]);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/" + cfg[0], { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo);
+          if (!j || j.status === "google" || j.status === "token") { if (j && j.status === "token") lsS("ap_pase", null); return cb(null); }
+          cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  // guardar directo en la base. cb(respuesta) o cb(null) = que vaya por Google como siempre
+  function guardarEnBase(n, args, cb) {
+    if (Date.now() < VM_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var pa = Array.prototype.slice.call(args, SIN_PIN[n] ? 0 : 2);
+      if (SIN_PIN[n]) pa = pa.map(function (x) { if (x && typeof x === "object") { x = copia(x); delete x.pin; } return x; });   // el PIN nunca viaja a la base
+      rpc(p, { p_token: p.token, p_fn: n, p_args: pa }, function (err, r) {
+        if (err || !r) return cb(null);                                   // sin respuesta: Google (no duplica: mira el uid)
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { if (r.motivo === "apagado") VM_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        if (r.status === "ok" && !r.dup) {
+          if (OVR_DE[n]) { OVR_HASTA = Date.now() + OVR_MS; OVR_FN[OVR_DE[n]] = OVR_HASTA; } else lsS("ap_sucio", Date.now());
+          if (r.pedido) { try { ponerPedido(copia(r.pedido)); } catch (e) {} }
+          if (r.mov) { try { ponerMov(copia(r.mov)); } catch (e) {} }
+          if (r.venta) { try { ponerVentaMin(copia(r.venta)); } catch (e) {} }
+          try { window.__apGuardado = (window.__apGuardado || 0) + 1; } catch (e) {}
+          // respaldo del aviso de la base: que Google pase lo guardado a la planilla
+          setTimeout(function () { try { base.withSuccessHandler(function () { try { base.biSubirAhora("vmtProcesar"); } catch (e) {} }).withFailureHandler(function () {}).vmtProcesar(); } catch (e) {} }, 8000);
+        }
+        cb(r);
+      }, "vm_guardar", 9000);
+    });
+  }
+  function lsG(k, f) { try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }
+  function lsS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function quien() { var a = lsG("giaba_auth", null); return a && a.nombre ? a : null; }
+  function paseOk(p, a) { return p && p.token && p.key && p.url && p.fns && a && p.nombre && p.nombre.toLowerCase() === String(a.nombre).toLowerCase() && p.vence * 1000 > Date.now() + 86400000; }
+  function conPase(cb) {
+    var a = quien(), p = lsG("ap_pase", null);
+    if (paseOk(p, a)) { FNS = FNS || p.fns; if (!Object.keys(SINQ).length) SINQ = p.sinQuien || {}; cb(p); return; }
+    if (!a || !a.pin || !base) { cb(null); return; }
+    esperan.push(cb); if (pidiendo) return;
+    pidiendo = true;
+    var fin = function (r) {
+      pidiendo = false;
+      var ok = r && r.status === "ok" && r.token ? r : null;
+      if (ok) { lsS("ap_pase", ok); FNS = ok.fns || FNS; SINQ = ok.sinQuien || SINQ; }
+      else if (r && r.status === "apagado") lsS("ap_pase", null);
+      esperan.splice(0).forEach(function (f) { try { f(ok); } catch (e) {} });
+    };
+    try { base.withSuccessHandler(fin).withFailureHandler(function () { fin(null); }).apToken(a.nombre, a.pin); } catch (e) { fin(null); }
+  }
+  function rpc(p, body, cb, fn, ms) {
+    var h = { apikey: p.key, "Content-Type": "application/json", Accept: "application/json" };
+    if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+    var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(new Error("tarde")); }, ms || 6000);
+    fetch(p.url + "/rest/v1/rpc/" + (fn || "ap_pantallas"), { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error("base " + r.status); return r.json(); })
+      .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(null, j); }, function (e) { if (listo) return; listo = true; clearTimeout(tmo); cb(e || new Error("sin conexión")); });
+  }
+  // la misma clave que arma el servidor (pantClave_): función|argumentos sin nombre ni PIN
+  function clave(n, args) {
+    var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+    while (a.length && (a[a.length - 1] === undefined || a[a.length - 1] === null)) a.pop();
+    return n + "|" + JSON.stringify(a);
+  }
+  function deBase(n, args, cb) {
+    if (Date.now() - (lsG("ap_sucio", 0) || 0) < SUCIO_MS) return cb(null);   // recién guardaste: lo fresco está en Google
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var k = clave(n, args);
+      rpc(p, { p_token: p.token, p_claves: [k] }, function (err, j) {
+        if (err || !j) return cb(null);
+        if (j.status === "token") { lsS("ap_pase", null); return cb(null); }
+        var it = j.items && j.items[k]; if (!it) return cb(null);
+        var t = Date.parse(it.t), c = Date.parse(it.c || j.cambio || 0), ahora = Date.parse(j.ahora || "") || Date.now();   // 18/11: «c» = el último cambio de las áreas de esta pantalla
+        if (Math.floor((t - 3 * 3600000) / 86400000) !== Math.floor((ahora - 3 * 3600000) / 86400000)) return cb(null);   // se armó otro día (hora Argentina): lo de «hoy» cambió
+        if (ahora - t > FRESCO_MS) return cb(null);   // es viejo
+        if (!(t > c)) {
+          // 18/11: los resúmenes del menú (pendientes, para revisar) se muestran al toque aunque haya habido un guardado de otro,
+          // si se armaron hace menos de 20 minutos; y Google los rearma atrás para la próxima (lo propio recién guardado va por Google)
+          if (!(RESUMEN[n] && ahora - t < RESUMEN_MS)) return cb(null);
+          setTimeout(function () { try { var g = base.withSuccessHandler(function () {}).withFailureHandler(function () {}); g[n].apply(g, args); } catch (e) {} }, 1500);
+        }
+        cb(it.d);
+      });
+    });
+  }
+  // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
+  var RT_NO = {}, RT_NO_MS = 10 * 60000;
+  try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  var RTL = null, RTL_T = 0, RTL_ESP = [];
+  function rtLista(cb) {
+    if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
+    RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    conPase(function (p) {
+      if (!p) return fin(null);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; fin(null); } }, 4000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, lista: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); if (!j || j.status !== "ok") return fin(null);
+          var o = { fns: {}, guarda: {}, todo: false }; (j.fns || []).forEach(function (f) { o.fns[f] = 1; }); (j.guarda || []).forEach(function (f) { o.guarda[f] = 1; }); o.todo = !!o.guarda["*"]; fin(o); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); fin(null); });
+    });
+  }
+  try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  function porPublica(n, args, cb) {
+    var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
+    if (!u || !u.url || !u.key) return cb(null);
+    var h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 30000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+  }
+  function porGuardar(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  function porRuntime(n, args, cb) {
+    if (Date.now() < (RT_NO[n] || 0)) return cb(null);
+    if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
+    if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (listo) return; listo = true; clearTimeout(tmo);
+          if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
+          if (j && j.status === "token") lsS("ap_pase", null);
+          if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
+          cb(null);
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
+  function envolver(t, ok, fail, uo) {
+    return new Proxy(t, { get: function (tt, k) {
+      if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
+      if (k === "withFailureHandler") return function (f) { return envolver(tt.withFailureHandler(f), ok, f, uo); };
+      if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
+      var v = tt[k]; if (typeof v !== "function") return v;
+      var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      // 19/11 · páginas públicas (visitas, retiro del cliente): cuando la base es la dueña, van a la base sin usuario
+      if (PUBLICAS[n]) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porPublica(n, args, function (res) {
+          if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
+      // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
+      if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
+        var args = arguments;
+        porGuardar(n, args, function (res) {
+          if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      if (FN_BASE[n]) return function () {
+        var args = arguments;
+        fnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      if (BZ[n]) return function () {
+        var args = arguments;
+        bzBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 18/11: los reclamos de una venta salen del índice de todos los reclamos (una sola pantalla en la base) · si no está fresco, Google como siempre
+      if (n === "reclamosDeVenta" && lista.indexOf("getReclamosIndice") !== -1) return function () {
+        var args = arguments, ref = String(args[2] || "");
+        var porGoogle = function () {
+          var r = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); }); r[n].apply(r, args);
+          // y que Google arme el índice en la base para las próximas (una vez por página)
+          if (!RECL_PEDIDO) { RECL_PEDIDO = 1; try { base.withSuccessHandler(function () {}).withFailureHandler(function () {}).getReclamosIndice(args[0], args[1]); } catch (e) {} }
+        };
+        try {
+          deBase("getReclamosIndice", [args[0], args[1]], function (d) {
+            if (!d || d.status !== "ok" || !d.por) return porGoogle();
+            if (ok) ok({ status: "ok", items: copia(d.por[ref] || []) }, uo);
+          });
+        } catch (e) { porGoogle(); }
+      };
+      if (lista.indexOf(n) !== -1) return function () {
+        var args = arguments, hecho = false;
+        var kM = clave(n, args);
+        if (Date.now() < (OVR_FN[n] || 0) && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
+        var porGoogle = function () { var r = tt.withSuccessHandler(function (x) { recordar(kM, x); if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); }); r[n].apply(r, args); };
+        var tope = setTimeout(function () { if (hecho) return; hecho = true; porGoogle(); }, 6500);
+        try {
+          deBase(n, args, function (d) {
+            if (hecho) return; hecho = true; clearTimeout(tope);
+            if (d === null || d === undefined) {
+              // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
+              // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
+              clearTimeout(tope);
+              return porRuntime(n, args, function (x) {
+                if (x === null || x === undefined) return porGoogle();
+                try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
+                recordar(kM, x); if (ok) ok(x, uo);
+              });
+            }
+            try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
+            recordar(kM, d);
+            if (ok) ok(d, uo);
+          });
+        } catch (e) { if (!hecho) { hecho = true; clearTimeout(tope); porGoogle(); } }
+      };
+      if (GUARDA_BASE[n]) return function () {
+        var args = arguments;
+        guardarEnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // un guardado (lo que no es lectura): por Google como siempre, y por un minuto las lecturas también van por Google
+      if (!LIBRES.test(n)) return function () { lsS("ap_sucio", Date.now()); return v.apply(tt, arguments); };
+      return function () { return v.apply(tt, arguments); };
+    } });
+  }
+  function poner() {
+    if (!(window.google && google.script && google.script.run)) return false;
+    base = google.script.run;
+    try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
+    conPase(function () { rtLista(function () {}); });
+    return true;
+  }
+  if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
+})();
+</script>
+
+
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Retirá tu pedido · Abalauquen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* 06/11: estética v3, igual al mockup aprobado (mockup-retiros-aprobado.html). Página pública: no lee nada guardado en el celu. */
+:root{--bg:#1b1b1c; --surface:#262627; --s2:rgba(255,255,255,.07); --line:#3a3a3b; --line-2:#545456; --inp:#141414;
+  --ink:#f5efe8; --ink-mid:#d6d0c9; --ink-soft:#a9a49e;
+  --accent:#ffd100; --accent-ink:#1a1305; --accent-soft:#3a2f10;
+  --good:#8fd19e; --good-soft:#1d3324; --warn:#ffb36b; --warn-soft:#3a2a14; --red:#ff8a83; --red-soft:#3a1715; --blue:#8cc8ff; --blue-soft:#17283a; --wa:#25d366;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Manrope,system-ui,sans-serif;font-size:16px}
+body{overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;color:inherit}
+a{color:inherit}
+[hidden]{display:none!important}
+.screen{max-width:1100px;margin:0 auto;padding:16px 16px 28px;display:flex;flex-direction:column;gap:16px}
+.narrow{max-width:760px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.back{height:52px;padding:0 18px 0 12px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font-weight:800;font-size:17px;display:flex;align-items:center;gap:6px}
+.back svg{width:22px;height:22px}
+.who{margin-left:auto;font-weight:800;font-size:15px;color:var(--ink-mid);background:var(--surface);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.step{font-weight:800;font-size:15px;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.step.w{color:var(--warn);background:var(--warn-soft)}
+h1{margin:4px 0 0;font-size:26px;line-height:1.15}
+h2{margin:6px 0 0;font-size:21px}
+.sub{color:var(--ink-mid);font-size:16px;margin-top:-8px;line-height:1.4}
+.lbl{font-size:16px;font-weight:800;color:var(--ink-mid)}
+.lbl small{font-size:14px;font-weight:600;color:var(--ink-soft)}
+.hint{font-size:15px;color:var(--ink-soft);line-height:1.4}
+.hint b{color:var(--ink-mid)}
+.btn{min-height:56px;border-radius:16px;border:2px solid var(--line-2);background:var(--surface);font-weight:800;font-size:17px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;width:100%;text-align:center;line-height:1.2;text-decoration:none}
+.btn.y{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.off{background:var(--line);border-color:var(--line);color:var(--ink-soft)}
+.btn.ol{border-color:var(--accent);color:var(--accent);background:transparent}
+.btn.g{background:var(--good);border-color:var(--good);color:#0e2614}
+.btn.gol{border-color:var(--good);color:var(--good);background:transparent}
+.btn.r{border-color:var(--red);color:var(--red);background:transparent}
+.btn.rf{background:var(--red);border-color:var(--red);color:#2a0b09}
+.btn.b{border-color:var(--blue);color:var(--blue);background:var(--blue-soft)}
+.btn.wa{background:var(--wa);border-color:var(--wa);color:#06301a}
+.btn.w{border-color:var(--warn);color:var(--warn);background:transparent}
+.btn.dash{border-style:dashed;border-color:var(--accent);color:var(--accent);background:transparent}
+.btn.sm{min-height:48px;font-size:16px;width:auto}
+.btn.ink{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.card{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card-t{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.card-t small{font-size:15px;color:var(--ink-mid);font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:48px;padding:0 16px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);font-size:16px;font-weight:800;display:flex;align-items:center;gap:8px;text-align:left;line-height:1.2}
+.chip small{font-size:14px;font-weight:700;color:var(--ink-soft)}
+.chip.on{border-color:var(--accent);background:var(--accent-soft);color:#7a5c00}
+.chip.on small{color:var(--accent)}
+.chip.dash{border-style:dashed;background:transparent;color:var(--ink-mid)}
+.seg2,.seg3,.seg4{display:grid;gap:8px}
+.seg2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.seg3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.seg4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.seg2 button,.seg3 button,.seg4 button{min-height:56px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);font-weight:800;font-size:16px;padding:4px 8px;line-height:1.2}
+.seg2 button.on,.seg3 button.on,.seg4 button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg2 button small,.seg3 button small,.seg4 button small{display:block;font-size:14px;font-weight:700;opacity:.8}
+.txt{height:56px;border-radius:14px;border:2px solid var(--line-2);background:var(--inp);color:var(--ink);font-size:17px;padding:0 14px;font-family:inherit;width:100%;min-width:0}
+.txt:focus{outline:none;border-color:var(--accent)}
+.txt.err{border-color:var(--red)}
+input[type=date].txt,input[type=time].txt{color-scheme:dark;display:block;-webkit-appearance:none;appearance:none;max-width:100%}
+.fl{display:flex;flex-direction:column;gap:8px;min-width:0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:800;padding:14px 20px;border-radius:14px;opacity:0;transition:opacity .2s;pointer-events:none;font-size:16px;z-index:99;text-align:center;max-width:90%}
+.sticky{position:sticky;bottom:0;padding:12px 0 8px;background:var(--bg);box-shadow:0 -10px 16px var(--bg);display:flex;flex-direction:column;gap:8px;z-index:5}
+.rr{display:flex;justify-content:space-between;gap:12px;font-size:16px;align-items:baseline}
+.rr span{color:var(--ink-mid);font-weight:700}
+.rr b{text-align:right;white-space:nowrap}
+.grp{font-size:14px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+.empty{color:var(--ink-soft);font-size:16px;text-align:center;padding:18px 0;font-weight:700}
+.pos{color:var(--good)!important}
+.neg{color:var(--red)!important}
+.st{font-size:15px;font-weight:800;padding:5px 12px;border-radius:999px;background:var(--accent-soft);color:#7a5c00;white-space:nowrap}
+.st.g{background:var(--good-soft);color:var(--good)}
+.st.b{background:var(--blue-soft);color:var(--blue)}
+.st.x{background:var(--s2);color:var(--ink-soft)}
+.st.w{background:var(--warn-soft);color:var(--warn)}
+.st.r{background:var(--red-soft);color:var(--red)}
+.info{background:var(--blue-soft);border:2px solid var(--blue);color:var(--ink-mid);border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.4;font-weight:600}
+.info b{color:var(--blue)}
+.wrb{background:var(--warn-soft);border:2px solid var(--warn);color:#ffd9b0;border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.45;font-weight:600}
+.wrb b{color:#fff}
+.okb{background:var(--good-soft);border:2px solid var(--good);color:var(--good);border-radius:14px;padding:12px 14px;font-size:16px;font-weight:800;line-height:1.4}
+.nv{display:inline-block;font-size:13px;font-weight:800;letter-spacing:.04em;background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:1px 6px;vertical-align:2px;margin-left:4px;white-space:nowrap}
+.list{display:flex;flex-direction:column;gap:8px}
+.cols{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+@media (min-width:900px){.cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stack{display:flex;flex-direction:column;gap:12px;min-width:0}
+.fr{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--surface);border:2px solid var(--line-2);width:100%;text-align:left;min-height:64px}
+.fr.on{border-color:var(--accent);background:var(--accent-soft)}
+.fr .t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.fr .t b{font-size:17px}
+.fr .t span{font-size:14px;color:var(--ink-mid);font-weight:600;line-height:1.35}
+.fr.on .t b{color:var(--accent)}
+.fr .go{font-size:22px;font-weight:800;color:var(--ink-soft)}
+.ent{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:16px;background:var(--surface);border-left:8px solid var(--line-2);text-align:left;width:100%;border-top:0;border-right:0;border-bottom:0;min-width:0}
+.ent.o{border-left-color:var(--warn)}
+.ent.b{border-left-color:var(--blue)}
+.ent.y{border-left-color:var(--accent)}
+.ent.g{border-left-color:var(--good)}
+.ent.r{border-left-color:var(--red)}
+.ent.x{opacity:.6}
+.ent .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ent .nm{font-size:17px;font-weight:800;min-width:0}
+.ent .d{font-size:15px;color:var(--ink-mid);font-weight:700;line-height:1.35}
+.pressed{transform:scale(.97)}
+.btn,.chip,.fr,.seg2 button,.seg3 button,.seg4 button,.ent{transition:transform .08s ease}
+.kp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.kp .card{gap:4px}
+.kp .t{font-size:15px;color:var(--ink-mid);font-weight:700}
+.kp b{font-size:26px;line-height:1.15}
+.kp .c{font-size:15px;color:var(--ink-mid);font-weight:700}
+.resl{display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:900px){.resl{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+.res{cursor:pointer}
+.res.open{outline:2px solid var(--accent)}
+.res .acts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.res .asis button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ctc{font-size:15px;color:var(--ink-mid);font-weight:700;line-height:1.5;word-break:break-word}
+.fer{display:flex;flex-direction:column;gap:10px;background:var(--red-soft);border:2px solid var(--red);border-radius:16px;padding:12px 14px}
+.fer .tx{font-size:16px;font-weight:700;color:var(--ink-mid)}
+.fer .tx b{color:var(--red)}
+.mgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (min-width:600px){.mgrid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.mgrid button,.dgrid button{min-height:48px;border-radius:12px;border:2px solid var(--line-2);background:var(--bg);font-weight:800;font-size:15px}
+.mgrid button.on,.dgrid button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.dgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.dgrid button{font-size:14px;padding:0}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.hrow>span{font-size:16px;font-weight:700}
+.hrow .bs{display:flex;gap:6px}
+.hrow .bs .btn{min-height:48px;font-size:15px;width:auto;padding:0 12px}
+.hrow .bs .btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.prev{font-size:15px;color:var(--ink-mid);line-height:1.45;background:var(--bg);border-radius:12px;padding:12px}
+.dia{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;min-height:56px}
+.dia .t{display:flex;flex-direction:column;gap:2px}
+.dia .t b{font-size:16px}
+.dia .t span{font-size:15px;color:var(--ink-mid);font-weight:600}
+.dia .m{font-size:17px;font-weight:800;white-space:nowrap}
+.dia.on{background:var(--accent-soft)}
+.edit{background:var(--bg);border:2px solid var(--accent);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;margin:6px 0 10px}
+.pinG{color:var(--good)}
+.pinR{color:var(--red)}
+.pinW{color:var(--warn)}
+.pub{max-width:520px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:14px}
+.pub .ey{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:800}
+.opt{border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--surface);border:2px solid var(--line-2);text-align:left;width:100%}
+.opt.main{border-color:var(--accent)}
+.opt .row{display:flex;align-items:center;gap:12px}
+.opt .ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;background:var(--accent-soft)}
+.opt b{font-size:20px;display:block}
+.gratis{display:inline-flex;align-self:flex-start;background:var(--good);color:#0c2a1c;font-weight:800;font-size:15px;letter-spacing:.05em;padding:4px 11px;border-radius:9px}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.cal .h{font-size:14px;color:var(--ink-soft);text-align:center;font-weight:800}
+.cal .d{height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#6d6a66}
+.cal button.d{background:var(--surface);border:2px solid var(--line-2);color:var(--ink)}
+.cal button.d.sel{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.stp{display:grid;grid-template-columns:52px minmax(0,1fr) 52px;gap:6px;align-items:center}
+.stp button{height:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);font-size:26px;font-weight:800}
+.stp input{height:52px;border-radius:14px;border:2px solid var(--accent);background:var(--inp);color:var(--ink);font-size:20px;font-weight:800;text-align:center;font-family:inherit;width:100%;min-width:0}
+.chk{display:flex;gap:12px;align-items:center;font-size:15px;color:var(--ink-mid);font-weight:700;min-height:48px;background:none;border:0;text-align:left;padding:0}
+.chk i{width:28px;height:28px;border-radius:8px;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;color:var(--accent-ink);flex-shrink:0}
+.chk.on i{background:var(--accent)}
+.errm{color:var(--red);font-weight:800;font-size:15px;text-align:center;min-height:20px}
+.okic{width:64px;height:64px;border-radius:32px;background:var(--good-soft);color:var(--good);display:flex;align-items:center;justify-content:center;font-size:30px;align-self:center;font-weight:800}
+.map{height:110px;border-radius:12px;background:linear-gradient(135deg,#1f4a3a 0%,#2c5e44 45%,#3a6e8c 100%);position:relative;overflow:hidden}
+.map span{position:absolute;left:10px;bottom:8px;font-size:14px;font-weight:800}
+a.btn{cursor:pointer}
+.back{cursor:pointer}
+.cal button.d{font-family:inherit;padding:0}
+.stp input{-moz-appearance:textfield}
+.chk{cursor:pointer;font-family:inherit}
+
+.inp{min-height:56px;border-radius:14px;border:2px solid var(--line-2);background:var(--inp);color:var(--ink);font-size:17px;padding:0 14px;width:100%;font-family:inherit}
+
+/* 06/11 (Lucas): las pantallas de clientes van en claro (como el mail de Tienda Nube); el negro queda para la app interna */
+:root{--bg:#f2f2f2; --surface:#ffffff; --s2:rgba(0,0,0,.04); --line:#e4e4e4; --line-2:#cfcfcf; --inp:#ffffff;
+  --ink:#1b1b1c; --ink-mid:#3d3d3d; --ink-soft:#6b6b6b;
+  --accent:#ffd100; --accent-ink:#1a1305; --accent-soft:#fff6cc;
+  --good:#2e7d32; --good-soft:#e8f5e9; --warn:#d97706; --warn-soft:#fff4e5; --red:#d32f2f; --red-soft:#fdecea; --blue:#1a5fb4; --blue-soft:#e8f0fb; --wa:#25d366;}
+.step,.chip.on,.chip.on small,.btn.ol,.btn.dash,.st,.fr.on .t b,.pub .ey,.mgrid button.on,.dgrid button.on{color:#7a5c00}
+.btn.ol,.btn.dash{border-color:#e6bc00}
+.chip.on{border-color:#e6bc00}
+.wrb{color:#7a3e00} .wrb b{color:#5a2c00}
+.btn.g{color:#ffffff}
+.card{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.marca{text-align:center;padding:8px 0 2px}
+.marca b{display:block;font-size:24px;font-weight:800;letter-spacing:4px;color:#1b1b1c}
+.marca span{font-size:14px;color:#6b6b6b}
+</style>
+</head>
+<body>
+<!-- 09/11/2026 (Lucas): «cuando apretamos cualquier botón tiene que pasar algo». Va incluido en TODAS las pantallas (include('BotonesComun')).
+     1) Al tocar: el botón se hunde y se ilumina al instante (antes de que conteste el servidor).
+     2) Si ese toque llama al servidor: el botón queda «trabajando» (pulso + puntitos) y no se puede volver a tocar hasta que conteste.
+     3) Si tarda más de medio segundo: barrita arriba y cartelito «Cargando…» abajo, para que se note que la app está haciendo algo.
+     No cambia ningún texto ni ninguna función de las pantallas: solo se engancha a google.script.run. -->
+<style>
+button, .btn, .chip, [data-a], .tl, .ent button { -webkit-tap-highlight-color: transparent; }
+button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform: scale(.97); filter: brightness(1.25); transition: transform .06s, filter .06s; }
+.gb-toc { filter: brightness(1.3) !important; box-shadow: 0 0 0 3px rgba(255, 209, 0, .55) !important; }
+.gb-busy { position: relative; cursor: progress !important; animation: gbPulso 1s ease-in-out infinite; }
+.gb-busy::after { content: "…"; position: absolute; right: 10px; top: 50%; transform: translateY(-58%); font-weight: 800; letter-spacing: 1px; animation: gbPts 1s steps(3) infinite; }
+@keyframes gbPulso { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes gbPts { 0% { opacity: .3; } 50% { opacity: 1; } 100% { opacity: .3; } }
+#gbBarra { position: fixed; left: 0; top: 0; height: 4px; width: 0; background: #ffd100; z-index: 99999; transition: width .25s ease, opacity .3s; opacity: 0; pointer-events: none; }
+#gbBarra.on { opacity: 1; width: 75%; transition: width 6s cubic-bezier(.1, .7, .2, 1), opacity .2s; }
+#gbCartel { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #2a2a2b; color: #f5efe8; border: 2px solid #ffd100; border-radius: 999px; padding: 6px 14px; font: 700 15px/1.2 Manrope, system-ui, sans-serif; z-index: 99998; opacity: 0; pointer-events: none; transition: opacity .2s; }
+#gbCartel.on { opacity: 1; }
+</style>
+<script>
+(function () {
+  if (window.__gbBotones) return; window.__gbBotones = true;
+  var ULT = null, PEND = 0, TBAR = null;
+  var SEL = 'button, .btn, .chip, [data-a], .tl, [role="button"]';
+  function barra() { var b = document.getElementById('gbBarra'); if (!b) { b = document.createElement('div'); b.id = 'gbBarra'; document.body.appendChild(b); } return b; }
+  function cartel() { var c = document.getElementById('gbCartel'); if (!c) { c = document.createElement('div'); c.id = 'gbCartel'; document.body.appendChild(c); } return c; }
+  // 1) feedback al toque
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
+    if (t.classList.contains('gb-busy')) { e.stopPropagation(); e.preventDefault(); return; }   // ya está trabajando: no dos veces
+    ULT = { el: t, t: Date.now() };
+    t.classList.add('gb-toc'); setTimeout(function () { t.classList.remove('gb-toc'); }, 220);
+  }, true);
+  // 09/11 (Lucas): en el inicio (elegir usuario / PIN) no se muestra nada: recién después de iniciar sesión
+  function enLogin() { var ids = ['screen-quien', 'screen-pin', 'screen-login', 's-login', 's-pin']; for (var i = 0; i < ids.length; i++) { var x = document.getElementById(ids[i]); if (x && x.offsetParent !== null && getComputedStyle(x).display !== 'none' && !x.hidden) return true; } return false; }
+  function empezar(el) {
+    PEND++;
+    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
+    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
+  }
+  function terminar(el) {
+    PEND = Math.max(0, PEND - 1);
+    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); }
+    if (!PEND) { clearTimeout(TBAR); var b = document.getElementById('gbBarra'); if (b) b.classList.remove('on'); var c = document.getElementById('gbCartel'); if (c) c.classList.remove('on'); }
+  }
+  // 2) engancharse a google.script.run (sin cambiar cómo lo usan las pantallas)
+  var DUP = {};
+  function gbCopia(x) { try { return x === undefined ? x : JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }   // cada pantalla recibe su copia
+  function envolver(run, ok, fail) {
+    return new Proxy(run, { get: function (o, k) {
+      if (k === 'withSuccessHandler') return function (f) { return envolver(o, f, fail); };
+      if (k === 'withFailureHandler') return function (f) { return envolver(o, ok, f); };
+      if (k === 'withUserObject') return function (u) { return envolver(o.withUserObject(u), ok, fail); };
+      var fn = o[k]; if (typeof fn !== 'function') return fn;
+      return function () {
+        // 12/11 (lentitud): la misma lectura (get…, mismos datos) pedida varias veces a la vez se pide UNA sola vez a Google
+        // y la respuesta les llega a todas (solo mientras está en camino: lo que se pide después siempre va a Google). Las que guardan algo nunca se juntan.
+        var args = [].slice.call(arguments), clave = null, okL = ok, failL = fail;
+        if (/^get/.test(String(k))) { try { clave = String(k) + '|' + JSON.stringify(args); } catch (e) { clave = null; } }
+        else DUP = {};   // algo que guarda: lo que se leyó antes ya no sirve (la próxima lectura va a Google de nuevo)
+        if (clave) {
+          var D = DUP[clave];
+          if (D && D.vuela) {
+            D.esperan.push([okL, failL]);
+            return;
+          }
+          D = DUP[clave] = { vuela: true, esperan: [], t: 0, res: null, err: false };
+          var ok0 = okL, fail0 = failL;
+          okL = function (a, b) { D.vuela = false; if (DUP[clave] === D) delete DUP[clave]; var E = D.esperan; D.esperan = []; if (ok0) ok0(a, b); E.forEach(function (x) { try { if (x[0]) x[0](gbCopia(a)); } catch (e) {} }); };
+          failL = function (a, b) { D.vuela = false; D.t = 0; D.err = true; D.res = a; if (DUP[clave] === D) delete DUP[clave]; var E = D.esperan; D.esperan = []; if (fail0) fail0(a, b); E.forEach(function (x) { try { if (x[1]) x[1](a); } catch (e) {} }); };
+        }
+        var el = ULT && Date.now() - ULT.t < 600 ? ULT.el : null, listo = false;
+        if (el) ULT = null;   // un toque marca una sola llamada (la primera)
+        var calla = enLogin();   // en el inicio (usuario / PIN) no se muestra nada
+        var fin = function () { if (listo) return; listo = true; clearTimeout(tope); if (!calla) terminar(el); };
+        var tope = setTimeout(fin, 45000);   // por las dudas: nunca queda trabado
+        if (!calla) empezar(el);
+        var r = o;
+        r = r.withSuccessHandler(function (a, b) { fin(); if (okL) return okL(a, b); });
+        r = r.withFailureHandler(function (a, b) { fin(); if (failL) return failL(a, b); });
+        return r[k].apply(r, arguments);
+      };
+    } });
+  }
+  try {
+    if (window.google && google.script && google.script.run && !google.script.__gbOk) {
+      google.script.__gbOk = true;
+      var p = envolver(google.script.run, null, null);
+      Object.defineProperty(google.script, 'run', { value: p, configurable: true, writable: true });
+    }
+  } catch (e) {}
+})();
+</script>
+
+<div class="screen"><div class="narrow"><div class="marca"><b>ABALAUQUEN</b><span>Dulces regionales</span></div><div class="narrow" id="app"><div class="empty">Cargando tu pedido…</div></div></div></div>
+<div class="toast" id="toast"></div>
+<script>
+  var GIABA_BASE_URL = "https://abalauquen.github.io/giaba-app/web/";
+  var RID = (function(){try{return (new URLSearchParams(location.search).get("r")||"").replace(/[^\w-]/g,"");}catch(e){return "";}})(), TOKEN = (function(){try{return (new URLSearchParams(location.search).get("t")||"").replace(/[^\w-]/g,"");}catch(e){return "";}})();
+</script>
+<script>
+(function(){
+  "use strict";
+  const el = (id) => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  function toast(m){ const x = el("toast"); x.textContent = m; x.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(function(){ x.style.opacity = 0; }, 2600); }
+  function gs(){ return typeof google !== "undefined" && google.script && google.script.run; }
+  document.addEventListener("pointerdown", function(e){ const k = e.target.closest && e.target.closest(".btn,.chip,.back"); if (!k) return; k.classList.add("pressed"); setTimeout(function(){ k.classList.remove("pressed"); }, 160); }, { passive: true });
+
+  const MAPS = "https:\/\/maps.app.goo.gl\/ZnetN3a4LMJpwo1JA";
+  const WSP = "542944897005", MAIL = "info@abalauquen.com.ar";
+  const man = h => parseInt(h, 10) < 14;
+  const hTxt = h => String(h).replace(/^0/, "") + " h";
+  const DIR = '<div class="card" style="border:2px solid var(--accent)"><div class="card-t">📍 Depósito Abalauquen · Saavedra</div><div style="font-size:18px;font-weight:800;line-height:1.35">Rómulo Naón 4167<br><span style="font-weight:600;color:var(--ink-mid);font-size:16px">entre Besares y Vilela · Saavedra, CABA (CP 1430)</span></div><div style="font-size:21px;font-weight:900;color:var(--red);line-height:1.3;letter-spacing:.5px;text-transform:uppercase">🔔 TIMBRE DERECHO</div><a class="btn ol" href="' + MAPS + '" target="_blank" rel="noopener">🗺️ Cómo llegar (Google Maps)</a></div>';
+
+  // estado: R = el pedido (del servidor) · DIAS = días que se pueden elegir
+  let R = null, DIAS = [], FERIAS = [], S = { fer: null, scr: "c1", dia: null, hora: null, wa: "", edWa: 0, enviando: 0, segCancel: 0 };
+  const dn = f => DIAS.filter(function(d){ return d.fecha === f; })[0];
+  function libre(f, h){ const d = dn(f); return !!(d && d.horas.indexOf(h) !== -1); }
+
+  function err(){
+    const wa = "https:\/\/wa.me\/" + WSP + "?text=" + encodeURIComponent("¡Hola! Quiero elegir el día para retirar mi pedido por Saavedra y el link no me funcionó.");
+    return '<span class="step">Depósito Abalauquen · Saavedra</span><h1>¡Hola! 👋</h1>'
+      + '<div class="card"><span class="hint" style="font-size:16px">Uy, no encontramos tu pedido con este link 🙈. Puede que se haya cortado al copiarlo.</span><span class="hint">Escribinos por WhatsApp o por mail y te ayudamos a elegir el día y la hora enseguida 😊</span></div>'
+      + '<a class="btn wa" href="' + wa + '" target="_blank" rel="noopener">💬 Escribinos por WhatsApp</a>'
+      + '<a class="btn" href="mailto:' + MAIL + '?subject=' + encodeURIComponent("Retiro de mi pedido") + '">✉️ ' + MAIL + '</a>';
+  }
+  function fin(txt){
+    return '<span class="step">Depósito Abalauquen · Saavedra</span><h1>¡Hola' + (R.primer ? " " + esc(R.primer) : "") + '! 👋</h1>'
+      + '<div class="card"><div class="card-t"><span>🫙 Pedido ' + esc(R.ped) + '</span></div><span class="hint" style="font-size:16px">' + txt + '</span></div>'
+      + '<a class="btn wa" href="https:\/\/wa.me\/' + WSP + '" target="_blank" rel="noopener">💬 Escribinos por WhatsApp</a>';
+  }
+  function c1(){
+    if (R.estado === "Retiró") return fin("¡Ya retiraste este pedido! Muchas gracias por elegirnos 💛");
+    if (R.estado === "Pedido cancelado") return fin("Este pedido figura cancelado. Si es un error, escribinos y lo vemos juntos 😊");
+    return '<h1>¡Hola' + (R.primer ? " " + esc(R.primer) : "") + '! 👋</h1><div class="sub">' + (R.soloDep ? 'Elegí cuándo pasar a buscar tu pedido por nuestro depósito de Saavedra.' : 'Tu pedido ya está listo. ¿Dónde preferís pasar a buscarlo?') + '</div>'
+      + '<div class="card"><div class="card-t"><span>🫙 Pedido ' + esc(R.ped) + '</span><small>' + esc(R.comprado) + '</small></div>' + (R.items ? '<span class="hint">' + esc(R.items) + '</span>' : '')
+      + '<div class="hint">' + (R.nombre ? 'A nombre de <b>' + esc(R.nombre) + '</b> · ' : '') + 'WhatsApp <b>' + esc(S.wa || "—") + '</b> <button class="btn sm" style="display:inline-flex;min-height:40px;margin-left:6px" data-edwa>Cambiar</button></div>'
+      + (S.edWa ? '<input class="inp" id="iWa" inputmode="tel" value="' + esc(S.wa) + '" placeholder="11 5555-1234">' : '') + '</div>'
+      + '<button class="opt" data-go="c2"><span class="row"><span class="ic">🏠</span><span style="flex:1"><b>Depósito Saavedra</b><span class="hint">Lunes a viernes · 10 a 13 h y 15 a 19 h · elegís día y hora</span></span><span style="font-size:22px;font-weight:800;color:var(--ink-soft)">›</span></span></button>'
+      + (R.soloDep ? '' : '<button class="opt" data-go="f2"><span class="row"><span class="ic">🎪</span><span style="flex:1"><b>En una feria</b><span class="hint">Elegís una de las ferias de estos días y pasás por nuestro puesto</span></span><span style="font-size:22px;font-weight:800;color:var(--ink-soft)">›</span></span></button>')
+      + '<div class="hint">Todo viene cargado desde tu compra' + (R.soloDep ? ' en Mercado Libre' : ' en la tienda') + ': no tenés que completar nada.</div>';
+  }
+  // 06/11 (mockup-retiros-feria): retirar en una feria
+  const fn = id => FERIAS.filter(function(f){ return f.id === id; })[0];
+  function f2(){
+    let h = '<div class="top"><button class="back" data-go="' + (R.vigente ? "c4" : "c1") + '">‹ Volver</button><span class="step">' + esc(R.ped) + '</span></div><h2>¿En qué feria pasás?</h2><div class="sub">Estas son las ferias donde vamos a estar con tu pedido. Pasá por el puesto de Abalauquen en el horario de la feria.</div>';
+    let dia = "";
+    FERIAS.forEach(function(f){ const on = S.fer === f.id;
+      if (f.fecha !== dia){ dia = f.fecha; h += '<div class="grp">' + esc(f.t) + '</div>'; }
+      h += '<button class="fr' + (on ? " on" : "") + '" data-fer="' + esc(f.id) + '"><span style="width:26px;height:26px;border-radius:13px;border:2px solid ' + (on ? "var(--accent);background:var(--accent)" : "var(--line-2)") + ';flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900">' + (on ? "✓" : "") + '</span><span class="t"><b>' + esc(f.nombre) + '</b><span>' + esc(f.horario) + '</span></span></button>';
+    });
+    if (!FERIAS.length) h += '<div class="wrb">Por ahora no tenemos ferias confirmadas para estos días 🙈. Volvé a entrar más adelante con este mismo link, o elegí el depósito de Saavedra.</div>';
+    h += '<div class="info">📅 Te mostramos las ferias de esta semana y la próxima, porque <b>cada organización las va confirmando</b> sobre la marcha. Si ninguna te queda cómoda, <b>volvé a entrar más adelante con este mismo link</b> y vas a ver las nuevas fechas 😊</div>';
+    h += '<button class="btn ' + (S.fer && fn(S.fer) ? "y" : "off") + '" ' + (S.fer && fn(S.fer) ? 'data-go="f3"' : '') + '>Seguir ›</button>'; return h; }
+  function ferCard(f){ return '<div class="card" style="border:2px solid var(--accent)"><div class="card-t">🎪 ' + esc(f.t || R.diaTxt) + (f.horario ? ' · ' + esc(f.horario) : '') + '</div><div style="font-size:18px;font-weight:800;line-height:1.35">Feria ' + esc(f.nombre) + '</div><span class="hint">Buscá el puesto de <b>Abalauquen</b> y decí tu nombre o tu n° de pedido: lo llevamos armado.</span>' + (f.maps ? '<a class="btn ol" href="' + esc(f.maps) + '" target="_blank" rel="noopener">🗺️ Cómo llegar (Google Maps)</a>' : '') + '</div>'; }
+  function f3(){ const f = fn(S.fer); if (!f){ S.scr = "f2"; return f2(); }
+    return '<div class="top"><button class="back" data-go="f2">‹ Volver</button><span class="step">Revisá y confirmá</span></div><h2>Tu retiro</h2>' + ferCard(f)
+    + '<div class="card"><div class="hint">Pedido <b>' + esc(R.ped) + '</b>' + (R.nombre ? ' · ' + esc(R.nombre) : '') + '</div></div>'
+    + '<div class="card" style="border-left:6px solid var(--blue)"><span class="hint">Las ferias dependen de cada organización y del clima. <b>Si se suspende, te avisamos por mail</b> para que elijas otra feria o el depósito. Si no te avisamos, ¡te esperamos! 😊</span></div>'
+    + '<div class="errm" id="e3"></div>'
+    + '<button class="btn ' + (S.enviando ? "off" : "y") + '" data-reservar="f">' + (S.enviando ? "Reservando…" : "✓ Confirmar retiro en la feria") + '</button>'; }
+  function c2(){
+    let h = '<div class="top"><button class="back" data-go="' + (R.vigente ? "c4" : "c1") + '">‹ Volver</button><span class="step">' + esc(R.ped) + '</span></div><h2>¿Cuándo pasás?</h2><div class="sub">Tocá el día y elegí la hora. Abrimos de lunes a viernes; podés elegir de hoy hasta el viernes que viene.</div>';
+    DIAS.forEach(function(d){ const ok = d.horas.length > 0, on = S.dia === d.fecha;
+      h += '<div class="card" style="padding:0;gap:0;' + (on ? 'border:2px solid var(--accent)' : '') + (ok ? '' : ';opacity:.5') + '"><button class="chip" style="width:100%;border:0;justify-content:space-between;min-height:56px;' + (on ? 'background:var(--accent-soft);color:#7a5c00' : '') + '" ' + (ok ? 'data-dia="' + d.fecha + '"' : 'disabled') + '><span>' + esc(d.t) + '</span><small>' + (ok ? (on ? "▲" : d.horas.length + " horario" + (d.horas.length === 1 ? "" : "s") + " ▾") : esc(d.motivo || "cerrado")) + '</small></button>';
+      if (on) h += '<div style="padding:12px;display:flex;flex-direction:column;gap:8px">' + [["Mañana","10 a 13 h",d.horas.filter(man)],["Tarde","15 a 19 h",d.horas.filter(function(x){ return !man(x); })]].map(function(t){ const c = t[2].map(hb).join(""); return c ? '<div class="lbl">' + t[0] + ' <small>' + t[1] + '</small></div><div class="chips">' + c + '</div>' : ''; }).join("") + '</div>';
+      h += '</div>'; });
+    if (!DIAS.some(function(d){ return d.horas.length; })) h += '<div class="wrb">Por ahora no tenemos horarios libres 🙈. Escribinos por WhatsApp y lo coordinamos.</div>';
+    h += '<div class="hint">Necesitamos un ratito para preparar tu pedido: por eso los horarios arrancan 2 horas después de que entrás, y si compraste hoy, podés pasar desde mañana.</div>';
+    h += '<button class="btn ' + (S.dia && S.hora ? "y" : "off") + '" ' + (S.dia && S.hora ? 'data-go="c3"' : '') + '>Seguir ›</button>'; return h; }
+  function hb(x){ return '<button class="chip ' + (S.hora === x ? "on" : "") + '" data-hora="' + x + '">' + x + '</button>'; }
+  function c3(){ const d = dn(S.dia); return '<div class="top"><button class="back" data-go="c2">‹ Volver</button><span class="step">Revisá y confirmá</span></div><h2>Tu retiro</h2>'
+    + '<div class="card"><div class="card-t">🗓️ ' + esc(d ? d.t : S.dia) + ' · ' + hTxt(S.hora) + '</div><div class="hint">Pedido <b>' + esc(R.ped) + '</b>' + (R.nombre ? ' · ' + esc(R.nombre) : '') + '</div></div>' + DIR
+    + '<div class="card" style="border-left:6px solid var(--blue)"><span class="hint">Tu turno queda <b>sujeto a confirmación</b>. Si ese día se nos complica, te escribimos por WhatsApp para buscar otro horario que te quede cómodo. Si no te escribimos, ¡te esperamos! 😊</span></div>'
+    + '<div class="errm" id="e3"></div>'
+    + '<button class="btn ' + (S.enviando ? "off" : "y") + '" data-reservar>' + (S.enviando ? "Reservando…" : "✓ Reservar mi retiro") + '</button>'; }
+  function c4(){ const F = R.feria; return '<div style="font-size:56px;text-align:center">🎉</div><h1 style="text-align:center">¡Listo! Te esperamos' + (F ? ' en la feria' : '') + '</h1><div class="sub" style="text-align:center;margin-top:0">' + esc(R.diaTxt) + (F ? (F.horario ? ' · de ' + esc(F.horario) : '') : ' a las ' + esc(R.horaTxt)) + '</div>' + (F ? ferCard({ t: R.diaTxt, horario: F.horario, nombre: F.nombre, maps: F.maps }) : DIR)
+    + '<div class="card" style="border-left:6px solid var(--good)"><span class="hint">Te mandamos todo esto por mail. Si algo cambia, te avisamos por mail para que elijas de nuevo. ¡Gracias por elegirnos! 💛</span></div>'
+    + '<button class="btn ol" data-go="c1">Cambiar día o lugar</button><button class="btn ' + (S.segCancel ? "rf" : "r") + '" data-cancel>' + (S.segCancel ? (S.enviando ? "Cancelando…" : "¿Seguro? Tocá de nuevo para cancelar") : "No puedo ir · cancelar") + '</button>'; }
+
+  // 06/11 (Lucas): link general (sin mail): N° de pedido, quién retira y WhatsApp → sigue igual que el link del mail
+  function nuevo(){ const wa = "https:\/\/wa.me\/" + WSP;
+    return '<span class="step">Depósito Abalauquen · Saavedra</span><h1>¡Hola! Elegí cuándo pasás a buscar tu pedido 🫙</h1><div class="sub">Completá estos datos y en el paso siguiente elegís el día y la hora.</div>'
+      + '<div class="card"><span class="lbl">N° de pedido <small>está en el mail de tu compra, ej. #1218</small></span><input class="inp" id="nPed" inputmode="numeric" value="' + esc(S.nPed || "") + '">'
+      + '<span class="lbl">¿Quién retira?</span><input class="inp" id="nNom" autocomplete="name" value="' + esc(S.nNom || "") + '">'
+      + '<span class="lbl">Tu WhatsApp <small>por si necesitamos avisarte algo</small></span><input class="inp" id="nWa" inputmode="tel" autocomplete="tel" value="' + esc(S.nWa || "") + '"></div>'
+      + (S.nMsg ? '<div class="' + (S.nYa ? "info" : "wrb") + '">' + esc(S.nMsg) + '</div>' + (S.nYa || S.nWsp ? '<a class="btn wa" href="' + wa + '" target="_blank" rel="noopener">💬 Escribinos por WhatsApp</a>' : '') : '')
+      + '<button class="btn y' + (S.enviando ? " off" : "") + '" data-nuevo>' + (S.enviando ? "Buscando tu pedido…" : "Elegir día y hora ›") + '</button>'; }
+  function buscarNuevo(){
+    if (S.enviando || !gs()) return;
+    S.nPed = el("nPed").value; S.nNom = el("nNom").value; S.nWa = el("nWa").value; S.nMsg = ""; S.nYa = 0; S.nWsp = 0; S.enviando = 1; draw(false);
+    google.script.run.withSuccessHandler(function(r){ S.enviando = 0;
+      if (r && r.status === "ok"){ RID = r.id; TOKEN = r.t; S.scr = "c1"; R = null; cargar(); return; }
+      S.nMsg = (r && r.msg) || "No se pudo. Probá de nuevo."; S.nYa = r && r.status === "ya" ? 1 : 0; S.nWsp = r && r.wsp ? 1 : 0; draw(false);
+    }).withFailureHandler(function(){ S.enviando = 0; S.nMsg = "Sin conexión. Probá de nuevo en un ratito."; draw(false); }).retNuevoPublico({ pedido: S.nPed, nombre: S.nNom, wa: S.nWa });
+  }
+  function draw(top){ const f = { c1: c1, c2: c2, c3: c3, c4: c4, f2: f2, f3: f3, err: err, nuevo: nuevo }[S.scr]; el("app").innerHTML = f(); bind(); if (top !== false) window.scrollTo(0,0); }
+  function leerWa(){ const w = el("iWa"); if (w) S.wa = w.value.trim(); }
+  function bind(){ const q = s => document.querySelectorAll(s);
+    q("[data-go]").forEach(function(b){ b.onclick = function(){ leerWa();
+      if ((b.dataset.go === "c2" || b.dataset.go === "f2") && S.wa.replace(/\D/g, "").length < 8){ S.edWa = 1; S.scr = "c1"; draw(); toast("Revisá tu WhatsApp: tiene que tener al menos 8 números"); return; }
+      S.segCancel = 0; S.scr = b.dataset.go; draw(); }; });
+    q("[data-dia]").forEach(function(b){ b.onclick = function(){ S.dia = S.dia === b.dataset.dia ? null : b.dataset.dia; if (S.hora && !libre(S.dia, S.hora)) S.hora = null; draw(false); }; });
+    q("[data-fer]").forEach(function(b){ b.onclick = function(){ S.fer = b.dataset.fer; draw(false); }; });
+    q("[data-hora]").forEach(function(b){ b.onclick = function(){ S.hora = b.dataset.hora; draw(false); }; });
+    q("[data-edwa]").forEach(function(b){ b.onclick = function(){ S.edWa = 1; draw(false); const i = el("iWa"); if (i) i.focus(); }; });
+    q("[data-reservar]").forEach(function(b){ b.onclick = function(){ reservar(b.dataset.reservar === "f"); }; });
+    q("[data-cancel]").forEach(function(b){ b.onclick = cancelar; });
+    q("[data-nuevo]").forEach(function(b){ b.onclick = buscarNuevo; });
+  }
+  function aplicar(r){ R = r.r; if (r.dias) DIAS = r.dias; if (r.ferias) FERIAS = r.ferias; S.wa = R.wa || ""; }
+  function reservar(enFeria){
+    if (S.enviando || !gs()) return;
+    S.enviando = 1; draw(false);
+    google.script.run.withSuccessHandler(function(r){
+      S.enviando = 0;
+      if (r && r.status === "ok"){ R = r.r; S.wa = R.wa || S.wa; S.scr = "c4"; draw(); toast(r.cambio ? "¡Listo! Cambiamos tu retiro" : "¡Listo! Reservamos tu retiro"); return; }
+      if (r && r.ferias){ FERIAS = r.ferias; S.fer = null; S.scr = "f2"; draw(); toast((r && r.msg) || "Elegí otra feria"); return; }
+      if (r && r.dias){ DIAS = r.dias; if (!libre(S.dia, S.hora)) S.hora = null; S.scr = "c2"; draw(); toast((r && r.msg) || "Elegí otro horario"); return; }
+      draw(false); el("e3").textContent = (r && r.msg) || "No se pudo reservar. Probá de nuevo.";
+    }).withFailureHandler(function(){ S.enviando = 0; draw(false); el("e3").textContent = "Sin conexión. Probá de nuevo en un ratito."; })
+      .reservarRetiro(enFeria ? { id: RID, t: TOKEN, feria: S.fer, wa: S.wa } : { id: RID, t: TOKEN, fecha: S.dia, hora: S.hora, wa: S.wa });
+  }
+  function cancelar(){
+    if (!S.segCancel){ S.segCancel = 1; draw(false); return; }
+    if (S.enviando || !gs()) return;
+    S.enviando = 1; draw(false);
+    google.script.run.withSuccessHandler(function(r){
+      S.enviando = 0; S.segCancel = 0;
+      if (r && r.status === "ok"){ R = r.r; S.dia = null; S.hora = null; S.scr = "c1"; draw(); cargar(); toast("Listo, cancelamos tu retiro. Cuando puedas, elegí otro día 😊"); return; }
+      draw(false); toast((r && r.msg) || "No se pudo cancelar");
+    }).withFailureHandler(function(){ S.enviando = 0; S.segCancel = 0; draw(false); toast("Sin conexión. Probá de nuevo."); }).cancelarRetiro(RID, TOKEN);
+  }
+  function cargar(){
+    if (!gs()) return;
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.status !== "ok"){ S.scr = "err"; draw(); return; }
+      const primera = !R; aplicar(r);
+      if (primera){ S.scr = R.vigente ? "c4" : "c1"; if (R.vigente && R.feria) S.fer = R.feria.id; else if (R.vigente && libre(R.fecha, R.hora)){ S.dia = R.fecha; S.hora = R.hora; } }
+      draw();
+    }).withFailureHandler(function(){ el("app").innerHTML = '<div class="wrb">Sin conexión. Probá de nuevo en un ratito.</div>'; }).getRetiroPublico(RID, TOKEN);
+  }
+  if (RID === "nuevo"){ S.scr = "nuevo"; draw(); } else if (!RID || !TOKEN){ S.scr = "err"; draw(); } else cargar();
+})();
+</script>
+</body>
+</html>

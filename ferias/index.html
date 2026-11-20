@@ -5,8 +5,347 @@
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="apple-touch-icon" href="../icono-192.png">
 <link rel="icon" href="../icono.svg" type="image/svg+xml">
-<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec";</script>
+<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "ferias";</script>
 <script src="gsr.js"></script>
+<script>
+/* 17/11/2026 · TODA LA APP LEE DIRECTO DE LA BASE, COMO FERIAS (zPantallas.gs · Lucas 21:30).
+   Las pantallas son las mismas; cambia el «cable» de las lecturas: lo que el servidor ya armó para vos y no cambió desde
+   entonces se lee directo de la base (≈0,5 s) en vez de esperar a Google (≈5 s por pedido). Si cambió algo, si la base no
+   contesta o si recién guardaste algo, va por Google como siempre. Los guardados siguen por Google, igual que hoy. */
+(function () {
+  var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
+  var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
+  // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
+  var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
+  // 18/11: qué lista se muestra con lo guardado ya puesto (solo esas). Lo demás que se guarda en la base (compras, producción, costos…)
+  // va por Google por un minuto, que primero termina lo pendiente de la base (VMB_ANTES) y así lo muestra bien.
+  var RECL_PEDIDO = 0;
+  var OVR_DE = { crearVentaVM: "getPedidosVM", registrarCobroVM: "getPedidosVM", cambiarEntregaVM: "getPedidosVM", registrarMovCaja: "getCaja", crearVentaMin: "getVentasMin" }, OVR_FN = {};
+  var GUARDA_BASE = { crearVentaVM: 1, registrarCobroVM: 1, cambiarEntregaVM: 1, registrarMovCaja: 1, registrarCompra: 1, registrarGasto: 1, guardarConteo: 1, guardarConteoMP: 1, crearVentaMin: 1, appendElaboracion: 1, appendEnvasadoLote: 1,
+    guardarClienteVM: 1, guardarPrecioCos: 1, guardarInsumoCos: 1, guardarCfgCos: 1, guardarCanalCos: 1, setMargenProducto: 1, guardarFijoCos: 1, cierreGuardar: 1, guardarConciliacionMP: 1, marcarVentaMin: 1, cobrarVentaMin: 1, entregaMarcar: 1 };   // 18/11: + Costos
+  var SIN_PIN = { appendElaboracion: 1, appendEnvasadoLote: 1 };   // 18/11: Producción: la carga va sola (quién es lo dice el pase de la base)
+  function copia(x) { try { return JSON.parse(JSON.stringify(x)); } catch (e) { return x; } }
+  function recordar(k, d) { if (d && typeof d === "object" && d.status !== "denegado" && d.status !== "error") MEM[k] = copia(d); }
+  // el pedido recién guardado, puesto en la lista de Mayoristas (y los totales de arriba rehechos como los arma getPedidosVM)
+  function ponerPedido(ped) {
+    var d = MEM["getPedidosVM|[]"]; if (!d || !d.pedidos || !ped || !ped.id) return;
+    var porSku = {}; d.pedidos.forEach(function (x) { (x.items || []).forEach(function (i) { if (i.sku && i.n) porSku[i.sku] = i; }); });
+    (ped.items || []).forEach(function (i) { var o = porSku[i.sku]; i.n = o ? o.n : (i.nombre || i.sku); i.g = o ? o.g : 0; });
+    var j = -1; d.pedidos.forEach(function (x, i) { if (x.id === ped.id) j = i; });
+    if (j >= 0) { if (!ped.fact) ped.fact = d.pedidos[j].fact; d.pedidos[j] = ped; } else d.pedidos.unshift(ped);
+    var aC = 0, nC = 0, nE = 0, uE = 0;
+    d.pedidos.forEach(function (p) { if (p.estado === "Anulado") return; if (p.total - p.cobrado > 0.5) { aC += p.total - p.cobrado; nC++; } if (p.estadoEntrega !== "Entregado") { nE++; uE += p.unidades; } });
+    d.aCobrar = aC; d.nCobrar = nC; d.nEntregar = nE; d.uEntregar = uE;
+  }
+  // 18/11 · la venta minorista recién guardada en la base, puesta arriba en Ventas minoristas (y en el resumen del mes)
+  function ponerVentaMin(vn) {
+    var d = MEM["getVentasMin|[]"]; if (!d || !d.pedidos || !vn || !vn.id) return;
+    if (d.pedidos.some(function (x) { return x.id === vn.id; })) return;
+    d.pedidos.unshift(vn);
+    if (d.resumen && d.admin) { var r = d.resumen[vn.canal] = d.resumen[vn.canal] || { n: 0, bruto: 0, neto: 0, unidades: 0 }; r.n++; r.bruto += vn.bruto || 0; r.neto += vn.neto || 0; r.unidades += vn.unidades || 0; }
+  }
+  // 17/11 · borradores 100 % en la base (zBorradoresBase.gs): listar, guardar y borrar sin Google
+  var BZ = { borradoresListar: ["bz_listar", ["p_app"]], borradorGuardar: ["bz_guardar", ["p_app", "p_id", "p_titulo", "p_json"]], borradorBorrar: ["bz_borrar", ["p_id"]] }, BZ_OFF_HASTA = 0;
+  function bzBase(n, args, cb) {
+    if (Date.now() < BZ_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var b = { p_token: p.token }, a = Array.prototype.slice.call(args, 2);
+      BZ[n][1].forEach(function (k, i) { b[k] = a[i] === undefined || a[i] === null ? "" : String(a[i]); });
+      rpc(p, b, function (err, r) {
+        if (err || !r) return cb(null);
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { BZ_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        cb(r);
+      }, BZ[n][0], 8000);
+    });
+  }
+  // el movimiento recién guardado, puesto en Caja (saldos, lista y el mes) como lo arma getCaja
+  function ponerMov(m) {
+    var d = MEM["getCaja|[]"]; if (!d || !d.recientes || !m || !m.id) return;
+    if (d.recientes.some(function (x) { return x.id === m.id; })) return;
+    var u = d.recientes[0] || {}, prevCta = 0;
+    for (var i = 0; i < d.recientes.length; i++) if (d.recientes[i].cuenta === m.cuenta) { prevCta = d.recientes[i].saldoCta || 0; break; }
+    m.saldoCta = Math.round((prevCta + m.monto) * 100) / 100; m.saldoTot = Math.round(((u.saldoTot || 0) + m.monto) * 100) / 100;
+    d.recientes.unshift(m);
+    if (d.saldos) d.saldos[m.cuenta] = Math.round(((d.saldos[m.cuenta] || 0) + m.monto) * 100) / 100;
+    if (m.monto < 0) { d.salidasMes = (d.salidasMes || 0) - m.monto; var k = m.categoria || "Otro"; if (k === "Sueldos ferias") k = "Empleados";
+      if (d.resumenMes) d.resumenMes[k] = (d.resumenMes[k] || 0) - m.monto;
+      if (d.resumenDet) (d.resumenDet[k] = d.resumenDet[k] || []).push({ id: m.id, fecha: m.fecha, detalle: m.detalle, aQuien: m.aQuien, cuenta: m.cuenta, monto: -m.monto, cat: m.categoria }); }
+    else d.entradasMes = (d.entradasMes || 0) + m.monto;
+  }
+  // 18/11 · etapa 3: lo que hace una función DENTRO de la base (supabase/functions). cb(respuesta) o cb(null) = Google
+  var FN_BASE = { guardarPreciosPublicaciones: ["precios-publicaciones", function (a) { return { canal: a[0], cambios: a[1] }; }, 60000] };
+  function fnBase(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var cfg = FN_BASE[n], body = cfg[1](Array.prototype.slice.call(args, 2)); body.token = p.token;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, cfg[2]);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/" + cfg[0], { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo);
+          if (!j || j.status === "google" || j.status === "token") { if (j && j.status === "token") lsS("ap_pase", null); return cb(null); }
+          cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  // guardar directo en la base. cb(respuesta) o cb(null) = que vaya por Google como siempre
+  function guardarEnBase(n, args, cb) {
+    if (Date.now() < VM_OFF_HASTA) return cb(null);
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var pa = Array.prototype.slice.call(args, SIN_PIN[n] ? 0 : 2);
+      if (SIN_PIN[n]) pa = pa.map(function (x) { if (x && typeof x === "object") { x = copia(x); delete x.pin; } return x; });   // el PIN nunca viaja a la base
+      rpc(p, { p_token: p.token, p_fn: n, p_args: pa }, function (err, r) {
+        if (err || !r) return cb(null);                                   // sin respuesta: Google (no duplica: mira el uid)
+        if (r.status === "token") { lsS("ap_pase", null); return cb(null); }
+        if (r.status === "google") { if (r.motivo === "apagado") VM_OFF_HASTA = Date.now() + 600000; return cb(null); }
+        if (r.status === "ok" && !r.dup) {
+          if (OVR_DE[n]) { OVR_HASTA = Date.now() + OVR_MS; OVR_FN[OVR_DE[n]] = OVR_HASTA; } else lsS("ap_sucio", Date.now());
+          if (r.pedido) { try { ponerPedido(copia(r.pedido)); } catch (e) {} }
+          if (r.mov) { try { ponerMov(copia(r.mov)); } catch (e) {} }
+          if (r.venta) { try { ponerVentaMin(copia(r.venta)); } catch (e) {} }
+          try { window.__apGuardado = (window.__apGuardado || 0) + 1; } catch (e) {}
+          // respaldo del aviso de la base: que Google pase lo guardado a la planilla
+          setTimeout(function () { try { base.withSuccessHandler(function () { try { base.biSubirAhora("vmtProcesar"); } catch (e) {} }).withFailureHandler(function () {}).vmtProcesar(); } catch (e) {} }, 8000);
+        }
+        cb(r);
+      }, "vm_guardar", 9000);
+    });
+  }
+  function lsG(k, f) { try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }
+  function lsS(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function quien() { var a = lsG("giaba_auth", null); return a && a.nombre ? a : null; }
+  function paseOk(p, a) { return p && p.token && p.key && p.url && p.fns && a && p.nombre && p.nombre.toLowerCase() === String(a.nombre).toLowerCase() && p.vence * 1000 > Date.now() + 86400000; }
+  function conPase(cb) {
+    var a = quien(), p = lsG("ap_pase", null);
+    if (paseOk(p, a)) { FNS = FNS || p.fns; if (!Object.keys(SINQ).length) SINQ = p.sinQuien || {}; cb(p); return; }
+    if (!a || !a.pin || !base) { cb(null); return; }
+    esperan.push(cb); if (pidiendo) return;
+    pidiendo = true;
+    var fin = function (r) {
+      pidiendo = false;
+      var ok = r && r.status === "ok" && r.token ? r : null;
+      if (ok) { lsS("ap_pase", ok); FNS = ok.fns || FNS; SINQ = ok.sinQuien || SINQ; }
+      else if (r && r.status === "apagado") lsS("ap_pase", null);
+      esperan.splice(0).forEach(function (f) { try { f(ok); } catch (e) {} });
+    };
+    try { base.withSuccessHandler(fin).withFailureHandler(function () { fin(null); }).apToken(a.nombre, a.pin); } catch (e) { fin(null); }
+  }
+  function rpc(p, body, cb, fn, ms) {
+    var h = { apikey: p.key, "Content-Type": "application/json", Accept: "application/json" };
+    if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+    var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false;
+    var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(new Error("tarde")); }, ms || 6000);
+    fetch(p.url + "/rest/v1/rpc/" + (fn || "ap_pantallas"), { method: "POST", headers: h, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (!r.ok) throw new Error("base " + r.status); return r.json(); })
+      .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(null, j); }, function (e) { if (listo) return; listo = true; clearTimeout(tmo); cb(e || new Error("sin conexión")); });
+  }
+  // la misma clave que arma el servidor (pantClave_): función|argumentos sin nombre ni PIN
+  function clave(n, args) {
+    var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+    while (a.length && (a[a.length - 1] === undefined || a[a.length - 1] === null)) a.pop();
+    return n + "|" + JSON.stringify(a);
+  }
+  function deBase(n, args, cb) {
+    if (Date.now() - (lsG("ap_sucio", 0) || 0) < SUCIO_MS) return cb(null);   // recién guardaste: lo fresco está en Google
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var k = clave(n, args);
+      rpc(p, { p_token: p.token, p_claves: [k] }, function (err, j) {
+        if (err || !j) return cb(null);
+        if (j.status === "token") { lsS("ap_pase", null); return cb(null); }
+        var it = j.items && j.items[k]; if (!it) return cb(null);
+        var t = Date.parse(it.t), c = Date.parse(it.c || j.cambio || 0), ahora = Date.parse(j.ahora || "") || Date.now();   // 18/11: «c» = el último cambio de las áreas de esta pantalla
+        if (Math.floor((t - 3 * 3600000) / 86400000) !== Math.floor((ahora - 3 * 3600000) / 86400000)) return cb(null);   // se armó otro día (hora Argentina): lo de «hoy» cambió
+        if (ahora - t > FRESCO_MS) return cb(null);   // es viejo
+        if (!(t > c)) {
+          // 18/11: los resúmenes del menú (pendientes, para revisar) se muestran al toque aunque haya habido un guardado de otro,
+          // si se armaron hace menos de 20 minutos; y Google los rearma atrás para la próxima (lo propio recién guardado va por Google)
+          if (!(RESUMEN[n] && ahora - t < RESUMEN_MS)) return cb(null);
+          setTimeout(function () { try { var g = base.withSuccessHandler(function () {}).withFailureHandler(function () {}); g[n].apply(g, args); } catch (e) {} }, 1500);
+        }
+        cb(it.d);
+      });
+    });
+  }
+  // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
+  var RT_NO = {}, RT_NO_MS = 10 * 60000;
+  try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  var RTL = null, RTL_T = 0, RTL_ESP = [];
+  function rtLista(cb) {
+    if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
+    RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    conPase(function (p) {
+      if (!p) return fin(null);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; fin(null); } }, 4000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, lista: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); if (!j || j.status !== "ok") return fin(null);
+          var o = { fns: {}, guarda: {}, todo: false }; (j.fns || []).forEach(function (f) { o.fns[f] = 1; }); (j.guarda || []).forEach(function (f) { o.guarda[f] = 1; }); o.todo = !!o.guarda["*"]; fin(o); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); fin(null); });
+    });
+  }
+  try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  function porPublica(n, args, cb) {
+    var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
+    if (!u || !u.url || !u.key) return cb(null);
+    var h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 30000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+  }
+  function porGuardar(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  function porRuntime(n, args, cb) {
+    if (Date.now() < (RT_NO[n] || 0)) return cb(null);
+    if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
+    if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (listo) return; listo = true; clearTimeout(tmo);
+          if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
+          if (j && j.status === "token") lsS("ap_pase", null);
+          if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
+          cb(null);
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
+  function envolver(t, ok, fail, uo) {
+    return new Proxy(t, { get: function (tt, k) {
+      if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
+      if (k === "withFailureHandler") return function (f) { return envolver(tt.withFailureHandler(f), ok, f, uo); };
+      if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
+      var v = tt[k]; if (typeof v !== "function") return v;
+      var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      // 19/11 · páginas públicas (visitas, retiro del cliente): cuando la base es la dueña, van a la base sin usuario
+      if (PUBLICAS[n]) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porPublica(n, args, function (res) {
+          if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
+      // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
+      if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
+        var args = arguments;
+        porGuardar(n, args, function (res) {
+          if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      if (FN_BASE[n]) return function () {
+        var args = arguments;
+        fnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      if (BZ[n]) return function () {
+        var args = arguments;
+        bzBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 18/11: los reclamos de una venta salen del índice de todos los reclamos (una sola pantalla en la base) · si no está fresco, Google como siempre
+      if (n === "reclamosDeVenta" && lista.indexOf("getReclamosIndice") !== -1) return function () {
+        var args = arguments, ref = String(args[2] || "");
+        var porGoogle = function () {
+          var r = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); }); r[n].apply(r, args);
+          // y que Google arme el índice en la base para las próximas (una vez por página)
+          if (!RECL_PEDIDO) { RECL_PEDIDO = 1; try { base.withSuccessHandler(function () {}).withFailureHandler(function () {}).getReclamosIndice(args[0], args[1]); } catch (e) {} }
+        };
+        try {
+          deBase("getReclamosIndice", [args[0], args[1]], function (d) {
+            if (!d || d.status !== "ok" || !d.por) return porGoogle();
+            if (ok) ok({ status: "ok", items: copia(d.por[ref] || []) }, uo);
+          });
+        } catch (e) { porGoogle(); }
+      };
+      if (lista.indexOf(n) !== -1) return function () {
+        var args = arguments, hecho = false;
+        var kM = clave(n, args);
+        if (Date.now() < (OVR_FN[n] || 0) && MEM[kM]) { var dm = copia(MEM[kM]); setTimeout(function () { if (ok) ok(dm, uo); }, 0); return; }
+        var porGoogle = function () { var r = tt.withSuccessHandler(function (x) { recordar(kM, x); if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); }); r[n].apply(r, args); };
+        var tope = setTimeout(function () { if (hecho) return; hecho = true; porGoogle(); }, 6500);
+        try {
+          deBase(n, args, function (d) {
+            if (hecho) return; hecho = true; clearTimeout(tope);
+            if (d === null || d === undefined) {
+              // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
+              // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
+              clearTimeout(tope);
+              return porRuntime(n, args, function (x) {
+                if (x === null || x === undefined) return porGoogle();
+                try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
+                recordar(kM, x); if (ok) ok(x, uo);
+              });
+            }
+            try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
+            recordar(kM, d);
+            if (ok) ok(d, uo);
+          });
+        } catch (e) { if (!hecho) { hecho = true; clearTimeout(tope); porGoogle(); } }
+      };
+      if (GUARDA_BASE[n]) return function () {
+        var args = arguments;
+        guardarEnBase(n, args, function (r) {
+          if (r) { if (ok) ok(r, uo); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // un guardado (lo que no es lectura): por Google como siempre, y por un minuto las lecturas también van por Google
+      if (!LIBRES.test(n)) return function () { lsS("ap_sucio", Date.now()); return v.apply(tt, arguments); };
+      return function () { return v.apply(tt, arguments); };
+    } });
+  }
+  function poner() {
+    if (!(window.google && google.script && google.script.run)) return false;
+    base = google.script.run;
+    try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
+    conPase(function () { rtLista(function () {}); });
+    return true;
+  }
+  if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
+})();
+</script>
+
 <script>
 /* 13/11/2026 · FERIAS DIRECTO A LA BASE (zFeriasDirecto.gs). Solo se carga con el link de prueba ?app=ferias&v=base.
    La pantalla es la misma; cambia el «cable»: cobrar, anular, cerrar y el total del puesto van directo a la base (~0,3 s)
@@ -4296,6 +4635,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (res && res.status === 'ok'){
         removeFromQueue(item.id);
         if (lastEntry && lastEntry.id === item.id) lastEntry.synced = true;
+        // 19/11 (Adri: cobros que no llegaron): cuando el cobro llegó de verdad, se dice claro
+        if (item.tipo === "Cobro" && !res.duplicado) showToast("✓ Cargado: " + formatMoney(item.monto) + (item.medioPago ? " · " + item.medioPago : ""));
         if (res.facturable && !res.duplicado){ FACT_ST[item.id] = { fact: "Pendiente" }; if (!item.esperaMail) pedirFactura(item.id, item.mailFactura); }
         pintarUndoFact();
         refreshTotal(); flushQueue();
@@ -4573,7 +4914,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
           if (r && r.status === 'ok'){
             peds.splice(peds.indexOf(p), 1); pintarPedidosFeria(peds, destino); pintarBadgePed();
             // "Entregado y cobrado": vuelve a cobrar con el monto puesto; solo falta elegir cómo pagó
-            if (p.aCobrar && SCREENS.ped && !SCREENS.ped.hidden){ abrirLoop(); amount = String(Math.round(p.aCobrar)); updateAmount(); showToast("Entregado ✓ · elegí cómo pagó y tocá Cobrar"); }
+            if (p.aCobrar && SCREENS.ped && !SCREENS.ped.hidden){ abrirLoop(); amount = String(Math.round(p.aCobrar)); updateAmount(); PED_COB = String(p.id || ''); showToast("Entregado ✓ · elegí cómo pagó y tocá Cobrar"); }
             else showToast("Entregado ✓");
           }
           else { delete b.dataset.busy; b.style.opacity = 1; showToast("No se pudo", true); }
@@ -5164,7 +5505,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     pintarPedidosFeria(PEDS3, el("pedList3")); showScreen("ped"); cargarPedidosHoy();
   });
   el("pedBack").addEventListener("click", abrirLoop);
-  let QR_T = null, FAM = false;
+  let QR_T = null, FAM = false, PED_COB = null;   // 19/11: el cobro de un pedido que se retira acá (no suma a la comisión de la vendedora)
   function pintarFam(){ if (el("famBtn")) el("famBtn").classList.toggle("on", FAM); el("famChip").classList.toggle("active", FAM); el("famTxt").textContent = FAM ? "✓ Este cobro va como familia / amigos" : "Venta con descuento a familia o amigos (no salta como precio mal cobrado)"; }
   el("famChip").addEventListener("click", function(){ FAM = !FAM; pintarFam(); });
   el("cjSalida").addEventListener("click", function(){
@@ -5323,6 +5664,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (LOCAL && LP.items.length) pay.items = LP.items.map(function(it){ return { sku: it.sku, nombre: it.nombre, cant: it.cant, ref: it.ref || 0 }; });
     else if (LOCAL && LP.nota.trim()) pay.notaProductos = LP.nota.trim();
     if (FAM){ pay.fam = true; FAM = false; pintarFam(); }
+    if (PED_COB){ pay.pedido = PED_COB; PED_COB = null; }
     if (FX.a) pay.factA = FX.a;
     if (FX.b && !FX.a && selectedPay === "Efectivo") pay.factB = true;
     if (FX.mail) pay.mailFactura = FX.mail;

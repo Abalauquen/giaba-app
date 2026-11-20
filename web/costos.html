@@ -174,7 +174,70 @@
       });
     });
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|validarAcceso|biSubirAhora|borradoresListar|reclamosDeVenta|get)/;
+  // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
+  var RT_NO = {}, RT_NO_MS = 10 * 60000;
+  try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  var RTL = null, RTL_T = 0, RTL_ESP = [];
+  function rtLista(cb) {
+    if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
+    RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    conPase(function (p) {
+      if (!p) return fin(null);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; fin(null); } }, 4000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, lista: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); if (!j || j.status !== "ok") return fin(null);
+          var o = { fns: {}, guarda: {}, todo: false }; (j.fns || []).forEach(function (f) { o.fns[f] = 1; }); (j.guarda || []).forEach(function (f) { o.guarda[f] = 1; }); o.todo = !!o.guarda["*"]; fin(o); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); fin(null); });
+    });
+  }
+  try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  function porPublica(n, args, cb) {
+    var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
+    if (!u || !u.url || !u.key) return cb(null);
+    var h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 30000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+  }
+  function porGuardar(n, args, cb) {
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  function porRuntime(n, args, cb) {
+    if (Date.now() < (RT_NO[n] || 0)) return cb(null);
+    if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
+    if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
+    conPase(function (p) {
+      if (!p) return cb(null);
+      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (listo) return; listo = true; clearTimeout(tmo);
+          if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
+          if (j && j.status === "token") lsS("ap_pase", null);
+          if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
+          cb(null);
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+    });
+  }
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
@@ -182,6 +245,27 @@
       if (k === "withUserObject") return function (o) { return envolver(tt.withUserObject(o), ok, fail, o); };
       var v = tt[k]; if (typeof v !== "function") return v;
       var n = String(k), lista = FNS || (lsG("ap_pase", null) || {}).fns || [];
+      // 19/11 · páginas públicas (visitas, retiro del cliente): cuando la base es la dueña, van a la base sin usuario
+      if (PUBLICAS[n]) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porPublica(n, args, function (res) {
+          if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
+      // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
+      if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
+        var args = arguments;
+        porGuardar(n, args, function (res) {
+          if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
+          lsS("ap_sucio", Date.now());
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
       if (FN_BASE[n]) return function () {
         var args = arguments;
         fnBase(n, args, function (r) {
@@ -223,7 +307,16 @@
         try {
           deBase(n, args, function (d) {
             if (hecho) return; hecho = true; clearTimeout(tope);
-            if (d === null || d === undefined) return porGoogle();
+            if (d === null || d === undefined) {
+              // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
+              // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
+              clearTimeout(tope);
+              return porRuntime(n, args, function (x) {
+                if (x === null || x === undefined) return porGoogle();
+                try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
+                recordar(kM, x); if (ok) ok(x, uo);
+              });
+            }
             try { window.__apDirecto = (window.__apDirecto || 0) + 1; } catch (e) {}
             recordar(kM, d);
             if (ok) ok(d, uo);
@@ -248,7 +341,7 @@
     if (!(window.google && google.script && google.script.run)) return false;
     base = google.script.run;
     try { google.script.run = envolver(base, null, null, undefined); } catch (e) {}
-    conPase(function () {});
+    conPase(function () { rtLista(function () {}); });
     return true;
   }
   if (!poner()) { var n0 = 0, iv = setInterval(function () { if (poner() || ++n0 > 200) clearInterval(iv); }, 10); }
@@ -1437,7 +1530,9 @@ function paTarjeta(a){
     h += `<div class="pa-row"><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio (manga)</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
   } else {
     h += `<div class="pa-ln">${esc(d.texto || "")}${a.actual ? ` → precio sugerido <b>${f0(a.sugerido)}</b> (${a.sugerido >= a.actual ? "+" : ""} ${f0(a.sugerido - a.actual)})` : ""}</div>`;
-    h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">${a.actual ? "Subir" : "Agregarlo"} a ${f0(a.sugerido)}</button><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
+    // 19/11 (Lucas): con el límite del envío gratis, la opción de quedarse abajo (sin pagar el envío)
+    if (d.sinEnvio) h += `<div class="pa-row"><button class="btn y" onclick="paAplicar(${A(a.id)}, ${d.sinEnvio.precio})">${f0(d.sinEnvio.precio)} · sin envío gratis · ${Math.round(d.sinEnvio.pct)} %</button></div>`;
+    h += `<div class="pa-row"><button class="btn ${d.sinEnvio ? "ol" : "y"}" onclick="paAplicar(${A(a.id)}, ${a.sugerido})">${a.actual ? (a.sugerido >= a.actual ? "Subir" : "Bajar") : "Agregarlo"} a ${f0(a.sugerido)}</button><button class="btn ol" onclick="paOtro(${A(a.id)})">Otro precio</button><button class="btn" onclick="paDejar(${A(a.id)})">Dejarlo así</button></div>`;
   }
   h += `<div class="pa-x" hidden></div>`;
   h += `<div class="pa-why">Si elegís «Dejarlo así» no te lo vuelvo a preguntar hasta que el costo cambie más de un 5 %.${d.link ? ` · <a href="${esc(d.link)}" target="_blank" style="color:var(--blue)">ver publicación</a>` : ""}</div></div>`;
@@ -1704,13 +1799,23 @@ function pbChips(){ $("pbCanal").innerHTML = ["Mercado Libre","Tienda Nube","⚠
 function pbChip(c){ if (c === "⚠ Dejan poco"){ PB.filtro = PB.filtro === "poco" ? "Todas" : "poco"; pbChips(); pbPint(); return; } if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios antes", true); return; } if (c === PB.canal && PB.data) return; PB.canal = c; pbCargar(); }
 // 10/11 (Lucas): el margen objetivo se elige acá (20 … 45 %) y el «Nos queda» se recalcula al tipear el precio
 function pbObj(){ const r = PB.data; let v = Number(lsGet("pb_obj", 0)); return v || (r && r.objetivo) || 35; }
-function pbCalc(x, precio, obj){ const r = PB.data, iva = (r.iva || 0) / 100, iibb = (r.iibb || 0) / 100, oP = r.oPct || 0, oF = r.oFijo || 0, pct = (x.comPct || 0) / 100, fijo = x.comFijo || 0, caja = x.caja || 0, c = x.costo || 0;
-  const neto = precio / (1 + iva), queda = neto - neto * iibb - precio * (pct + oP) - fijo - oF - caja - c, den = (1 - iibb - obj / 100) / (1 + iva) - pct - oP;
-  return { queda, pct: neto ? queda / neto * 100 : 0, sug: den > 0 ? Math.ceil((fijo + oF + caja + c) / den / 100) * 100 : 0 }; }
+// 19/11 (Lucas): el envío gratis. Abajo del límite (x.lim): costo fijo por tramo (x.fijoBajo) y sin envío; desde el límite: envío gratis
+// a cargo nuestro (x.envioAlto). Igual que cosPubCalc_ / cosPubSug_ en Costos.gs.
+function pbFijo(x, precio){ return !x.lim ? (x.comFijo || 0) : precio >= x.lim ? (x.envioAlto || 0) : (x.fijoBajo || 0); }
+function pbCalc(x, precio, obj){ const r = PB.data, iva = (r.iva || 0) / 100, iibb = (r.iibb || 0) / 100, oP = r.oPct || 0, oF = r.oFijo || 0, pct = (x.comPct || 0) / 100, caja = x.caja || 0, c = x.costo || 0;
+  const fijo = pbFijo(x, precio), neto = precio / (1 + iva), queda = neto - neto * iibb - precio * (pct + oP) - fijo - oF - caja - c, den = (1 - iibb - obj / 100) / (1 + iva) - pct - oP;
+  const s = f => den > 0 ? Math.ceil((f + oF + caja + c) / den / 100) * 100 : 0;
+  let sug = s(x.lim ? (x.fijoBajo || 0) : (x.comFijo || 0)), envSug = false;
+  if (x.lim && sug >= x.lim){ sug = Math.max(x.lim, s(x.envioAlto || 0)); envSug = true; }
+  return { queda, pct: neto ? queda / neto * 100 : 0, sug, envio: !!(x.lim && precio >= x.lim), envSug }; }
+// el precio más alto abajo del límite (termina en 90) y lo que deja · mínimo 25 % (20 % en packs de 6 o más)
+function pbLim(x){ if (!x.lim) return null; const p = Math.ceil(x.lim / 100) * 100 - 10, k = pbCalc(x, p, 0); return { precio: p, pct: k.pct, minimo: (x.unidades || 1) >= 6 ? 20 : 25 }; }
 function pbSetObj(v){ lsSet("pb_obj", v); pbPint(); }
 // margen de cada producto: el propio si tiene, si no el general
 function pbObjX(x){ const m = (PB.data && PB.data.margenes) || {}; return m[x.sku] || pbObj(); }
 function pbMg(i, d){ const x = PB.data.items[i], gen = pbObj(); let v = Math.max(10, Math.min(70, pbObjX(x) + d));
+  // 19/11: si al cambiar el margen el precio cruza el límite del envío gratis, avisa
+  if (x.lim){ const a = pbCalc(x, x.precio, pbObjX(x)).envSug, b = pbCalc(x, x.precio, v).envSug; if (a !== b) t(b ? "A partir de " + v + " % pagás envío gratis" : "Con " + v + " % ya no pagás envío gratis"); }
   const m = PB.data.margenes = PB.data.margenes || {}; if (v === gen) delete m[x.sku]; else m[x.sku] = v;
   const k = pbCalc(x, PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio, v); x.sugerido = pbCalc(x, x.precio, v).sug; void k; pbPint();
   run("setMargenProducto", x.sku, v === gen ? null : v).then(r => { if (!r || r.status !== "ok") t((r && r.msg) || "No se pudo guardar el margen", true); }); }
@@ -1721,7 +1826,8 @@ function pbPint(){ const r = PB.data; if (!r) return; const OBJ = pbObj();
   $("pbList").innerHTML = L.length ? L.map(x => { const i = r.items.indexOf(x), pr = PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio;
     return `<div class="card pub"><div class="hd"><div><b>${esc(x.titulo)}</b><div class="note">${esc(x.sku || "sin SKU")}${x.full ? " · Full" : ""}${x.variantes ? " · " + x.variantes + " variantes (mismo precio)" : ""}</div>${x.promo ? '<span class="al w">tiene promoción: ML/TN puede no dejar cambiarlo</span>' : ""}</div><input class="txt num ed${PB.cambios[x.id] != null ? " man" : ""}" data-plata="1" inputmode="decimal" value="${fmIn(pr)}" oninput="pbCambio(${i},num(this.value),this)" onblur="if(!num(this.value)){this.value=fmIn(PB.data.items[${i}].precio);pbCambio(${i},0,this)}"></div>`
       + (x.sinCosto ? `<span class="al">Sin costo: ${x.sku ? "revisá la receta / el SKU " + esc(x.sku) : "la publicación no tiene SKU"}</span>`
-        : `<span class="hint">${esc(x.contiene)} · costo fábrica (20 % neto) ${fm(x.costo)} · comisión ${pc(x.comPct)}${x.comFijo ? " + " + fm(x.comFijo) + (x.envio ? " fijo (con " + fm(x.envio) + " de envío gratis)" : " fijo") : ""}${x.caja ? " · caja " + fm(x.caja) : ""}</span><div class="rr"><span>Nos queda (a <span data-pbp="${i}">${fm(pr)}</span>)</span>${(() => { const k = pbCalc(x, pr, pbObjX(x)); return `<b data-pbq="${i}" class="${k.pct < pbObjX(x) ? "neg" : "pos"}">${fm(k.queda)} (${Math.round(k.pct)} %)</b>`; })()}</div>${(() => { const mo = pbObjX(x), pro = mo !== OBJ; return `<div class="rr" style="align-items:center"><span>Margen <span class="pbg${pro ? " pro" : ""}">${pro ? "propio" : "general"}</span></span><span class="pbmg"><button class="pbb" onclick="pbMg(${i},-5)" aria-label="Bajar margen">−</button><b class="${pro ? "pro" : ""}">${mo} %</b><button class="pbb" onclick="pbMg(${i},5)" aria-label="Subir margen">+</button></span></div>`; })()}<div class="rr" style="align-items:center"><span>Sugerido para ${pbObjX(x)} %</span><button class="lnk" onclick="pbUsar(${i})">${fm(x.sugerido)} · usar</button></div>`)
+        : `<span class="hint">${esc(x.contiene)} · costo fábrica (20 % neto) ${fm(x.costo)} · comisión ${pc(x.comPct)}${x.comFijo ? " + " + fm(x.comFijo) + (x.envio ? " fijo (con " + fm(x.envio) + " de envío gratis)" : " fijo") : ""}${x.caja ? " · caja " + fm(x.caja) : ""}</span><div class="rr"><span>Nos queda (a <span data-pbp="${i}">${fm(pr)}</span>)</span>${(() => { const k = pbCalc(x, pr, pbObjX(x)); return `<b data-pbq="${i}" class="${k.pct < pbObjX(x) ? "neg" : "pos"}">${fm(k.queda)} (${Math.round(k.pct)} %)</b>`; })()}</div>${(() => { const mo = pbObjX(x), pro = mo !== OBJ; return `<div class="rr" style="align-items:center"><span>Margen <span class="pbg${pro ? " pro" : ""}">${pro ? "propio" : "general"}</span></span><span class="pbmg"><button class="pbb" onclick="pbMg(${i},-1)" aria-label="Bajar margen">−</button><b class="${pro ? "pro" : ""}">${mo} %</b><button class="pbb" onclick="pbMg(${i},1)" aria-label="Subir margen">+</button></span></div>`; })()}<div class="rr" style="align-items:center"><span>Sugerido para ${pbObjX(x)} %${x.lim ? (pbCalc(x, x.precio, pbObjX(x)).envSug ? ' <span class="pbg pro">con envío gratis</span>' : ' <span class="pbg">sin envío gratis</span>') : ""}</span><button class="lnk" onclick="pbUsar(${i})">${fm(x.sugerido)} · usar</button></div>${(() => { const L = pbLim(x), es = x.lim && pbCalc(x, x.precio, pbObjX(x)).envSug;
+        if (!L || !es || L.pct < L.minimo) return ""; return `<div class="rr" style="align-items:center"><span>Hasta ${Math.floor(L.pct)} % sin envío gratis</span><button class="lnk" onclick="pbPoner(${i},${L.precio})">${fm(L.precio)} · usar</button></div>`; })()}`)
       + (x.link ? `<a class="lnk g" style="align-self:flex-start" href="${esc(x.link)}" target="_blank" rel="noopener">Ver publicación ›</a>` : "") + `</div>`; }).join("")
     : `<div class="empty">${PB.filtro === "poco" ? "Ninguna deja menos del " + OBJ + " % 👌" : "No hay publicaciones."}</div>`;
   pbBtn(); }
@@ -1731,6 +1837,7 @@ function pbCambio(i, v, inp){ const x = PB.data.items[i]; if (v && v !== x.preci
   if (x.costo && !x.sinCosto && pv){ v = pv; const OBJ = pbObjX(x), k = pbCalc(x, v, OBJ), q = document.querySelector('[data-pbq="' + i + '"]'), pp = document.querySelector('[data-pbp="' + i + '"]');
     if (q){ q.textContent = fm(k.queda) + " (" + Math.round(k.pct) + " %)"; q.className = k.pct < pbObjX(x) ? "neg" : "pos"; } if (pp) pp.textContent = fm(v); } }
 function pbUsar(i){ const x = PB.data.items[i]; PB.cambios[x.id] = x.sugerido; pbPint(); t("Precio sugerido puesto · tocá Guardar"); }
+function pbPoner(i, v){ const x = PB.data.items[i]; PB.cambios[x.id] = v; pbPint(); t("Precio sin envío gratis puesto · tocá Guardar"); }
 function pbBtn(){ const n = Object.keys(PB.cambios).length; $("pbOk").textContent = n ? "Guardar " + n + " precio" + (n > 1 ? "s" : "") + " en " + PB.canal : "Sin cambios"; $("pbOk").className = "btn " + (n ? "y" : "off"); }
 function pbGuardar(){ const ids = Object.keys(PB.cambios); if (!ids.length){ t("No cambiaste ningún precio"); return; } if ($("pbOk").dataset.busy) return;
   const cambios = ids.map(id => { const x = PB.data.items.filter(y => String(y.id) === id)[0]; return { id, precio: PB.cambios[id], titulo: x ? x.titulo : id }; });

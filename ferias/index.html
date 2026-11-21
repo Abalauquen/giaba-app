@@ -1839,16 +1839,24 @@ window.PagoComun = (function(){
   // ---- datos: el mismo hub de Contabilidad › Cuentas corrientes ----
   function cargar(){
     var n = ++S.seq; S.cargando = true;
-    return run("getCuentasCorrientesHub").then(function(r){
+    return S.prom = run("getCuentasCorrientesHub").then(function(r){
       if (n !== S.seq) return S.hub;
       S.cargando = false;
-      if (r && r.status === "ok"){ S.hub = r; S.err = ""; S.t = Date.now(); }
+      if (r && r.status === "ok"){ S.hub = r; S.err = ""; S.t = Date.now(); S.viejo = false; lsS(hubK(), { t: S.t, hub: r }); }
       else S.err = r && r.status === "denegado" ? "Esto es solo para Lucas y Adriana." : "No pude traer las cuentas" + (r && r.msg ? " (" + r.msg + ")" : "") + ".";
       if (S.pila.length) pintar();
       return S.hub;
     });
   }
-  function datos(maxMs){ if (S.hub && maxMs && Date.now() - (S.t || 0) < maxMs) return Promise.resolve(S.hub); return cargar(); }
+  // 21/11 (Lucas: «sigue tardando unos segundos»): lo último que se trajo queda guardado en el celu → se muestra al instante y se actualiza por detrás
+  // (alFresco se llama cuando llega lo nuevo). Mientras no llegó lo nuevo no deja pagar (S.viejo), para no pagar con datos viejos.
+  function hubK(){ return "pgc_hub_" + yo(); }
+  function datos(maxMs, alFresco){
+    if (S.hub && maxMs && Date.now() - (S.t || 0) < maxMs) return Promise.resolve(S.hub);
+    if (!S.hub && maxMs){ var c = lsG(hubK(), null); if (c && c.hub && c.hub.vendedoras && Date.now() - (c.t || 0) < 7 * 86400000){ S.hub = c.hub; S.t = 0; S.viejo = true; } }
+    if (S.hub && S.viejo && maxMs){ (S.cargando && S.prom ? S.prom : cargar()).then(function(h){ if (alFresco) alFresco(h); }); return Promise.resolve(S.hub); }
+    return cargar();
+  }
   function vendDe(n){ return S.hub && S.hub.vendedoras.lista.filter(function(v){ return v.nombre === n; })[0]; }
   function provDe(n){ return S.hub && S.hub.proveedores.provs.filter(function(p){ return p.nombre === n; })[0]; }
 
@@ -2002,7 +2010,7 @@ window.PagoComun = (function(){
       : (P.extra ? '<span class="pg-w">Le pagás ' + fm(P.extra) + ' de más: se lo queda. Va como gasto del mes (no a ninguna feria) y <b>no</b> queda a cuenta.' + (S.vcta === "Efectivo" ? '<br>Lo de más no puede salir del efectivo de la feria: elegí una cuenta, o pagá lo justo.' : '') + '</span>' : "");
   }
   function pagarV(){
-    var vw = top(), v = vw && vendDe(vw.nombre); if (!v || S.busy) return;
+    var vw = top(), v = vw && vendDe(vw.nombre); if (!v || S.busy) return; if (S.viejo){ if (!S.cargando) cargar(); toast("Un segundo: estoy actualizando lo que se debe…"); return; }
     var mi = $("pgcVMonto"); if (mi){ var x0 = pm(mi.value); S.vmonto = x0 > 0 ? r2(x0) : 0; }
     var ni = $("pgcNota"); if (ni) S.nota = ni.value.trim();
     var P0 = planV(v), extra = P0.extra || 0, P = P0.filter(function(x){ return x.ap > 0; }), cta = S.vcta, nota = S.nota; if (!P.length) return;
@@ -2100,7 +2108,7 @@ window.PagoComun = (function(){
       return ap <= 0 ? "⏳ " + nm + ": queda igual (" + fm(c.resta) + ")" : ap >= c.resta - 0.005 ? "✅ " + nm + ": queda <b>pagada</b>" : "🟡 " + nm + ": paga " + fm(ap) + " · <b>queda debiendo " + fm(c.resta - ap) + "</b>"; }).join("<br>");
   }
   function pagarP(){
-    var vw = top(), p = provActual(); if (!p || S.busy) return;
+    var vw = top(), p = provActual(); if (!p || S.busy) return; if (S.viejo){ if (!S.cargando) cargar(); toast("Un segundo: estoy actualizando lo que se debe…"); return; }
     var ids = selP(p).map(function(c){ return c.aPagarId; }); if (!ids.length) return;
     var mi = $("pgcPMonto"); if (mi){ var v0 = pm(mi.value); S.pmonto = v0 > 0 ? r2(v0) : 0; }
     // mismo uid mientras sea el mismo pago (reintento automático o tocar de nuevo): con cuenta de Caja el servidor no lo duplica
@@ -2145,7 +2153,7 @@ window.PagoComun = (function(){
       + '<div class="pg-hint">Queda en su cuenta corriente y en Caja (Roberto a façon). Entregas e insumos, desde Producción › Roberto.</div>';
   }
   function pagarR(){
-    var R = S.hub && S.hub.roberto; if (!R || S.busy) return;
+    var R = S.hub && S.hub.roberto; if (!R || S.busy) return; if (S.viejo){ if (!S.cargando) cargar(); toast("Un segundo: estoy actualizando lo que se debe…"); return; }
     var v = pm(($("pgcRMonto") || {}).value || ""), m = v > 0 ? r2(v) : R.saldo; if (!(m > 0)) return;
     var ni = $("pgcNota"); if (ni) S.nota = ni.value.trim();
     var cta = S.rcta, pago = { uid: "ccrob-" + Date.now(), tipo: "pago", monto: m, cuenta: cta, nota: S.nota || "desde " + backLbl() };
@@ -3431,7 +3439,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function pintarHomePgc(){
     const box = el("homePgc"), ve = veoVendPago(); box.hidden = !ve; if (!ve){ box.innerHTML = ""; return; }
     PagoComun.tarjetaVendedoras(box, abrirVendPago);
-    PagoComun.datos(60000).then(function(){ if (!SCREENS.home.hidden && veoVendPago()) PagoComun.tarjetaVendedoras(box, abrirVendPago); });
+    const rep = function(){ if (!SCREENS.home.hidden && veoVendPago()) PagoComun.tarjetaVendedoras(box, abrirVendPago); };
+    PagoComun.datos(60000, rep).then(rep);
   }
   const MD = { "Efectivo":"EF", "Transferencia":"TR", "QR / MP":"QR", "Débito":"DEB", "Crédito":"CRE" };
   const MDL = { EF:"EF", TR:"TR", QR:"QR", DEB:"DÉB", CRE:"CRÉ", AJ:"AJ" };

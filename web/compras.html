@@ -204,13 +204,16 @@
     fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ publica: true, fn: n, args: args }) })
       .then(function (r) { return r.json(); }).then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); cb(j); }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
   }
+  // 21/11 (Lucas: «el stock que dejé armado no quedó en ningún lado»): las funciones que NO empiezan con (nombre, PIN) —ej. guardarLlevado(p)—
+  // y no estaban en la lista perdían su primer argumento (se cortaban 2) y llegaban vacías. Ahora se mira si de verdad empiezan con nombre y PIN.
+  function sinQ(n, a) { if (SINQ[n]) return true; var q = quien(); return !(q && a.length >= 2 && String(a[0]) === String(q.nombre) && String(a[1]) === String(q.pin)); }
   function porGuardar(n, args, cb) {
     conPase(function (p) {
       if (!p) return cb(null);
-      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
-      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n], guardar: true }) })
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq, guardar: true }) })
         .then(function (r) { return r.json(); })
         .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
           function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
@@ -222,11 +225,11 @@
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
     conPase(function (p) {
       if (!p) return cb(null);
-      var a = Array.prototype.slice.call(args); if (!SINQ[n]) a = a.slice(2);
+      var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
       var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
-      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: !!SINQ[n] }), signal: ctl ? ctl.signal : undefined })
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq }), signal: ctl ? ctl.signal : undefined })
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (listo) return; listo = true; clearTimeout(tmo);

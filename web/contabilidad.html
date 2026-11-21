@@ -1039,7 +1039,7 @@ window.PagoComun = (function(){
     if (!v) return alDia("👛 " + vw.nombre);
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0)), todas = v.ferias.length && sel.length === v.ferias.length;
     var L = ctasV(v); if (L.indexOf(S.vcta) === -1) S.vcta = ctaDef("v", CTAS);
-    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2><div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
+    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
       + '<div class="pg-sub">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + ' · elegí cuáles le pagás</div>';
     if (v.ferias.length > 1) h += '<button type="button" class="pg-btn2" data-pg="vTodas">' + (todas ? "☐ Desmarcar todas" : "☑ Marcar todas") + '</button>';
     h += v.ferias.map(function(f){ var on = !!S.vsel[clave(f)]; return '<button type="button" class="pg-fe" data-pg="vCk" data-v="' + esc(clave(f)) + '"><span class="pg-ck' + (on ? " on" : "") + '">' + (on ? "✓" : "") + '</span><span class="t">' + esc(feriaNom(f)) + feriaSub(f) + '</span><span class="m">' + fm(f.falta) + '</span></button>'; }).join("");
@@ -1054,6 +1054,29 @@ window.PagoComun = (function(){
       + '<input class="pg-in nota" id="pgcNota" autocomplete="off" placeholder="Nota (opcional)" value="' + esc(S.nota) + '">'
       + '<button type="button" class="pg-btn" id="pgcVPagar" data-pg="vPagar">' + (S.busy ? "Guardando…" : "") + '</button></div>';
     return h + '<div class="pg-hint">' + (K ? "Sale de la caja de " + esc(feriaNom(K)) + "; lo de otras ferias cuenta como costo de ESAS ferias." : "Queda pagado y ella lo ve en «👛 Tu cuenta con Abalauquen».") + '</div>';
+  }
+  // 21/11 (Lucas, mockup «Maricel · cuenta corriente»): si además nos compra, todo junto · verde = nos debe, naranja = le debemos
+  function hTodoJunto(v){
+    var d = v.nosDebe; if (!d || !(d.total > 0.5)) return "";
+    var neto = r2(d.total - v.saldo), m = r2(Math.min(d.total, v.saldo));
+    var h = '<div class="pg-card y" style="gap:6px"><b>Todo junto</b>'
+      + '<div class="pg-rr"><span style="color:var(--pg-g);font-weight:700">Nos debe · pedidos<small style="display:block;color:var(--pg-soft);font-weight:600">' + esc(d.pedidos.map(function(x){ return x.id; }).join(", ")) + '</small></span><b class="pg-mono" style="color:var(--pg-g)">' + fm(d.total) + '</b></div>'
+      + '<div class="pg-rr"><span style="color:var(--pg-w);font-weight:700">Le debemos · ferias<small style="display:block;color:var(--pg-soft);font-weight:600">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + '</small></span><b class="pg-mono" style="color:var(--pg-w)">' + fm(v.saldo) + '</b></div>'
+      + v.ferias.map(function(f){ return '<div class="pg-rr" style="padding-left:12px"><span style="color:var(--pg-soft)">' + esc(feriaNom(f)) + (f.descuento ? '<small style="display:block">menos ' + fm(f.descuento) + ' de lo que se llevó (precio empleado)</small>' : '') + '</span><span class="pg-mono">' + fm(f.falta) + '</span></div>'; }).join("")
+      + '<div class="pg-rr" style="border-radius:12px;padding:10px;background:' + (neto >= 0 ? 'rgba(143,209,158,.12)' : 'rgba(255,183,77,.12)') + '"><b style="color:' + (neto >= 0 ? 'var(--pg-g)' : 'var(--pg-w)') + '">Neto: ' + (neto >= 0 ? "nos debe" : "le debemos") + '</b><b class="pg-mono" style="color:' + (neto >= 0 ? 'var(--pg-g)' : 'var(--pg-w)') + '">' + fm(Math.abs(neto)) + '</b></div>';
+    if (m > 0.5) h += '<button type="button" class="pg-btn" data-pg="pagoCta">' + (S.busy ? "Guardando…" : "⇄ Usar lo de ferias como pago a cuenta · " + fm(m)) + '</button>'
+      + '<div class="pg-hint">Las ferias quedan pagadas y en el pedido queda un cobro de ' + fm(m) + ' «Pago a cuenta (ferias)». No se mueve plata de ninguna cuenta.</div>';
+    return h + '</div>';
+  }
+  function pagoCta(){
+    var vw = top(), v = vw && vendDe(vw.nombre); if (!v || !v.nosDebe || S.busy) return;
+    S.busy = true; pintar();
+    run("pagoACuentaVendedora", { vendedora: v.nombre }).then(function(r){
+      S.busy = false;
+      if (r && r.status === "ok"){ toast(r.dup ? "Ya estaba hecho" : "✓ Pago a cuenta " + fm(r.monto) + " (ferias) · " + v.nombre); if (C.alCambiar) try { C.alCambiar(); } catch (e) {} cargar(); }
+      else toast((r && r.msg) || "No se pudo", true);
+      pintar();
+    });
   }
   // orden de pago: la feria más vieja primero. 14/11 (Lucas): si le paga de más, lo de más NO va a ninguna feria (queda como gasto del mes)
   function planV(v){
@@ -1250,6 +1273,7 @@ window.PagoComun = (function(){
     if (a === "vCta"){ guardaV(); S.vcta = v; pintar(); return; }
     if (a === "vAnt"){ guardaV(); S.ant = v; pintar(); return; }
     if (a === "vPagar"){ pagarV(); return; }
+    if (a === "pagoCta"){ pagoCta(); return; }
     if (a === "pCk"){ if (S.psel[v]) delete S.psel[v]; else S.psel[v] = 1; guardaP(); pintar(); return; }
     if (a === "ctaMas"){ S.ctaMas = S.ctaMas === v ? "" : v; pintar(); return; }
     if (a === "pTodas"){ var p = provActual(); if (!p) return; var ck = p.impagas.filter(function(c){ return c.aPagarId; }), tt = ck.every(function(c){ return S.psel[c.aPagarId]; }); S.psel = {}; if (!tt) ck.forEach(function(c){ S.psel[c.aPagarId] = 1; }); guardaP(); pintar(); return; }
@@ -2494,9 +2518,9 @@ function cqHtml(r){const L=r.appNoMP||[];if(!L.length&&!(r.appDig>r.entro+1000))
   const pend=L.filter(x=>!x.resp||x.resp==="desp");
   let carg=r.appDig||0;L.forEach(x=>{const s=CQ.sel[x.ref];if(s==="rep")carg-=x.monto;if(s==="mon")carg-=x.monto-(CQ.real[x.ref]||0);});
   const dif=Math.round((carg-(r.entro||0))*100)/100;
-  let h=`<div class="card ${dif>1000?"wr":"ok"}"><div class="card-t"><span>¿Cuadra con MP? <span class="nv">nuevo</span></span><small>${dif>1000?"cargado de más "+fm(dif):"✓ no hay de más"}</small></div>
-   <div class="rr"><span>Cargado en digital en la app</span><b>${fm(carg)}</b></div><div class="rr"><span>Entró a MP Fábrica</span><b>${fm(r.entro)}</b></div>
-   ${Object.keys(r.appDigPor||{}).length?`<div class="note">Cargado: ${Object.keys(r.appDigPor).map(k=>esc(k)+" "+fm(r.appDigPor[k])).join(" · ")}</div>`:""}
+  if(!pend.length&&!CQ.res&&!CQ.conf)return"";
+  /* 21/11 (Lucas, mockup «un solo resumen»): lo que repetía el resumen sale; quedan solo los cobros para decidir */
+  let h=`<div class="card wr"><div class="card-t"><span>Cargado en la app que no entró a MP</span><small>${pend.length} para decidir</small></div>
    <div class="hint">Cobros cargados que no encontré en MP ni ese día ni el siguiente. No importa el horario (se carga a la noche o del papel). Respondé qué pasó con cada uno:</div>`;
   h+=pend.map(x=>{const s=CQ.sel[x.ref]||(x.resp==="desp"?"desp":""),ok=x.org==="cob";
     return `<div class="cob${s&&s!=="desp"?" done":""}"><div class="h"><b>${fm(x.monto)}</b><span>${esc(x.hora||"")}</span></div><div class="w"><b style="color:var(--ink-mid)">${esc(x.que)}</b><br>${x.fac?"Facturado: "+esc(x.fac):'<span class="tag x">sin factura</span>'}${x.resp==="desp"?' · <span class="tag w">lo ibas a revisar</span>':""}</div>
@@ -2544,6 +2568,8 @@ function cdIrA(f){if(CD.busy)return;if(cdSinGuardar()&&!confirm("Tenés decision
   CDIA=f;CD.sel={};CD.conf=false;CD.res=null;cdPint();window.scrollTo(0,0);}
 function cdMover(d){const x=pdmy(CDIA);x.setDate(x.getDate()+d);if(x>HOYD){t("Todavía no llegamos a ese día");return;}cdIrA(dmy(x));}
 function cdElegir(v){if(!v)return;const a=v.split("-");const f=a[2]+"/"+a[1]+"/"+a[0];if(pdmy(f)>HOYD){t("Todavía no llegamos a ese día",true);$("cdFec").value=CDIA.split("/").reverse().join("-");return;}cdIrA(f);}
+function cdActualizar(){if(CD.busy)return;const k="getCierreDia|"+CDIA+"|1";delete V[k];delete TV[k];t("Bajando lo último de Mercado Pago…");
+  run("getCierreDia",CDIA,1).then(r=>{if(r&&r.status==="ok"){V["getCierreDia|"+CDIA]=r;TV["getCierreDia|"+CDIA]=Date.now();t("✓ Actualizado");repintar();}else t("No se pudo actualizar",true);});}
 function cdOp(id,op){if(CD.busy)return;CD.sel[id]=op;CD.res=null;cdPint();}
 function cdPint(){
   const r=cdDat();
@@ -2552,20 +2578,33 @@ function cdPint(){
   if(!r){$("cdBody").innerHTML=est(r);return;}
   if(r.error){$("cdBody").innerHTML=`<div class="card"><div class="card-t">No pude armar el cierre del ${esc(CDIA.slice(0,5))}</div><div class="wrb">${esc(r.error)}. Si dice que falta la clave, pegala en Incidentes › «💳 Mercado Pago».</div><button class="btn sm" style="width:100%" onclick="olvidar(/^getCierreDia/);cdPint()">Probar de nuevo</button></div>`;return;}
   const A2=cdArmar(r), nSin=(r.pend||[]).filter(x=>{const s=cdSel(x);return !s||s==="desp";}).length;
-  let h=`<div class="kgrid"><div class="kp"><span>Entró a MP Fábrica</span><b>${fm(r.entro)}</b></div><div class="kp g"><span>Registrado en la app</span><b>${fm(r.registrado)}</b></div><div class="kp w"><span>Sin registrar</span><b>${fm(r.sinReg)}</b></div></div>`;
+  /* 21/11 (Lucas): un solo resumen · entró, registrado, falta o sobra, y qué facturar o anular para igualar */
+  const difR=Math.round(((r.entro||0)-(r.registrado||0))*100)/100, LNC=(r.appNoMP||[]).filter(x=>x.fac&&CQ.sel[x.ref]&&CQ.sel[x.ref]!=="desp");
+  const nc=Math.round(LNC.reduce((a,x)=>a+(CQ.sel[x.ref]==="mon"?x.monto-(CQ.real[x.ref]||0):x.monto),0)*100)/100;
+  const nB=A2.fac.length, pill=Math.abs(difR)<1?'<span class="tag g">cuadra ✓</span>':difR>0?`<span class="tag w">falta ${fm(difR)}</span>`:`<span class="tag w">sobra ${fm(-difR)}</span>`;
+  let h=`<div class="card ${Math.abs(difR)<1?"ok":"wr"}"><div class="card-t"><span>Resumen del día</span>${pill}</div>
+    <div class="rr"><span>Entró a MP Fábrica</span><b>${fm(r.entro)}</b></div>
+    <div class="rr"><span>Registrado en la app</span><b>${fm(r.registrado)}</b></div>
+    <div class="rr tt big"><span>${difR>=0?"Falta registrar":"Sobra registrado"}</span><b class="${Math.abs(difR)<1?"":"s-w"}">${fm(Math.abs(difR))}</b></div>
+    <div class="note">${difR>=1?"Entró a MP y nadie lo cargó en la app (abajo, para decidir).":difR<=-1?"Hay cosas cargadas en la app que no entraron a MP (abajo, para decidir).":"Todo lo que entró está registrado."}</div>
+    <div class="info" style="margin-top:8px"><b>Para que la facturación iguale lo que entró</b>
+      <div class="rr"><span>Facturar de más</span><b>${nB?fm(A2.tot)+" · "+nB+" factura"+(nB===1?"":"s")+" B":fm(0)}</b></div>
+      <div class="rr"><span>Notas de crédito</span><b>${LNC.length?fm(nc)+" · "+LNC.length:fm(0)}</b></div>
+      <div class="note">Se actualiza con lo que elijas en cada cobro de abajo («No es venta» o «Entre cuentas» lo saca de acá).</div></div>
+    <details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">Ver detalle de lo registrado</summary>
+      ${r.reg.length?r.reg.map(g=>`<div class="rr"><span>${esc(g.t)}${g.sub?`<small>${esc(g.sub)}</small>`:""}</span><b>${fm(g.total)}</b></div>`).join(""):'<div class="empty">Nada registrado que haya entrado a MP Fábrica.</div>'}
+      <div class="note">Efectivo no entra: esto es solo plata que pasó por MP Fábrica. Las transferencias desde Pago Nube y entre cuentas propias tampoco (no son ventas).</div></details></div>`;
   if(r.traerError)h+=`<div class="wrb">No pude traer lo último de Mercado Pago (${esc(r.traerError)}): lo de abajo es lo que ya estaba en la base.</div>`;
+  /* 21/11 (Lucas): lo de MP se baja solo cada 30 min; «↻ Actualizar» baja lo último en el momento */
+  h+=`<div class="wrb" style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border-style:dashed"><span>${r.mpTrajo?"Mercado Pago bajado a las "+esc(r.mpTrajo):"Mercado Pago: lo que hay en la base"}</span><button class="btn sm" type="button" onclick="cdActualizar()">↻ Actualizar</button></div>`;
   h+=`<div class="cols"><div class="stack"><div class="card wr"><div class="card-t"><span>Cobros de MP que nadie cargó</span><small>${r.pend.length?(nSin?nSin+" sin decidir":"todos decididos ✓"):"0"}</small></div>
     <div class="stack">${r.pend.length?r.pend.map(x=>{const s=cdSel(x);
       return `<div class="cob${s==="no"||s==="tr"?" no":""}"><div class="h"><b>${fm(x.monto)}</b><span>${esc(x.hora)} · ${esc(x.tipo)}</span></div><div class="w"><b style="color:var(--ink-mid)">${esc(x.quien)}</b><br>${esc(x.w)}${x.last&&s==="fac"?' <span class="tag g">✓ como la última vez</span>':""}</div><div class="opts">${COP.map(o=>`<button class="${s===o[0]?"on":""}" onclick="cdOp('${jsq(x.id)}','${o[0]}')">${o[1]}<small>${o[2]}</small></button>`).join("")}</div></div>`;}).join(""):'<div class="okb">Todo lo que entró está registrado ✓</div>'}</div>
     <div class="note">Cada uno se decide acá. «Facturar» hace una factura B a Consumidor Final por ese cobro, con la fecha del día del cobro (si todavía se puede). Lo que elijas para un pagador, la próxima vez viene marcado igual («✓ como la última vez»).</div>
    </div></div>
-   <div class="stack"><div class="card"><div class="card-t">Lo registrado en la app</div>
-    ${r.reg.length?r.reg.map(g=>`<div class="rr"><span>${esc(g.t)}${g.sub?`<small>${esc(g.sub)}</small>`:""}</span><b>${fm(g.total)}</b></div>`).join(""):'<div class="empty">Nada registrado que haya entrado a MP Fábrica.</div>'}
-    <div class="rr tt"><span>Total registrado (MP Fábrica)</span><b>${fm(r.registrado)}</b></div>
-    <div class="note">Efectivo no entra: esto es solo plata que pasó por MP Fábrica. Las transferencias desde Pago Nube y entre cuentas propias tampoco (no son ventas).</div></div>
-   <div class="card"><div class="card-t"><span>Registrados sin factura</span><span class="tag ${r.appSin.length?"w":"g"}">${r.appSin.length}</span></div>
-    ${r.appSin.length?r.appSin.map(x=>`<div class="rr"><span>${esc(x.t)}<small>${esc(x.w)}</small></span><b>${fm(x.monto)}</b></div>`).join(""):'<div class="empty">Todo lo registrado tiene factura ✓</div>'}
-    <div class="note">Los que la app ya factura sola no hay que tocarlos. Solo aparecen acá si fallaron o se atrasaron.</div></div>
+   <div class="stack">${r.appSin.length?`<div class="card"><div class="card-t"><span>Registrados sin factura</span><span class="tag w">${r.appSin.length}</span></div>
+    ${r.appSin.map(x=>`<div class="rr"><span>${esc(x.t)}<small>${esc(x.w)}</small></span><b>${fm(x.monto)}</b></div>`).join("")}
+    <div class="note">Los que la app ya factura sola no hay que tocarlos. Solo aparecen acá si fallaron o se atrasaron.</div></div>`:""}
    ${cqHtml(r)}</div></div>`;
   if(CD.res)h+=CD.res;
   if(CD.conf){h+=`<div class="card hl"><div class="card-t"><span>¿Facturo estos?</span><small>${A2.fac.length} cobro${A2.fac.length===1?"":"s"}</small></div>

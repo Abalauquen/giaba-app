@@ -529,6 +529,8 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:24px;font-weight:800;line
 .stp b{min-width:30px;text-align:center;font-size:17px}
 .lp-pr{width:96px;height:32px;border-radius:8px;border:1.5px solid var(--line);background:var(--inp);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;text-align:right;padding:0 6px}
 .stp-n{width:48px;height:38px;border-radius:10px;border:1.5px solid var(--line);background:var(--inp);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;text-align:center;padding:0}
+.ll-op{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:14px;margin:6px 0;color:inherit;font:inherit;cursor:pointer}.ll-op .ic{font-size:22px}.ll-op b{display:block;font-size:16px}.ll-op small{color:var(--muted, #a8a8ad)}.ll-op .go{margin-left:auto;color:var(--accent);font-weight:800;font-size:20px}.ll-op.first{border-color:var(--accent)}
+.stp .pks{display:flex;flex-direction:column;gap:4px;margin-left:6px}.stp .pk{width:auto;height:auto;min-width:50px;min-height:32px;padding:0 8px;border-radius:10px;border:0;background:#2f9e44;color:#fff;font-weight:800;font-size:15px}
 .stp .stp-del{background:var(--terra);border-color:var(--terra);display:flex;align-items:center;justify-content:center;margin-left:4px}
 .tams{display:flex;flex-wrap:wrap;gap:7px}
 .tam{min-width:74px;padding:7px 10px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:1px;font-weight:800;font-size:14px;color:var(--ink);cursor:pointer}
@@ -863,6 +865,13 @@ body.v3f #llList .stp-del{display:none}
 body.v3f #llList .mvx{gap:6px}body.v3f #llList .mvx b{width:48px;height:48px;border-radius:10px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font-size:15px}
 body.v3f #llList .stp,body.v3f #voList .stp{display:grid;grid-template-columns:56px 76px 56px;gap:8px;margin-left:0;flex-shrink:0}
 body.v3f #llList .stp button,body.v3f #voList .stp button{width:56px;height:56px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);font-size:28px}
+/* 21/11: packs «+6» / «+12» en verde, a la derecha, uno arriba del otro */
+body.v3f #llList .st-row:has(.pks){flex-wrap:wrap;row-gap:8px}
+body.v3f #llList .st-row:has(.pks) .nm{flex:1 1 calc(100% - 70px)}
+body.v3f #llList .st-row:has(.pks) .stp{margin-left:auto}
+body.v3f #llList .stp:has(.pks){grid-template-columns:56px 76px 56px 60px;gap:8px}
+body.v3f #llList .stp .pks{display:flex;flex-direction:column;gap:4px;margin-left:0}
+body.v3f #llList .stp .pks .pk{width:60px;height:26px;min-height:26px;border-radius:9px;border:0;background:#2f9e44;color:#fff;font-size:15px;font-weight:800;padding:0}
 body.v3f #llList .stp-n,body.v3f #voList .stp-n{width:76px;height:56px;border-radius:14px;border:2px solid var(--line-2);font-size:26px;font-weight:800}
 body.v3f .tams .tam{min-height:60px;min-width:96px;border-radius:14px;border:2px solid var(--line-2);font-size:17px;justify-content:center}
 body.v3f .tams .tam small{font-size:13px;color:var(--ink-mid);font-weight:700}
@@ -877,6 +886,7 @@ body.v3f .tams .tam.on{border-color:var(--accent);background:var(--accent-soft);
 .tamr .t small{font-size:14px;color:var(--ink-mid);font-weight:700}
 .ll-sabt{font:800 22px 'Manrope',sans-serif;display:flex;align-items:center;gap:8px}
 #llTams.foco{display:flex;flex-direction:column;gap:8px}
+@media (max-width:380px){ body.v3f #llList .stp:has(.pks){grid-template-columns:42px 52px 42px 48px;gap:4px} body.v3f #llList .stp:has(.pks) button:not(.pk){width:42px} body.v3f #llList .stp:has(.pks) .stp-n{width:52px} body.v3f #llList .stp .pks .pk{width:48px} }
 @media (max-width:380px){ body.v3f #llList .stp,body.v3f #voList .stp{grid-template-columns:48px 60px 48px} body.v3f #llList .stp button,body.v3f #voList .stp button{width:48px} body.v3f #llList .stp-n,body.v3f #voList .stp-n{width:60px} }
 /* caja */
 body.v3f #cajaTabs div{min-height:116px;border-radius:20px;font-size:19px;gap:6px;padding:16px}
@@ -1703,7 +1713,7 @@ window.PagoComun = (function(){
     if (!v) return alDia("👛 " + vw.nombre);
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0)), todas = v.ferias.length && sel.length === v.ferias.length;
     var L = ctasV(v); if (L.indexOf(S.vcta) === -1) S.vcta = ctaDef("v", CTAS);
-    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2><div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
+    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
       + '<div class="pg-sub">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + ' · elegí cuáles le pagás</div>';
     if (v.ferias.length > 1) h += '<button type="button" class="pg-btn2" data-pg="vTodas">' + (todas ? "☐ Desmarcar todas" : "☑ Marcar todas") + '</button>';
     h += v.ferias.map(function(f){ var on = !!S.vsel[clave(f)]; return '<button type="button" class="pg-fe" data-pg="vCk" data-v="' + esc(clave(f)) + '"><span class="pg-ck' + (on ? " on" : "") + '">' + (on ? "✓" : "") + '</span><span class="t">' + esc(feriaNom(f)) + feriaSub(f) + '</span><span class="m">' + fm(f.falta) + '</span></button>'; }).join("");
@@ -1718,6 +1728,29 @@ window.PagoComun = (function(){
       + '<input class="pg-in nota" id="pgcNota" autocomplete="off" placeholder="Nota (opcional)" value="' + esc(S.nota) + '">'
       + '<button type="button" class="pg-btn" id="pgcVPagar" data-pg="vPagar">' + (S.busy ? "Guardando…" : "") + '</button></div>';
     return h + '<div class="pg-hint">' + (K ? "Sale de la caja de " + esc(feriaNom(K)) + "; lo de otras ferias cuenta como costo de ESAS ferias." : "Queda pagado y ella lo ve en «👛 Tu cuenta con Abalauquen».") + '</div>';
+  }
+  // 21/11 (Lucas, mockup «Maricel · cuenta corriente»): si además nos compra, todo junto · verde = nos debe, naranja = le debemos
+  function hTodoJunto(v){
+    var d = v.nosDebe; if (!d || !(d.total > 0.5)) return "";
+    var neto = r2(d.total - v.saldo), m = r2(Math.min(d.total, v.saldo));
+    var h = '<div class="pg-card y" style="gap:6px"><b>Todo junto</b>'
+      + '<div class="pg-rr"><span style="color:var(--pg-g);font-weight:700">Nos debe · pedidos<small style="display:block;color:var(--pg-soft);font-weight:600">' + esc(d.pedidos.map(function(x){ return x.id; }).join(", ")) + '</small></span><b class="pg-mono" style="color:var(--pg-g)">' + fm(d.total) + '</b></div>'
+      + '<div class="pg-rr"><span style="color:var(--pg-w);font-weight:700">Le debemos · ferias<small style="display:block;color:var(--pg-soft);font-weight:600">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + '</small></span><b class="pg-mono" style="color:var(--pg-w)">' + fm(v.saldo) + '</b></div>'
+      + v.ferias.map(function(f){ return '<div class="pg-rr" style="padding-left:12px"><span style="color:var(--pg-soft)">' + esc(feriaNom(f)) + (f.descuento ? '<small style="display:block">menos ' + fm(f.descuento) + ' de lo que se llevó (precio empleado)</small>' : '') + '</span><span class="pg-mono">' + fm(f.falta) + '</span></div>'; }).join("")
+      + '<div class="pg-rr" style="border-radius:12px;padding:10px;background:' + (neto >= 0 ? 'rgba(143,209,158,.12)' : 'rgba(255,183,77,.12)') + '"><b style="color:' + (neto >= 0 ? 'var(--pg-g)' : 'var(--pg-w)') + '">Neto: ' + (neto >= 0 ? "nos debe" : "le debemos") + '</b><b class="pg-mono" style="color:' + (neto >= 0 ? 'var(--pg-g)' : 'var(--pg-w)') + '">' + fm(Math.abs(neto)) + '</b></div>';
+    if (m > 0.5) h += '<button type="button" class="pg-btn" data-pg="pagoCta">' + (S.busy ? "Guardando…" : "⇄ Usar lo de ferias como pago a cuenta · " + fm(m)) + '</button>'
+      + '<div class="pg-hint">Las ferias quedan pagadas y en el pedido queda un cobro de ' + fm(m) + ' «Pago a cuenta (ferias)». No se mueve plata de ninguna cuenta.</div>';
+    return h + '</div>';
+  }
+  function pagoCta(){
+    var vw = top(), v = vw && vendDe(vw.nombre); if (!v || !v.nosDebe || S.busy) return;
+    S.busy = true; pintar();
+    run("pagoACuentaVendedora", { vendedora: v.nombre }).then(function(r){
+      S.busy = false;
+      if (r && r.status === "ok"){ toast(r.dup ? "Ya estaba hecho" : "✓ Pago a cuenta " + fm(r.monto) + " (ferias) · " + v.nombre); if (C.alCambiar) try { C.alCambiar(); } catch (e) {} cargar(); }
+      else toast((r && r.msg) || "No se pudo", true);
+      pintar();
+    });
   }
   // orden de pago: la feria más vieja primero. 14/11 (Lucas): si le paga de más, lo de más NO va a ninguna feria (queda como gasto del mes)
   function planV(v){
@@ -1914,6 +1947,7 @@ window.PagoComun = (function(){
     if (a === "vCta"){ guardaV(); S.vcta = v; pintar(); return; }
     if (a === "vAnt"){ guardaV(); S.ant = v; pintar(); return; }
     if (a === "vPagar"){ pagarV(); return; }
+    if (a === "pagoCta"){ pagoCta(); return; }
     if (a === "pCk"){ if (S.psel[v]) delete S.psel[v]; else S.psel[v] = 1; guardaP(); pintar(); return; }
     if (a === "ctaMas"){ S.ctaMas = S.ctaMas === v ? "" : v; pintar(); return; }
     if (a === "pTodas"){ var p = provActual(); if (!p) return; var ck = p.impagas.filter(function(c){ return c.aPagarId; }), tt = ck.every(function(c){ return S.psel[c.aPagarId]; }); S.psel = {}; if (!tt) ck.forEach(function(c){ S.psel[c.aPagarId] = 1; }); guardaP(); pintar(); return; }
@@ -3492,7 +3526,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   let HOY_ABIERTA = null;
   function hoyAbierta(x){
     const go = el("homeHoy").querySelector(".go"), k = "hoyab_" + todayKey() + "|" + x.feria + "|" + (x.ubicacion || "");
-    const pinta = function(r){ HOY_ABIERTA = r && r.iniciada ? r : null; if (HOY_ABIERTA){ el("hoyK").textContent = "YA ESTÁ ABIERTA" + (r.quien ? " · LA ABRIÓ " + String(r.quien).toUpperCase() : ""); go.textContent = "Seguir cobrando ›"; } else go.textContent = "Arrancar la feria ›"; };
+    const pinta = function(r){ HOY_ABIERTA = r && r.iniciada ? r : null; if (HOY_ABIERTA){ el("hoyK").textContent = r.lista ? ("LISTA" + (r.para ? " PARA " + String(r.para).toUpperCase() : "") + (r.dejo && r.dejo !== r.para ? " · LA DEJÓ LISTA " + String(r.dejo).toUpperCase() : "")) : "YA ESTÁ ABIERTA" + (r.quien ? " · LA ABRIÓ " + String(r.quien).toUpperCase() : ""); go.textContent = r.lista ? "Empezar a cobrar ›" : "Seguir cobrando ›"; } else go.textContent = "Arrancar la feria ›"; };
     pinta(lsGet(k, null));
     if (gs()) google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok"){ lsSet(k, r.iniciada ? r : null); if (HOY_SUG && HOY_SUG.feria === x.feria && HOY_SUG.ubicacion === x.ubicacion && !SCREENS.home.hidden) pinta(r); } }).withFailureHandler(function(){}).feriaIniciada(x.feria, x.ubicacion || "");
   }
@@ -4149,7 +4183,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     lsSet(aperturaKey(), Number(r.apertura) || 0);
     lsSet(cnChkKey(), { stockOk: true, sumado: true });
     const yo = String((session && session.vendedor) || "").toLowerCase(), q = String(r.quien || "");
-    showToast(q && q.toLowerCase() !== yo ? "Te sumás a la feria de " + q + " · vas directo a cobrar" : "La feria ya está abierta · seguís cobrando");
+    showToast(r.lista ? "La feria ya estaba lista · arrancás con " + formatMoney(Number(r.apertura) || 0) + " de cambio" : q && q.toLowerCase() !== yo ? "Te sumás a la feria de " + q + " · vas directo a cobrar" : "La feria ya está abierta · seguís cobrando");
     abrirLoop();
   }
   // 29/10 (Lucas 10:48): abrir la feria es un camino (chequeo → caja → stock → cobrar). Si en el medio se toca «atrás»,
@@ -4172,7 +4206,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     apAmt = ult ? String(ult) : "0";
     AP = { modo: "nuevo", ya: null, revisando: !!gs() };
     el("apPill1").textContent = session.vendedor; el("apPill2").textContent = (session.ubicacion || session.feria) + (PREP ? " · " + PREP.txt : "");
-    el("apSteps").innerHTML = pasos3(["Cambio", "Stock", "¡A vender!"], 0);
+    el("apSteps").innerHTML = pasos3(["Cambio", "Stock", PREP ? "Listo" : "¡A vender!"], 0);
     AP.camb = []; AP.tocado = false; AP.otro = false; AP.bils = null;
     if (PREP){ apAmt = String(PREP.monto || 0); PREP.canasto = PREP.canasto || null; }
     apChipsPintar(ult);
@@ -4483,11 +4517,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   const ICON_TACHO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
   // − [número editable] + y, si se pasa onDel, el tachito rojo para sacar el renglón
-  function stepper(val, min, max, onCh, onDel){
+  // 21/11 (Lucas): packs «+6» y «+12» en verde, a la derecha, uno arriba del otro (packs = true)
+  function stepper(val, min, max, onCh, onDel, packs){
     const d = document.createElement("div"); d.className = "stp";
     d.innerHTML = '<button type="button" aria-label="Menos">−</button><input class="stp-n" inputmode="numeric" aria-label="Cantidad"><button type="button" aria-label="Más">+</button>'
-      + (onDel ? '<button type="button" class="stp-del" aria-label="Quitar">' + ICON_TACHO + '</button>' : '');
-    const bs = d.querySelectorAll("button"), n = d.querySelector("input");
+      + (onDel ? '<button type="button" class="stp-del" aria-label="Quitar">' + ICON_TACHO + '</button>' : '')
+      + (packs ? '<div class="pks"><button type="button" class="pk" data-pk="6">+6</button><button type="button" class="pk" data-pk="12">+12</button></div>' : '');
+    if (packs) Array.prototype.forEach.call(d.querySelectorAll(".pk"), function(b){ b.addEventListener("click", function(){ const k = Number(b.dataset.pk); const v = Math.min(max, val + k); if (v !== val){ val = v; pinta(); onCh(val); } }); });
+    const bs = d.querySelectorAll("button:not(.pk)"), n = d.querySelector("input");
     function pinta(){ n.value = val; bs[0].disabled = val <= min; bs[1].disabled = val >= max; }
     bs[0].addEventListener("click", function(){ if (val > min){ val--; pinta(); onCh(val); } });
     bs[1].addEventListener("click", function(){ if (val < max){ val++; pinta(); onCh(val); } });
@@ -4507,7 +4544,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("llOk").textContent = PREP ? "Guardar · queda lista para el " + PREP.txt : (inicio ? "Empezar a cobrar" : "Guardar");
     el("llSkip").textContent = PREP ? "No cargo stock ahora" : (inicio ? "Hoy no cargo stock" : "Volver sin agregar");
     el("llP2").textContent += PREP ? " · " + PREP.txt : "";
-    el("llSteps").hidden = !inicio || !!PREP; el("llSteps").innerHTML = pasos3(["Cambio", "Stock", "¡A vender!"], 1);
+    el("llSteps").hidden = !inicio || !!PREP; el("llSteps").innerHTML = pasos3(["Cambio", "Stock", PREP ? "Listo" : "¡A vender!"], 1);
     el("llTot").hidden = true; el("llRec").hidden = true; el("llCan").hidden = true; LLC = null;
     showScreen("llevo");
     google.script.run.withSuccessHandler(function(r){
@@ -4517,6 +4554,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       LL.base = JSON.parse(JSON.stringify(LL.prods)); // lo que queda en el depósito (para el refuerzo)
       LL.sug = !LL.ya.length && r.sugerido && r.sugerido.items && r.sugerido.items.length ? r.sugerido : null;
       LL.vol = !LL.ya.length && r.volvioAnt && r.volvioAnt.items && r.volvioAnt.items.length ? r.volvioAnt : null;
+      // 21/11 (mockup «Lo que volvió»): las 3 últimas ferias de la zona que cargaron lo que volvió
+      LL.vols = !LL.ya.length ? (r.volviosAnt && r.volviosAnt.length ? r.volviosAnt : (LL.vol ? [LL.vol] : [])) : [];
+      LL.ori = null;
       PED_OK = {}; pintarPedLlevo(r.pedidos || [], r.pedSinFeria || []);
       el("llDep").textContent = PREP ? [PREP.txt, session.vendedor, "sale de Depósito " + r.deposito].join(" · ") : "";
       el("llDep").hidden = !PREP;
@@ -4553,6 +4593,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   function pintaLlevo(){
     const list = el("llList"); list.innerHTML = "";
+    try { if (LLC && LLC.d && !el("llCan").hidden) cnLlevoPintar(); } catch (e) {}
     el("llPorSab").hidden = !LL.items.length;
     // 29/10 (Lucas 21:50): con la lista vacía, los sabores ya abiertos para cargar a mano (antes había que encontrar «+ Agregar más productos»)
     if (!LL.items.length && el("llAdd").hidden && !LL.sabor){ el("llAdd").hidden = false; LL.auto = true; el("llOtro").textContent = "✓ Listo, no agrego más"; el("llOtro").hidden = true; }
@@ -4571,6 +4612,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     else if (LL.edit){
       const h = document.createElement("div"); h.className = "pre-ll";
       h.innerHTML = '<span class="hint">Esto es lo que ya está cargado hoy en el puesto. Corregí las cantidades, poné 0 o sacalo con el tachito, y sumá abajo lo que falte.</span>';
+      list.appendChild(h);
+    }
+    else if (LL.pre && LL.ori){
+      const h = document.createElement("div"); h.className = "pre-ll";
+      h.style.cssText = "display:flex;flex-direction:column;align-items:stretch;gap:8px";
+      const nOri = Object.keys(LL.ori.m).reduce(function(a,k){ return a + LL.ori.m[k]; }, 0), ref = [];
+      LL.items.forEach(function(it){ const df = (Number(it.cant) || 0) - (LL.ori.m[it.sku] || 0); if (df > 0) ref.push("+" + df + " " + it.nombre); });
+      h.innerHTML = '<span class="hint" style="color:var(--good);font-weight:800">✓ ' + esc((LL.ori.vol ? "Volvió de " : "Llevaste en ") + LL.ori.lugar + ": " + nOri) + (ref.length ? ' · Refuerzo: ' + esc(ref.join(" · ")) : '') + '</span><span class="hint">Podés sumar o sacar. Con «+6» y «+12» sumás un pack cerrado.</span><button type="button" class="btn2 pre-vac" style="min-height:44px">Vaciar la lista</button>';
+      h.querySelector(".pre-vac").addEventListener("click", function(){ LL.items = []; LL.pre = null; LL.ori = null; pintaLlevo(); });
       list.appendChild(h);
     }
     else if (LL.pre){
@@ -4593,8 +4643,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         + (pr.se ? ' · 🏷️ ' + pr.se + ' sin etiquetar' : '') + (pasado ? ' · ⚠ más de lo que figura: revisar stock' : '') + '</small>' + (rc ? '<span class="vend3" style="font-size:15px">recomiendo ' + rc.cant + (rc.agotado ? ' · se agotó' : '') + '</span>' : '') + '</div>';
       row.insertAdjacentHTML("afterbegin", mvHtml(idx, LL.items.length)); mvBind(row, LL.items, idx, pintaLlevo);
       if (!it.cant) row.style.opacity = .45;
+      // 21/11 (mockup): «volvió 4 · +12 refuerzo» (o «llevaste 6 · +6») cuando se arrancó de una feria anterior
+      if (LL.ori){ const o = LL.ori.m[it.sku] || 0, df = (Number(it.cant) || 0) - o, sm = row.querySelector(".nm small");
+        if (sm) sm.innerHTML = (o ? (LL.ori.vol ? 'volvió ' : 'llevaste ') + o + ' · ' : '') + (df > 0 ? '<span style="color:var(--good)">+' + df + ' refuerzo</span> · ' : df < 0 ? df + ' · ' : '') + sm.innerHTML; }
       row.appendChild(stepper(it.cant, 0, tope, function(v){ it.cant = v; pintaLlevo(); },
-        function(){ LL.items = LL.items.filter(function(x){ return x !== it; }); pintaLlevo(); }));
+        function(){ LL.items = LL.items.filter(function(x){ return x !== it; }); pintaLlevo(); }, !LL.edit));
       list.appendChild(row);
     });
     const sab = el("llSabores"); sab.innerHTML = "";
@@ -4665,7 +4718,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         pintaLlevo();
       };
       r.querySelector(".t").addEventListener("click", function(){ pon(n + 1); });
-      r.appendChild(stepper(n, 0, tope, pon));
+      r.appendChild(stepper(n, 0, tope, pon, null, !LL.edit));
       t.appendChild(r);
     });
     const ok = document.createElement("div"); ok.className = "btn"; ok.textContent = "✓ Listo con " + LL.sabor;
@@ -4787,7 +4840,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
       else llNoGuardo(r);
     }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
-      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP, idApp: llIdApp(items) });
+      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP, idApp: llIdApp(items), preparo: PREP ? ((auth() || {}).nombre || "") : "" });
   });
   function llResumenVolvio(items){
     const base = {}, ahora = {}, nom = {};
@@ -4852,29 +4905,32 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       its.push({ sku: s.sku, nombre: p ? p.nombre : (s.nombre || s.sku), cant: q, hay: p ? p.hay : 0 }); });
     return ordenar(its);
   }
+  // 21/11 (Lucas, mockup «Lo que volvió»): sin unidades, solo de qué feria sale.
+  //  · «Lo que volvió de <lugar>» de las 3 últimas ferias de la zona que cargaron lo que volvió (la más nueva primero)
+  //  · «Lo mismo que llevaste acá» · «Empezar de cero»
+  function llOriDe(items, vol, lugar){ const m = {}; (items || []).forEach(function(it){ const q = Number(it.cant) || 0; if (q) m[it.sku] = (m[it.sku] || 0) + q; }); return { m: m, vol: vol, lugar: lugar }; }
   function pintarRepe(){
-    const box = el("llRepe"), x = LL.sug, v = LL.vol;
-    if ((!x && !v) || LL.refuerzo || LL.edit || LL.pre){ box.hidden = true; return; }
-    const D = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"], ses = session.feria + (session.ubicacion ? " · " + session.ubicacion : "");
-    const nom0 = {}; LL.prods.forEach(function(p){ nom0[p.sku] = p.nombre; });
-    // 30/10 (Lucas): arrancar con lo que volvió de la última feria del depósito (si no se descargó) y sumar arriba
-    let hv = "";
-    if (v){ const fv = fDate(v.fecha);
-      hv = '<span class="t">' + esc("Lo que volvió el " + D[fv.getDay()] + " " + v.fecha.slice(0, 5) + " de " + v.feria.split(" · ").pop()) + '</span><div class="pres3">' + porPres(ordenar(v.items.map(function(it){ return { sku: it.sku, nombre: it.nombre || nom0[it.sku] || it.sku, cant: it.cant }; }))) + '</div>'
-        + '<div class="btn y" id="llVolOk">' + esc("↻ Arrancar con lo que volvió (no se descargó)") + '</div><span class="hint">Después sumás con ＋ lo que agregás.</span>'; }
-    const f = x ? fDate(x.fecha) : null;
-    if (!x || isNaN(f.getTime())){ box.innerHTML = hv + (hv ? LL_CERO : ""); box.hidden = !hv; if (v) llVolBind(box, v); llCeroBind(box); return; }
-    const dias = Math.round((new Date().setHours(0,0,0,0) - f.getTime()) / 864e5), aca = x.feria === ses;
-    const cuando = dias === 7 ? "El " + D[f.getDay()] + " pasado" : "El " + D[f.getDay()] + " " + x.fecha.slice(0, 5);
-    const nom = {}; LL.prods.forEach(function(p){ nom[p.sku] = p.nombre; });
-    box.innerHTML = hv + (hv ? '<span class="t" style="margin-top:10px">' : '<span class="t">') + esc(cuando + (aca ? " acá llevaste" : " a " + x.feria.split(" · ").pop() + " llevaste")) + '</span><div class="pres3">' + porPres(ordenar(x.items.map(function(it){ return { sku: it.sku, nombre: it.nombre || nom[it.sku] || it.sku, cant: it.cant }; }))) + '</div><div class="btn" id="llRepeOk">' + esc("↻ Llevar lo mismo que " + (dias === 7 ? "el " + D[f.getDay()] + " pasado" : "el " + D[f.getDay()] + " " + x.fecha.slice(0, 5))) + '</div>' + LL_CERO;
-    box.hidden = false;
-    if (v) llVolBind(box, v);
+    const box = el("llRepe"), x = LL.sug, vs = LL.vols || [];
+    if ((!x && !vs.length) || LL.refuerzo || LL.edit || LL.pre){ box.hidden = true; return; }
+    const D = ["dom","lun","mar","mié","jue","vie","sáb"], ses = session.feria + (session.ubicacion ? " · " + session.ubicacion : "");
+    const op = function(id, ic, tit, sub, first){ return '<button type="button" class="ll-op' + (first ? ' first' : '') + '" id="' + id + '"><span class="ic">' + ic + '</span><span><b>' + esc(tit) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="go">›</span></button>'; };
+    const dia = function(f){ const d = fDate(f); return isNaN(d.getTime()) ? f.slice(0, 5) : D[d.getDay()] + " " + f.slice(0, 5); };
+    let h = "";
+    if (vs.length){
+      h += '<span class="lbl3">Lo que volvió de la última feria</span>';
+      vs.forEach(function(v, i){ h += op("llVol" + i, "↩", "Lo que volvió de " + (v.lugar || v.feria.split(" · ").pop()), dia(v.fecha) + (v.quien ? " · " + v.quien : ""), i === 0); });
+    }
+    h += '<span class="lbl3">Lo de esta feria</span>';
+    if (x){ const aca = x.feria === ses; h += op("llRepeOk", "↻", aca ? "Lo mismo que llevaste acá" : "Lo mismo que llevaste a " + x.feria.split(" · ").pop(), dia(x.fecha), !vs.length); }
+    h += op("llCero", "✎", "Empezar de cero", "", false);
+    box.innerHTML = h; box.hidden = false;
+    vs.forEach(function(v, i){ el("llVol" + i).addEventListener("click", function(){
+      LL.items = llDeLista(v.items); LL.pre = { fecha: v.fecha, feria: v.feria, vol: true }; LL.ori = llOriDe(v.items, true, (v.lugar || v.feria.split(" · ").pop()) + " · " + dia(v.fecha));
+      box.hidden = true; pintaLlevo(); showToast("Arrancás con lo que volvió · podés sumar o sacar"); }); });
+    if (x) el("llRepeOk").addEventListener("click", function(){
+      LL.items = llDeLista(x.items); LL.pre = { fecha: x.fecha, feria: x.feria }; LL.ori = llOriDe(x.items, false, x.feria.split(" · ").pop() + " · " + dia(x.fecha));
+      box.hidden = true; pintaLlevo(); showToast("Cargué lo mismo · ajustá lo que cambie"); });
     llCeroBind(box);
-    el("llRepeOk").addEventListener("click", function(){
-      LL.items = llDeLista(x.items); LL.pre = { fecha: x.fecha, feria: x.feria };
-      box.hidden = true; pintaLlevo(); showToast("Cargué lo mismo · ajustá lo que cambie");
-    });
   }
   // 30/10 (Lucas): opción clara de empezar de cero (antes solo estaba «+ Agregar más productos» abajo)
   const LL_CERO = '<div class="btn2" id="llCero" style="margin-top:10px">✏️ Empezar de cero · elijo producto por producto</div>';
@@ -6722,10 +6778,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     else insertarOrdenado(LL.items, { sku: CN_MUESTRA, nombre: p.nombre, cant: c.muestras, hay: p.hay });
     pintaLlevo();
   }
+  // 21/11 (Lucas): la degustación pide reponer un sabor solo si ese sabor va en la feria (en cualquier tamaño); se recalcula al cargar
+  function llSaboresQueVan(){ const S = {}; (LL && LL.items || []).forEach(function(it){ if (!(Number(it.cant) > 0)) return; const p = (LL.prods || []).filter(function(x){ return x.sku === it.sku; })[0]; const sb = p && (p.sabor || p.nombre); if (sb) S[llSinAc(String(sb))] = 1; }); return S; }
+  function llSinAc(t){ return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+  function cnFaltanLL(c){ const S = llSaboresQueVan(); return (c.faltan || []).filter(function(sb){ return S[llSinAc(sb)]; }); }
+  function cnReponerLL(c){ return cnFaltanLL(c).length + c.reponer.length + (c.muestrasMax && c.muestras < c.muestrasMax ? 1 : 0); }
   function cnLlevoPintar(){
     const d = LLC.d, quien = session.vendedor || (auth() || {}).nombre || "";
     el("llCanPick").innerHTML = d.canastos.map(function(c){
-      const n = cnReponerN(c), oc = c.ocupado;
+      const n = cnReponerLL(c), oc = c.ocupado;
       return '<div class="cn-pk' + (LLC.sel === c.id ? " on" : "") + '" data-c="' + c.id + '"><span class="rd"></span><span class="t"><b>' + esc(c.nombre) + ' · Billetera ' + esc(c.num) + (PREP && PREP.monto ? ' (' + formatMoney(PREP.monto) + ')' : '') + ' · Posnet ' + esc(c.num) + '</b><span>'
         + (oc ? '<span style="color:var(--warn)">ya lo lleva ' + esc(oc.vend || oc.quien) + ' (' + esc(oc.puesto) + ')</span> · ' : '') + (c.ult ? 'última vez: ' + esc(c.ult) + ' · ' : '') + (n ? 'reponer ' + n : 'completo') + '</span></span></div>';
     }).join("");
@@ -6733,8 +6794,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const c = cnLlevoSel(), box = el("llCanDet");
     if (!c){ box.innerHTML = '<span class="hint">Elegí el canasto que va (con su billetera y su posnet).</span>'; return; }
     const faltaM = Math.max(0, c.muestrasMax - c.muestras);
-    let h = (c.faltan.length || c.reponer.length || faltaM) ? '<div class="cn-av">Antes de llevarlo, reponé:</div>' : '<div class="cn-av ok">✓ El ' + esc(c.nombre) + ' está completo.</div>';
-    h += c.faltan.map(function(sb){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(sb) + ' 40 g</b><span>degustación · falta</span></span><button type="button" class="ok" data-su="' + esc(sb) + '">+ Sumar</button></div>'; }).join("");
+    const fLL = cnFaltanLL(c);
+    let h = (fLL.length || c.reponer.length || faltaM) ? '<div class="cn-av">Antes de llevarlo, reponé:</div>' : '<div class="cn-av ok">✓ El ' + esc(c.nombre) + ' está completo.</div>';
+    h += fLL.map(function(sb){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(sb) + ' 40 g</b><span>degustación · falta</span></span><button type="button" class="ok" data-su="' + esc(sb) + '">+ Sumar</button></div>'; }).join("");
     h += c.ins.filter(function(x){ return x.estado !== "ok"; }).map(function(x){ return '<div class="cn-fil falta"><span class="t"><b>' + esc(x.nombre) + '</b><span>' + CN_EST[x.estado] + ' · ' + esc(x.pres) + '</span></span><span class="cn-bt2"><button type="button" class="ok" data-ri="' + x.id + '">+ Repuse</button><button type="button" class="des" data-de="' + x.id + '">Desestimar</button></span></div>'; }).join("");
     if (faltaM) h += '<div class="cn-fil falta"><span class="t"><b>Mostrador: falta' + (faltaM > 1 ? 'n ' : ' ') + faltaM + ' combo' + (faltaM > 1 ? 's' : '') + ' de 6 minis</b><span>se vendi' + (faltaM > 1 ? 'eron' : 'ó') + '</span></span><button type="button" class="ok" data-mu="1">+ Repuse</button></div>';
     if (c.muestras) h += '<span class="hint">Mostrador: ' + cnMostr(c.muestras) + ', ya sumados en lo que llevás (se pueden vender).</span>';

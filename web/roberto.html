@@ -972,6 +972,7 @@ input[type=date].txt{color-scheme:dark;display:block;-webkit-appearance:none;app
 .lnk.on{background:var(--accent);color:var(--accent-ink)}
 /* − número + */
 .stp{display:grid;grid-template-columns:52px minmax(64px,1fr) 52px;gap:6px;align-items:center}
+.pk12{min-width:56px;height:44px;border-radius:12px;border:0;background:#2f9e44;color:#fff;font-weight:800;font-size:16px}
 .stp button{height:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .stp input{height:52px;border-radius:14px;border:2px solid var(--accent);background:var(--inp);color:var(--ink);font-size:20px;font-weight:800;text-align:center;font-family:inherit;width:100%;min-width:0}
 /* hoja de acciones */
@@ -1344,6 +1345,8 @@ let IT=null;
 const TIT={entrega:["Me entregó productos","¿Qué te entregó?"],insumos:["Le di insumos","¿Qué le diste?"],pedido:["Pedido a Roberto","¿Qué le pedís?"]};
 function abrirItems(modo){conD(()=>{
   IT={modo,items:[],cat:modo==="insumos"?"Fruta":"Mangas",sel:null,ped:null,q:"",edit:null,cant:0,precio:0,uid:null};
+  /* 21/11 (Lucas, mockup «Pedido a Roberto»): un solo pedido; lo que piden los envíos abiertos ya viene adentro y no se puede bajar de ahí */
+  if(modo==="pedido")Object.keys(D.envio||{}).forEach(sku=>{const L=D.envio[sku],n=L.reduce((a,x)=>a+(Number(x.cant)||0),0);if(!n)return;const it=nuevoIt(entDe({sku},"p"),n);it.min=n;it.para=L;IT.items.push(it);});
   $("itStep").textContent=TIT[modo][0];$("itH1").textContent=TIT[modo][1];$("itBus").value="";$("itNota").value="";$("itEd").hidden=true;
   itPint();show("items");});
 }
@@ -1366,7 +1369,8 @@ function itPint(){
   $("itPed").innerHTML=[null].concat(PEDS.map(c=>c.id)).map((v,i)=>`<button class="chip${v===IT.ped?" on":""}" data-i="${i}">${v?"Pedido "+esc(v)+" · "+esc(String(PEDS.find(c=>c.id===v).fecha||"").slice(0,5)):"Sin pedido"}</button>`).join("");
   $("itPed").querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;elegirPed(i?PEDS[i-1].id:null);});
   // lista cargada
-  $("itList").innerHTML=IT.items.length?IT.items.map((x,i)=>{const p=ALL()[x.k]||{nombre:x.nombre,u:"u"};const u=p.u==="kg"?"kg":p.u==="u"?"u.":p.u;return `<button class="it" onclick="itEditar(${i})"><span class="t"><b>${esc(p.full||p.nombre)}</b><span>${fq(x.cant)} ${esc(u)}${conPrecio?" × "+(x.precio?fm(x.precio):'<span class="al">falta el precio</span>'):""} · tocá para cambiar</span></span><span class="m">${conPrecio?fm(x.cant*x.precio):fq(x.cant)+" "+esc(u)}</span></button>`;}).join(""):'<div class="empty">Todavía no agregaste nada.</div>';
+  if(m==="pedido"){itPintPed();}else if($("itMats"))$("itMats").hidden=true;
+  else $("itList").innerHTML=IT.items.length?IT.items.map((x,i)=>{const p=ALL()[x.k]||{nombre:x.nombre,u:"u"};const u=p.u==="kg"?"kg":p.u==="u"?"u.":p.u;return `<button class="it" onclick="itEditar(${i})"><span class="t"><b>${esc(p.full||p.nombre)}</b><span>${fq(x.cant)} ${esc(u)}${conPrecio?" × "+(x.precio?fm(x.precio):'<span class="al">falta el precio</span>'):""} · tocá para cambiar</span></span><span class="m">${conPrecio?fm(x.cant*x.precio):fq(x.cant)+" "+esc(u)}</span></button>`;}).join(""):'<div class="empty">Todavía no agregaste nada.</div>';
   // categorías
   const cats=[];cat.forEach(x=>{if(!cats.includes(x.cat))cats.push(x.cat);});
   if(m==="insumos")cats.sort((a,b)=>GORD.indexOf(a)-GORD.indexOf(b));else{const O=["Mangas","Diet","Otros"];cats.sort((a,b)=>O.indexOf(a)-O.indexOf(b));}
@@ -1395,15 +1399,42 @@ function itPint(){
   const ok=IT.items.length&&!sinP.length;$("itOk").className="btn "+(ok?"y":"off");
   if(!itGuardar.on)$("itOk").textContent=IT.edit?"Guardar cambios":m==="pedido"?"Crear pedido":"Guardar";
 }
+function itPintPed(){
+  const fab=sku=>{const p=(D.productos||[]).find(y=>y.sku===sku);return p?Number(p.fab)||0:0;};
+  $("itListLbl").textContent="Qué le pedís · "+IT.items.reduce((a,x)=>a+x.cant,0)+" u";
+  $("itList").innerHTML=IT.items.length?IT.items.map((x,i)=>{const p=ALL()[x.k]||{nombre:x.nombre},diet=p.cat==="Diet";
+    const env=(x.para||[]).map(e=>`<span style="color:var(--blue,#8fb8ff)">${e.cant} son para el envío a ${esc(e.destino||"")} (${esc(e.id)})</span>`).join(" · ");
+    return `<div class="it" style="flex-wrap:wrap"><span class="t"><b>${esc(p.full||p.nombre)}</b><span>hay ${fab(x.sku)} en Fábrica${env?" · "+env:""}</span></span>
+      <span style="display:flex;gap:6px;align-items:center;margin-left:auto"><span class="stp" style="grid-template-columns:44px 56px 44px"><button onclick="itPedQ(${i},-1)">−</button><input inputmode="numeric" value="${x.cant}" onchange="itPedSet(${i},this.value)"><button onclick="itPedQ(${i},1)">+</button></span>${diet?`<button class="pk12" onclick="itPedQ(${i},12)">+12</button>`:""}</span></div>`;}).join(""):'<div class="empty">Todavía nada. Elegí abajo.</div>';
+  itMatsPint();
+}
+function itPedQ(i,d){const x=IT.items[i];if(!x)return;const v=Math.max(x.min||0,(x.cant||0)+d);if(v<=0&&!x.min){IT.items.splice(i,1);}else x.cant=v;if(d<0&&x.min&&x.cant===x.min&&(x.cant||0)+d<x.min)t("No baja de "+x.min+": son para el envío");itPint();}
+function itPedSet(i,v){const x=IT.items[i];if(!x)return;let n=Math.round(pm(v)||0);if(x.min&&n<x.min){n=x.min;t("No baja de "+x.min+": son para el envío");}x.cant=n;if(!n)IT.items.splice(i,1);itPint();}
+/* lo que le pasamos a Roberto: calculado una sola vez sobre todo el pedido */
+function itMatsPint(){
+  let box=$("itMats");if(!box){box=document.createElement("div");box.id="itMats";box.className="card";box.style.gap="6px";$("itList").parentNode.after(box);}
+  if(IT.modo!=="pedido"||!IT.items.length){box.hidden=true;return;}
+  const G={Dietéticos:{n:0,L:{}},"Mangas":{n:0,L:{}}};
+  IT.items.forEach(x=>{const p=ALL()[x.k]||{},g=p.cat==="Diet"?"Dietéticos":"Mangas",M=(D.mats||{})[x.sku]||[];G[g].n+=x.cant;
+    M.forEach(m=>{const k=m.sku,o=G[g].L[k]=G[g].L[k]||{detalle:m.detalle,hay:m.hay,falta:!!m.falta,lleva:0};o.lleva+=m.porU*x.cant;});});
+  let h='<div class="card-t"><span>Lo que le pasamos a Roberto</span></div><div class="hint" style="margin:0">Calculado una sola vez sobre el total. «Tenemos» = stock de Fábrica.</div>';
+  Object.keys(G).forEach(g=>{const ks=Object.keys(G[g].L);if(!G[g].n)return;h+=`<div class="grp">${g} · ${G[g].n}</div>`;
+    ks.forEach(k=>{const o=G[g].L[k],ll=Math.ceil(o.lleva-1e-9),hay=o.hay==null?0:Math.max(0,Math.floor(o.hay)),f=Math.max(0,ll-hay);
+      h+=`<div class="rr"><span>${esc(o.detalle)}${o.falta?'<small style="display:block;color:var(--ink-mid)">todavía sin dar de alta</small>':""}</span><b>${ll} · tenemos ${hay} ${f?`<span class="al">faltan ${f}</span>`:'<span style="color:var(--good)">✓</span>'}</b></div>`;});});
+  h+='<div class="hint" style="margin:0">Lo que falta queda para comprar. Los materiales salen del stock de Fábrica cuando tocás «Le di insumos» (se los llevé).</div>';
+  box.innerHTML=h;box.hidden=false;
+}
 function itSel(k){IT.sel=ALL()[k];IT.cant=0;IT.precio=IT.sel.precio||0;itPint();$("itDet").scrollIntoView({block:"center",behavior:"smooth"});}
 function itStep(d){IT.cant=Math.max(0,(IT.cant||0)+d);$("itCant").value=IT.cant?fq(IT.cant):"";}
-function itAdd(){const c=IT.cant;if(!IT.sel||c<=0){t("Poné la cantidad");return;}IT.items.push(nuevoIt(IT.sel,c,IT.modo==="pedido"?0:IT.precio));IT.sel=null;t("Sumado a la lista ✓");itPint();}
+function itAdd(){const c=IT.cant;if(!IT.sel||c<=0){t("Poné la cantidad");return;}
+  if(IT.modo==="pedido"){const ya=IT.items.find(x=>x.k===IT.sel.k);if(ya){ya.cant+=c;IT.sel=null;t("Sumado ✓");itPint();return;}}
+  IT.items.push(nuevoIt(IT.sel,c,IT.modo==="pedido"?0:IT.precio));IT.sel=null;t("Sumado a la lista ✓");itPint();}
 function itEditar(i){const x=IT.items.splice(i,1)[0];IT.sel=ALL()[x.k]||entDe(x,IT.modo==="insumos"?"i":"p");IT.cant=x.cant;IT.precio=x.precio;itPint();$("itDet").scrollIntoView({block:"center",behavior:"smooth"});}
 function itGuardar(){
   if(itGuardar.on)return;   // no se carga dos veces si se toca dos veces
   if($("itOk").classList.contains("off")){t(IT.items.length?"Falta algún precio":"Agregá algo primero");return;}
   if(!IT.uid)IT.uid=String(Date.now());
-  const items=IT.items.map(x=>({sku:x.sku,nombre:x.nombre,cant:x.cant,precio:x.precio})),nota=$("itNota").value.trim();
+  const items=IT.items.map(x=>{const o={sku:x.sku,nombre:x.nombre,cant:x.cant,precio:x.precio};if(x.para)o.para=x.para.map(e=>({id:e.id,cant:e.cant}));return o;}),nota=$("itNota").value.trim();
   const txt=$("itOk").textContent;itGuardar.on=true;$("itOk").textContent="Guardando…";
   const pr=IT.edit?run("editarRoberto",IT.edit,{items,nota}):IT.modo==="pedido"?run("pedirARoberto",{items,nota}):run("registrarRoberto",{uid:IT.uid,tipo:IT.modo,items,nota,pedidoId:IT.ped});
   pr.then(r=>{itGuardar.on=false;$("itOk").textContent=txt;

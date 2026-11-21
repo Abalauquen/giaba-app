@@ -2177,7 +2177,27 @@ function arrancar(r){ if (!r) return;
   if (cmA === "alertas" || GIABA_IR === "alertas"){ ir("alertas"); return; }
   const dest = { rev: "rev", fijos: "fijos", cubrimos: "cubrimos", productos: "productos", calc: "calc", cuanto: "cuanto", lpre: "lpre", lpremay: "lpre" }[GIABA_IR];
   ir(dest || "home"); }
-if (!OK) show("noauth"); else cargar().then(arrancar).catch(e => { $("ldSpin").hidden = true; $("loadTxt").textContent = "Algo falló al abrir (" + String(e && e.message || e).slice(0, 80) + "). Tocá para reintentar."; $("ldBox").classList.add("ns"); $("ldBox").onclick = () => location.reload(); });
+/* 21/11 (Lucas: «Costos sigue tardando, al menos la primera vez»): se muestra al toque lo último que se vio (guardado en este celu)
+   y se actualiza solo en segundo plano; si cambió algo, se repinta la pantalla donde estés. */
+const COS_K = "cos_ult_" + (AUTH && AUTH.nombre || "");
+function cosGuardarUlt(r){ try { localStorage.setItem(COS_K, JSON.stringify({ t: Date.now(), r: r })); } catch (e) { try { localStorage.removeItem(COS_K); } catch (e2) {} } }
+function cosDeCache(){ const c = lsGet(COS_K, null); if (!c || !c.r || Date.now() - c.t > 24 * 3600000) return null; const r = c.r; r.idx = {}; (r.productos || []).forEach(p => r.idx[p.sku] = p); return r; }
+const COS_C = OK ? cosDeCache() : null;
+if (!OK) show("noauth");
+else if (COS_C){
+  D = COS_C; document.querySelectorAll("[data-yo]").forEach(x => x.textContent = D.yo); arrancar(D);
+  const ab = document.createElement("div"); ab.id = "cosAct"; ab.textContent = "↻ Actualizando…"; ab.style.cssText = "position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:300;background:#2a2a2b;color:#bdb6ae;border:1px solid #3a3a3c;border-radius:99px;padding:4px 12px;font:600 12px system-ui"; document.body.appendChild(ab);
+  const viejo = JSON.stringify(COS_C, (k, v) => k === "idx" ? undefined : v);
+  run("getCostos").then(r => {
+    ab.remove();
+    if (!r || r.status !== "ok") return;
+    cosGuardarUlt(r);
+    if (JSON.stringify(r) === viejo) return;
+    D = r; D.idx = {}; D.productos.forEach(p => D.idx[p.sku] = p);
+    try { const y = window.scrollY; ir(ACTUAL || "home"); window.scrollTo(0, y); } catch (e) {}
+  });
+}
+else cargar().then(r => { if (r) cosGuardarUlt(r); return r; }).then(arrancar).catch(e => { $("ldSpin").hidden = true; $("loadTxt").textContent = "Algo falló al abrir (" + String(e && e.message || e).slice(0, 80) + "). Tocá para reintentar."; $("ldBox").classList.add("ns"); $("ldBox").onclick = () => location.reload(); });
 </script>
 <script>
 /* ================= 🔎 REVISIÓN DE PRECIOS (06/11/2026 · igual al mockup v3 aprobado) =================

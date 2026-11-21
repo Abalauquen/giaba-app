@@ -762,6 +762,8 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:24px;font-weight:800;line
 .lp-pr{width:96px;height:32px;border-radius:8px;border:1.5px solid var(--line);background:var(--inp);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;text-align:right;padding:0 6px}
 .stp-n{width:48px;height:38px;border-radius:10px;border:1.5px solid var(--line);background:var(--inp);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;text-align:center;padding:0}
 .ll-op{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;padding:14px;margin:6px 0;color:inherit;font:inherit;cursor:pointer}.ll-op .ic{font-size:22px}.ll-op b{display:block;font-size:16px}.ll-op small{color:var(--muted, #a8a8ad)}.ll-op .go{margin-left:auto;color:var(--accent);font-weight:800;font-size:20px}.ll-op.first{border-color:var(--accent)}
+.hst{width:28px;height:28px;flex:0 0 28px;border-radius:8px;border:2px solid;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;margin-right:4px}
+.hst.ok{border-color:#2f9e44;background:rgba(47,158,68,.16);color:#7fd48a}.hst.esp{border-color:#f0a35e;background:rgba(240,163,94,.16);color:#f0a35e}.hst.mal{border-color:#ff8a83;background:rgba(255,138,131,.16);color:#ff8a83;cursor:pointer}
 .stp .pks{display:flex;flex-direction:column;gap:4px;margin-left:6px}.stp .pk{width:auto;height:auto;min-width:50px;min-height:32px;padding:0 8px;border-radius:10px;border:0;background:#2f9e44;color:#fff;font-weight:800;font-size:15px}
 .stp .stp-del{background:var(--terra);border-color:var(--terra);display:flex;align-items:center;justify-content:center;margin-left:4px}
 .tams{display:flex;flex-wrap:wrap;gap:7px}
@@ -2293,6 +2295,8 @@ body.v3f #loop .qa3{margin-top:10px}
 body.v3f #loop .amount{font-size:34px!important;margin:4px 0 2px}
 body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:48px!important;gap:10px!important;margin-top:6px}
 body.v3f #loop .key{height:48px!important;min-height:48px!important;font-size:22px!important;border-radius:13px!important}
+/* 21/11 (Lucas): en el iPhone, al tocar Efectivo aparece «¿facturar?» y «Cobrar» quedaba abajo de la pantalla → en pantallas bajas el teclado es un poco más chico */
+@media (max-height:760px){ body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:42px!important;gap:6px!important;margin-top:2px} body.v3f #loop .key{height:42px!important;min-height:42px!important;font-size:20px!important} body.v3f #loop .pay-btn{min-height:44px!important;height:44px!important} body.v3f #loop .amount{margin:2px 0!important} }
 body.v3f #loop .key.del{font-size:15px!important}
 body.v3f #loop #payLbl{display:block;font:800 13px 'Manrope',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin:10px 2px 0}
 body.v3f #loop .pay-grid{gap:9px!important}
@@ -4671,6 +4675,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (res && res.status === 'ok'){
         removeFromQueue(item.id);
         if (lastEntry && lastEntry.id === item.id) lastEntry.synced = true;
+        try { const F = lsGet("cf_fallas", {}) || {}; if (F[item.id]){ delete F[item.id]; lsSet("cf_fallas", F); } (histItems || []).forEach(function(x){ if (x.id === item.id) x.pendiente = false; }); histRepintarEstado(); } catch(e){}
         // 19/11 (Adri: cobros que no llegaron): cuando el cobro llegó de verdad, se dice claro
         if (item.tipo === "Cobro" && !res.duplicado) showToast("✓ Cargado: " + formatMoney(item.monto) + (item.medioPago ? " · " + item.medioPago : ""));
         if (res.facturable && !res.duplicado){ FACT_ST[item.id] = { fact: "Pendiente" }; if (!item.esperaMail) pedirFactura(item.id, item.mailFactura); }
@@ -4681,9 +4686,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         showToast("La caja de esa feria ya está cerrada", true);
         if (samePuesto(item)){ lsSet(cerradaKey(), true); refreshTotal(); }
         flushQueue();
-      } else { renderTotal(); }
+      } else { try { const F = lsGet("cf_fallas", {}) || {}; F[item.id] = (F[item.id] || 0) + 1; lsSet("cf_fallas", F); } catch(e){} renderTotal(); histRepintarEstado(); }
     });
   }
+  // 21/11 (Lucas, mockup v2): en «Ver cobros», a la izquierda de cada cobro: ✓ verde subido · ⏳ naranja todavía no subió · 🔄 rojo no subió (tocá para volver a subir)
+  function histEstado(it){ if (!it.pendiente) return "ok"; const F = lsGet("cf_fallas", {}) || {}; return (F[it.id] || 0) >= 2 ? "mal" : "esp"; }
+  function histIcono(it){ const e = histEstado(it); return '<span class="hst ' + e + '"' + (e === "mal" ? ' data-resubir="' + esc(it.id || "") + '" role="button" aria-label="Volver a subir"' : '') + '>' + (e === "ok" ? "✓" : e === "esp" ? "⏳" : "🔄") + '</span>'; }
+  function histRepintarEstado(){ try { if (!SCREENS.hist.hidden && typeof pintarHist === "function") pintarHist(); } catch(e){} }
   window.addEventListener("online", flushQueue);
   setInterval(flushQueue, 30000);
   // 13/11: al abrir, se recupera lo pendiente de cualquiera de las copias (localStorage / IndexedDB) y se manda
@@ -5508,6 +5517,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         selectedPay = m;
         Array.prototype.forEach.call(pg.querySelectorAll(".pay-btn:not(.caja)"), function(c){ c.classList.remove("active"); });
         b.classList.add("active"); updateAccept(); pintarFx(); QR_T = null; pintarQr();
+        // 21/11 (Lucas): en el iPhone, al elegir el medio «Cobrar» quedaba abajo de la pantalla → se corre lo justo para que se vea entero
+        try { requestAnimationFrame(function(){ const a = el("acceptBtn"), r = a.getBoundingClientRect(), h = window.innerHeight || document.documentElement.clientHeight;
+          if (r.bottom > h - 8) a.scrollIntoView({ block: "end", behavior: "smooth" }); }); } catch (e) {}
       });
       pg.appendChild(b);
     });
@@ -6633,11 +6645,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("histList").innerHTML = cab + (items.length ? items.map(function(it){
       const extra = tipoTxt(it);
       const vend = histItems.some(function(x){ return x.vendedor !== it.vendedor; }) ? esc(it.vendedor) : "";
-      const c = [extra, vend, it.pendiente ? "sin subir" : "", it.fact === "Sí" && it.factNro && /^A/.test(it.factNro) ? "Factura A" : ""].filter(String).join(" · ");
+      const c = [extra, vend, it.pendiente ? (histEstado(it) === "mal" ? "no subió · tocá 🔄 para volver a subir" : "subiendo…") : "", it.fact === "Sí" && it.factNro && /^A/.test(it.factNro) ? "Factura A" : ""].filter(String).join(" · ");
       const fi = it.tipo === "Cobro" ? (it.anulado ? '<span class="fi no"></span>' : iconoFact(it.fact, it.facturable)) : '<span class="fi no"></span>';
       const pl = prodLinea(it) + notaLinea(it);
-      return '<div class="lx'+(it.anulado?" x":"")+(pl?" conp":"")+'" data-id="'+esc(it.id||"")+'" style="cursor:pointer"><span class="hr">'+esc(it.hora)+'</span>'+mdTag(it.medio, it.tipo)+'<span class="c">'+(c||"")+'</span><b'+(it.monto<0?' class="neg"':'')+'>'+formatMoney(it.monto)+'</b>'+fi+'</div>' + pl;
+      return '<div class="lx'+(it.anulado?" x":"")+(pl?" conp":"")+'" data-id="'+esc(it.id||"")+'" style="cursor:pointer">'+histIcono(it)+'<span class="hr">'+esc(it.hora)+'</span>'+mdTag(it.medio, it.tipo)+'<span class="c">'+(c||"")+'</span><b'+(it.monto<0?' class="neg"':'')+'>'+formatMoney(it.monto)+'</b>'+fi+'</div>' + pl;
     }).join("") : '<div class="empty">' + (histFiltro === "Todos" ? 'Todavía no hay movimientos.' : 'No hay movimientos con ese filtro.') + '</div>');
+    Array.prototype.forEach.call(el("histList").querySelectorAll("[data-resubir]"), function(b){ b.addEventListener("click", function(ev){ ev.stopPropagation();
+      try { const F = lsGet("cf_fallas", {}) || {}; delete F[b.dataset.resubir]; lsSet("cf_fallas", F); } catch(e){}
+      sending = false; showToast("Volviendo a subir…"); flushQueue(); histRepintarEstado(); }); });
     Array.prototype.forEach.call(el("histList").querySelectorAll(".lx"), function(d){
       d.addEventListener("click", function(){
         const it = histItems.filter(function(x){ return x.id === d.dataset.id; })[0];

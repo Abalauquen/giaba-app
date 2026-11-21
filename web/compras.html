@@ -352,7 +352,7 @@
 <base target="_top">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Compras</title>
+<title>Compras / gastos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- GIABA v3 · estilo común de TODAS las pantallas (aprobado 22/10). Se incluye en cada Index*.html; cambiar acá cambia toda la app. -->
@@ -582,7 +582,7 @@ html,body{background:var(--bg)}
     retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
     comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
@@ -1604,7 +1604,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <div class="scr" id="s-noauth" hidden>
   <div class="top"><a class="back" id="naBack">Menú</a></div>
   <div class="narrow">
-    <h1>Compras</h1>
+    <h1>Compras / gastos</h1>
     <div class="wrb">Compras es solo para <b>Lucas y Adriana</b> (tiene precios y deudas). Entrá desde el menú con tu PIN.</div>
     <a class="btn y" id="naMenu">Ir al menú</a>
   </div>
@@ -1613,7 +1613,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <!-- 1 INICIO -->
 <div class="scr" id="s-home" hidden>
   <div class="top"><a class="back" id="homeBack">Menú</a><span class="who" id="who"></span></div>
-  <h1>Compras</h1>
+  <h1>Compras / gastos</h1>
   <div class="row2"><button class="btn y" id="goNueva">+ Nueva compra</button><button class="btn y" id="goGasto">+ Nuevo gasto</button></div>
   <div class="tiles3">
     <button class="tl" id="goCC"><span class="i">📒</span><span class="x"><b>Cuentas corrientes</b><small id="tlCC">…</small></span><span class="badge" id="tlCCb" hidden></span></button>
@@ -1629,7 +1629,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 2 ¿QUÉ Y A QUIÉN? -->
 <div class="scr" id="s-nueva" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="step">Nueva compra · 1/3</span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="step">Nueva compra · 1/3</span></div>
   <div class="narrow">
     <h1>¿Qué compraste?</h1>
     <div class="sub">Elegí qué es y te muestro solo a quién se lo comprás. Si no sabés, elegí el proveedor directo.</div>
@@ -1712,7 +1712,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 7 ¿Y AHORA? -->
 <div class="scr" id="s-listo" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="who" data-yo></span></div>   <!-- 08/11: faltaba la barra (menú y volver) -->
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="who" data-yo></span></div>   <!-- 08/11: faltaba la barra (menú y volver) -->
   <div class="narrow">
     <div class="okb" style="text-align:center;font-size:20px" id="lsTit">✓ Compra registrada</div>
     <div class="card" id="lsRes"></div>
@@ -1721,14 +1721,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       <button class="btn y" id="lsPagar" data-a="lsPagar">💸 Pagarla ahora</button>
       <button class="btn" data-a="lsOtra">+ Cargar otra compra</button>
       <button class="btn" id="lsCta" data-a="lsCta">📒 Ver la cuenta del proveedor</button>
-      <button class="btn" data-a="home">Volver a Compras</button>
+      <button class="btn" data-a="home">Volver a Compras / gastos</button>
     </div>
   </div>
 </div>
 
 <!-- 8 LLEGÓ SIN FACTURA -->
 <div class="scr" id="s-pend" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="step w">Falta la factura</span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="step w">Falta la factura</span></div>
   <div class="narrow">
     <div class="card" style="gap:4px"><div class="card-t" id="peProv"></div><span class="hint" id="peInfo"></span></div>
     <div class="info">Lo marcado <b>✓ en stock</b> ya se sumó. Si llegó otra parte, agregala: queda como <b>NUEVO</b> y se suma cuando tocás «Sumar lo nuevo al stock».</div>
@@ -1756,7 +1756,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 10 NUEVO GASTO -->
 <div class="scr" id="s-gasto" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="step" id="gaStep">Nuevo gasto</span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="step" id="gaStep">Nuevo gasto</span></div>
   <div class="narrow">
     <div class="edban" id="gaEd" hidden></div>
     <h1>¿Qué gasto es?</h1>
@@ -1767,7 +1767,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 11 CUENTAS CORRIENTES -->
 <div class="scr" id="s-cc" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="who" data-yo></span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="who" data-yo></span></div>
   <div class="narrow">
     <h1>Cuentas corrientes</h1>
     <div class="tabs" id="ccTabs"></div>
@@ -1801,7 +1801,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 14 UNA COMPRA -->
 <div class="scr" id="s-det" hidden>
-  <div class="top"><button class="back" data-a="dtBack" id="dtBackB">Compras</button><span class="st" id="dtSt"></span></div>
+  <div class="top"><button class="back" data-a="dtBack" id="dtBackB">Compras / gastos</button><span class="st" id="dtSt"></span></div>
   <div class="narrow">
     <div class="card bigsum"><span id="dtEy"></span><b id="dtTot"></b><span class="hint" id="dtSub"></span></div>
     <div class="card" id="dtPago" style="border:2px solid var(--accent)"></div>
@@ -1816,7 +1816,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 15 PEDIDO A ROLGRÁFICO -->
 <div class="scr" id="s-rol" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="step">Pedido a Rolgráfico</span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="step">Pedido a Rolgráfico</span></div>
   <div class="narrow">
     <div class="card" style="gap:8px" id="rlPend" hidden></div>
     <h1>Pedido de etiquetas</h1>
@@ -1843,7 +1843,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- 17 RESUMEN DEL MES -->
 <div class="scr" id="s-fotos" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="step">Fotos de facturas</span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="step">Fotos de facturas</span></div>
   <div class="narrow">
     <h1>Fotos de las facturas</h1>
     <div class="tabs" id="foMes"></div>
@@ -1853,7 +1853,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <input type="file" id="fotoCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="fotoArch" accept="image/*,application/pdf" multiple hidden>
 <div class="scr" id="s-res" hidden>
-  <div class="top"><button class="back" data-a="home">Compras</button><span class="who" data-yo></span></div>
+  <div class="top"><button class="back" data-a="home">Compras / gastos</button><span class="who" data-yo></span></div>
   <div class="narrow">
     <div class="seg2" id="rsMes"></div>
     <div class="row2" id="rsBig"></div>
@@ -3035,7 +3035,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     DC = c; DF = "MP Fábrica";
     const pend = !c.anulada && !!c.aPagarId && (c.pago === "A pagar" || c.pago === "Pago parcial"), falta = r2(Math.max(0, c.total - (c.pagado || 0)));
     const venc = c.vence && parseAr(c.vence) < new Date(new Date().toDateString());
-    el("dtBackB").lastChild.textContent = DET_VOLVER === "ccp" ? "Su cuenta" : "Compras";
+    el("dtBackB").lastChild.textContent = DET_VOLVER === "ccp" ? "Su cuenta" : "Compras / gastos";
     const st = el("dtSt");
     if (c.anulada){ st.className = "st x"; st.textContent = "Anulada"; }
     else if (pend){ st.className = "st " + (venc ? "w" : "b"); st.textContent = c.sf ? "A pagar · falta factura" : c.vence ? (venc ? "Venció " : "Vence ") + dm(c.vence) : "A pagar"; }

@@ -1478,7 +1478,7 @@ html,body{background:var(--bg)}
     retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
     comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
@@ -2864,7 +2864,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="btn" id="llRef" hidden style="background:var(--good);border-color:var(--good);color:#0c2a1c">+ Refuerzo de stock</div>
   <span class="lbl3" id="llPorSab">Lo que llevás</span>
   <div id="llList"><div class="empty">Cargando…</div></div>
-  <div class="btn2" id="llOtro">+ Agregar más productos</div>
+  <div class="btn2" id="llOtro">+ Sumar más productos</div>
   <div id="llAdd" hidden style="display:flex;flex-direction:column;gap:10px">
     <div class="chips" id="llSabores"></div>
     <div class="tams" id="llTams"></div>
@@ -2905,9 +2905,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <div id="screen-cnb" class="screen" hidden>
   <div class="topbar"><button class="back" id="cnbBack" data-lbl="Canasto" aria-label="Atrás"></button><span class="pill" id="cnbPill"></span></div>
   <div style="display:flex;flex-direction:column;gap:6px"><h1 id="cnbTit"></h1><div class="sub3" id="cnbSub"></div></div>
+  <div class="cn-sw" id="cnbDir" style="grid-template-columns:1fr 1fr" hidden><div data-d="saque">Saqué</div><div data-d="puse">Puse</div></div>
   <div class="amount" id="cnbAmt" style="font-size:40px">$ 0</div>
+  <div class="sub3" id="cnbQueda" style="text-align:center" hidden></div>
+  <div class="cn-card" id="cnbCtaW" hidden><div class="ct" id="cnbCtaT">¿A dónde va?</div><div class="cn-sw" id="cnbCta" style="grid-template-columns:1fr 1fr"></div></div>
   <div class="keypad compact" id="cnbKp"></div>
-  <div class="cn-card" id="cnbCtaW" hidden><div class="ct">¿De dónde vino o a dónde fue la plata?</div><div class="cn-sw" id="cnbCta" style="grid-template-columns:1fr 1fr"></div></div>
   <div class="cn-av" id="cnbCaja"></div>
   <input class="inp-y" id="cnbMot" placeholder="¿Por qué cambia? (si querés · ej. saqué para la feria de mañana)">
   <div class="spacer"></div>
@@ -4785,9 +4787,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const list = el("llList"); list.innerHTML = "";
     el("llPorSab").hidden = !LL.items.length;
     // 29/10 (Lucas 21:50): con la lista vacía, los sabores ya abiertos para cargar a mano (antes había que encontrar «+ Agregar más productos»)
-    if (!LL.items.length && el("llAdd").hidden && !LL.sabor){ el("llAdd").hidden = false; el("llOtro").textContent = "✓ Listo, no agrego más"; el("llOtro").hidden = true; }
-    else if (LL.items.length) el("llOtro").hidden = false;
-    if (!LL.items.length) list.innerHTML = '<div class="empty" style="font-size:16px">' + (LL.refuerzo ? 'Tocá "+ Agregar más productos" y elegí qué llega de refuerzo' : LL.cero ? 'Empezás de cero: tocá un sabor y elegí cuántos de cada tamaño' : (LL.sug || LL.rec || LL.vol ? 'Usá una opción de arriba o tocá «✏️ Cargar producto por producto» para empezar de cero' : 'Tocá «✏️ Cargar producto por producto» y elegí qué llevás')) + '</div>';
+    if (!LL.items.length && el("llAdd").hidden && !LL.sabor){ el("llAdd").hidden = false; LL.auto = true; el("llOtro").textContent = "✓ Listo, no agrego más"; el("llOtro").hidden = true; }
+    else if (LL.items.length){
+      el("llOtro").hidden = false;
+      // 20/11 (Lucas): si los sabores se abrieron solos con la lista vacía y después se cargó la lista («llevar lo mismo», lo que volvió…),
+      // se cierran: queda lo que llevás y el botón «+ Sumar más productos»
+      if (LL.auto && !LL.sabor){ LL.auto = false; el("llAdd").hidden = true; el("llOtro").textContent = "+ Sumar más productos"; }
+    }
+    if (!LL.items.length) list.innerHTML = '<div class="empty" style="font-size:16px">' + (LL.refuerzo ? 'Tocá "+ Sumar más productos" y elegí qué llega de refuerzo' : LL.cero ? 'Empezás de cero: tocá un sabor y elegí cuántos de cada tamaño' : (LL.sug || LL.rec || LL.vol ? 'Usá una opción de arriba o tocá «✏️ Cargar producto por producto» para empezar de cero' : 'Tocá «✏️ Cargar producto por producto» y elegí qué llevás')) + '</div>';
     else if (LL.refuerzo){
       const h = document.createElement("div"); h.className = "pre-ll";
       h.innerHTML = '<span class="hint">Esto <b>se suma</b> a lo que ya llevaste hoy. Elegí abajo lo que llega de refuerzo. Si algo figura sin stock te deja sumarlo igual (queda marcado para revisar).</span>';
@@ -5041,7 +5048,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const id = makeId(); lsSet("ll_idapp", { f: firma, id: id }); return id;
   }
   el("llSkip").addEventListener("click", function(){ if (PREP) terminarPrep(); else abrirLoop(); });
-  el("llOtro").addEventListener("click", function(){ el("llAdd").hidden = !el("llAdd").hidden; if (el("llAdd").hidden){ LL.sabor = null; el("screen-llevo").classList.remove("ll-foco"); } el("llOtro").textContent = el("llAdd").hidden ? "+ Agregar más productos" : "✓ Listo, no agrego más"; if (!el("llAdd").hidden) setTimeout(function(){ el("llAdd").scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 50); });
+  el("llOtro").addEventListener("click", function(){ LL.auto = false; el("llAdd").hidden = !el("llAdd").hidden; if (el("llAdd").hidden){ LL.sabor = null; el("screen-llevo").classList.remove("ll-foco"); } el("llOtro").textContent = el("llAdd").hidden ? "+ Sumar más productos" : "✓ Listo, no agrego más"; if (!el("llAdd").hidden) setTimeout(function(){ el("llAdd").scrollIntoView({ block: "nearest", behavior: "smooth" }); }, 50); });
   // 28/10 (mockup): "El jueves pasado acá llevaste…" con lo que llevó por presentación y "↻ Llevar lo mismo"
   // base: lo mismo que se llevó la última vez a esta feria (en el orden de siempre); se ajusta a mano o se usa la recomendación
   // ---- borrador de «¿Qué llevás?» (por feria y día): si sale a la mitad, al volver se le ofrece seguir ----
@@ -6702,18 +6709,44 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function cnCtaFer(c){ return c && c.zona === "Fábrica" ? "Efectivo Ferias Sur" : "Efectivo Ferias CABA"; }
   function cnAbrirBil(sub, mueve){
     const c = cnC(); if (!c) return;
-    CNB = { amt: String(Math.round(c.bil || 0)), busy: false, mueve: !!mueve, cta: c.zona === "Fábrica" ? "Efectivo Fábrica" : "Efectivo CABA" };
-    el("cnbCtaW").hidden = !mueve;
-    el("cnbCta").innerHTML = CN_CTAS.map(function(x){ return '<div data-c="' + x + '">' + x + '</div>'; }).join("");
-    Array.prototype.forEach.call(el("cnbCta").children, function(b){ b.addEventListener("click", function(){ CNB.cta = b.dataset.c; cnPintarBil(); }); });
-    el("cnbPill").textContent = (auth() || {}).nombre || ""; el("cnbTit").textContent = "👛 ¿Cuánta plata hay en la Billetera " + c.num + "?";
-    el("cnbSub").textContent = sub + " La app dice " + formatMoney(c.bil || 0) + ".";
+    // 20/11 (Lucas): «Saqué / puse plata» pide solo lo que sacás o ponés (como el retiro al cerrar una feria) y a dónde va
+    CNB = { amt: mueve ? "0" : String(Math.round(c.bil || 0)), busy: false, mueve: !!mueve, dir: "saque", cta: c.zona === "Fábrica" ? "Efectivo Fábrica" : "Efectivo CABA" };
+    el("cnbCtaW").hidden = !mueve; el("cnbDir").hidden = !mueve; el("cnbQueda").hidden = !mueve;
+    cnCtasBil();
+    el("cnbPill").textContent = (auth() || {}).nombre || "";
+    el("cnbTit").textContent = mueve ? "💵 ¿Cuánto sacaste?" : "👛 ¿Cuánta plata hay en la Billetera " + c.num + "?";
+    el("cnbSub").textContent = mueve ? "Billetera " + c.num + " · hoy tiene " + formatMoney(c.bil || 0) : sub + " La app dice " + formatMoney(c.bil || 0) + ".";
     el("cnbMot").value = "";
     buildKeypad(el("cnbKp"), function(k){ CNB.amt = applyKey(CNB.amt, k); cnPintarBil(); });
     cnPintarBil(); showScreen("cnb");
   }
+  function cnCtasBil(){
+    const L = CNB.dir === "puse" ? ["Efectivo CABA", "Efectivo Fábrica"] : ["Efectivo CABA", "Efectivo Fábrica", "Retiro personal"];
+    if (L.indexOf(CNB.cta) === -1) CNB.cta = L[0];
+    const yo = (auth() || {}).nombre || "";
+    el("cnbCta").innerHTML = L.map(function(x){ return '<div data-c="' + x + '">' + x + (x === "Retiro personal" ? '<small style="display:block;font-size:11px;font-weight:600;opacity:.75">' + esc(yo) + ' · cuenta en tu mes</small>' : '') + '</div>'; }).join("");
+    Array.prototype.forEach.call(el("cnbCta").children, function(b){ b.addEventListener("click", function(){ CNB.cta = b.dataset.c; cnPintarBil(); }); });
+  }
+  Array.prototype.forEach.call(el("cnbDir").children, function(b){ b.addEventListener("click", function(){ CNB.dir = b.dataset.d; cnCtasBil(); cnPintarBil(); }); });
+  function cnBilFinal(){ const c = cnC(), b = Math.round(c.bil || 0), n = parseInt(CNB.amt, 10) || 0; return !CNB.mueve ? n : (CNB.dir === "puse" ? b + n : b - n); }
   function cnPintarBil(){
-    const c = cnC(), n = parseInt(CNB.amt, 10) || 0, d = n - Math.round(c.bil || 0);
+    const c = cnC();
+    if (CNB.mueve){
+      const n = parseInt(CNB.amt, 10) || 0, f = cnBilFinal(), sq = CNB.dir !== "puse";
+      const a = el("cnbAmt"); a.textContent = formatMoney(n); a.classList.toggle("zero", n === 0);
+      el("cnbTit").textContent = sq ? "💵 ¿Cuánto sacaste?" : "💵 ¿Cuánto pusiste?";
+      el("cnbCtaT").textContent = sq ? "¿A dónde va?" : "¿De dónde salió?";
+      Array.prototype.forEach.call(el("cnbDir").children, function(b){ b.classList.toggle("on", b.dataset.d === CNB.dir); });
+      Array.prototype.forEach.call(el("cnbCta").children, function(b){ b.classList.toggle("on", b.dataset.c === CNB.cta); });
+      el("cnbQueda").innerHTML = f < 0 ? '<b style="color:var(--red)">La billetera tiene ' + formatMoney(c.bil || 0) + ': no alcanza</b>' : "La billetera queda en <b>" + formatMoney(f) + "</b>";
+      const fer = cnCtaFer(c);
+      el("cnbCaja").innerHTML = !n ? "En Caja esta plata es parte de <b>" + fer + "</b>."
+        : CNB.cta === "Retiro personal" ? "En Caja: sale " + formatMoney(n) + " de <b>" + fer + "</b> como retiro tuyo del mes."
+        : (sq ? "En Caja: pasan " + formatMoney(n) + " de <b>" + fer + "</b> a <b>" + esc(CNB.cta) + "</b>." : "En Caja: pasan " + formatMoney(n) + " de <b>" + esc(CNB.cta) + "</b> a <b>" + fer + "</b>.");
+      el("cnbOk").textContent = CNB.busy ? "Guardando…" : (!n ? "Volver" : f < 0 ? "No alcanza" : "✓ " + (sq ? "Saqué " : "Puse ") + formatMoney(n) + (sq ? " → " : " ← ") + CNB.cta);
+      return;
+    }
+    const n = parseInt(CNB.amt, 10) || 0, d = n - Math.round(c.bil || 0);
     const a = el("cnbAmt"); a.textContent = formatMoney(n); a.classList.toggle("zero", n === 0);
     el("cnbOk").textContent = CNB.busy ? "Guardando…" : (d ? "✓ Guardar " + formatMoney(n) + " (" + (d > 0 ? "+" : "−") + formatMoney(Math.abs(d)) + ")" : "Está bien así");
     Array.prototype.forEach.call(el("cnbCta").children, function(b){ b.classList.toggle("on", b.dataset.c === CNB.cta); });
@@ -6724,16 +6757,18 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   el("cnbBack").addEventListener("click", function(){ showScreen("cnd"); cnPintarDet(); });
   el("cnbOk").addEventListener("click", function(){
-    const c = cnC(), n = parseInt(CNB.amt, 10) || 0, a = auth() || {};
+    const c = cnC(), n = cnBilFinal(), a = auth() || {};
     if (CNB.busy) return;
+    if (n < 0) return;
     if (n === Math.round(c.bil || 0)){ showScreen("cnd"); cnPintarDet(); return; }
+    const pers = CNB.mueve && CNB.dir !== "puse" && CNB.cta === "Retiro personal";
     if (!gs()){ showToast("Sin señal", true); return; }
     CNB.busy = true; cnPintarBil();
     google.script.run.withSuccessHandler(function(r){
       CNB.busy = false;
       if (r && r.status === "ok"){ showToast("Billetera " + c.num + ": " + formatMoney(r.monto) + " ✓"); cnCargar(function(){ showScreen("cnd"); cnPintarDet(); }); }
       else { cnPintarBil(); showToast((r && r.msg) || "No se pudo guardar", true); }
-    }).withFailureHandler(function(){ CNB.busy = false; cnPintarBil(); showToast("Sin señal", true); }).canastoBilletera(a.nombre, a.pin, { canasto: c.id, monto: n, motivo: el("cnbMot").value.trim(), cuenta: CNB.mueve ? CNB.cta : "" });
+    }).withFailureHandler(function(){ CNB.busy = false; cnPintarBil(); showToast("Sin señal", true); }).canastoBilletera(a.nombre, a.pin, { canasto: c.id, monto: n, motivo: el("cnbMot").value.trim(), cuenta: CNB.mueve && !pers ? CNB.cta : "", personal: pers });
   });
   function cnAbrirDet(){ el("cndPill").textContent = (auth() || {}).nombre || ""; showScreen("cnd"); cnPintarDet(); }
   function cnPintarDet(){
@@ -6744,7 +6779,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("cndBil").innerHTML = '<div class="ct" style="font:800 19px Manrope,sans-serif">👛 Billetera ' + esc(c.num) + '</div><div class="cn-bigm">' + formatMoney(c.bil || 0) + '</div><span class="hint">' + esc(c.bilUlt || "Todavía sin plata cargada") + ' · en Caja es parte de <b>' + cnCtaFer(c) + '</b></span>'
       + '<div class="cn-kg" style="grid-template-columns:1fr 1fr"><div class="btn" id="cndBilEd" style="min-height:52px">✏️ Corregir la plata</div><div class="btn2" id="cndBilMv" style="min-height:52px;border-color:var(--accent);color:var(--accent)">💵 Saqué / puse plata</div></div>';
     el("cndBilEd").addEventListener("click", function(){ cnAbrirBil("Contá los billetes.", false); });
-    el("cndBilMv").addEventListener("click", function(){ cnAbrirBil("Escribí con cuánto queda la billetera después de sacar o poner.", true); });
+    el("cndBilMv").addEventListener("click", function(){ cnAbrirBil("", true); });
     const H = c.bilHist || [];
     el("cndBilH").hidden = !H.length;
     el("cndBilH").innerHTML = '<div class="ct" style="font:800 17px Manrope,sans-serif">Movimientos de la billetera</div>' + H.map(function(h){

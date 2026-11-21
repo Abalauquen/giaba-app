@@ -582,7 +582,7 @@ html,body{background:var(--bg)}
     retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
     comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
@@ -1189,7 +1189,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="top"><button class="back" id="caBack" onclick="caVolver()">¿Cuánto sale?</button><span class="step">Costo</span><span class="who" data-yo></span></div>
   <h1 id="caTit"></h1>
   <div class="hint" id="caSub"></div>
-  <div class="row2"><a class="btn ol" data-link="stock">📋 Ver / editar receta</a><a class="btn ol" data-link="compras">🛒 Ir a Compras</a></div>
+  <div class="row2"><a class="btn ol" data-link="stock">📋 Ver / editar receta</a><a class="btn ol" data-link="compras">🛒 Ir a Compras / gastos</a></div>
   <div class="cols">
     <div class="card" style="gap:6px"><div class="sbar" id="caBar"></div><div id="caList"></div></div>
     <div class="stack"><div class="card" id="caTot" style="gap:10px"></div>
@@ -1444,7 +1444,7 @@ function cargando(txt){ $("ldSpin").hidden = false; $("loadTxt").textContent = t
 
 let D = null, FJH = null;
 const COL = { fruta:"#e9443b", azucar:"#f5efe8", acid:"#ffb36b", frasco:"#8fb6ff", tapa:"#c4b5fd", etiqueta:"#ffd100", precinto:"#8fd19e", termo:"#5ec4b6", mo:"#ffb36b", compra:"#8fb6ff" };
-const IRBTN = { insumo: "Cambiar precio", compras: "Compras", fichaje: "Fichaje", roberto: "Roberto" };
+const IRBTN = { insumo: "Cambiar precio", compras: "Compras / gastos", fichaje: "Fichaje", roberto: "Roberto" };
 function cargar(){
   return run("getCostos").then(r => {
     if (!r || r.status !== "ok"){

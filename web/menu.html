@@ -799,7 +799,7 @@ html,body{background:var(--bg)}
     retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
     comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
@@ -1217,7 +1217,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l-2 4v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4z"/><path d="M4 6h16"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' },
     roberto:    { label:"Roberto",          desc:"A Fason: entregas, insumos y pagos", query:"roberto",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>' },
-    compras:    { label:"Compras",          desc:"+ Nueva compra · + Nuevo gasto · Para pedir · A pagar", query:"compras",
+    compras:    { label:"Compras / gastos",          desc:"+ Nueva compra · + Nuevo gasto · Para pedir · A pagar", query:"compras",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6"/></svg>' },
     stock:      { label:"Cuánto hay",       desc:"Fábrica · CABA · Full · alertas y conteos",      query:"stock",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>' },
@@ -1629,7 +1629,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const ICON_BELL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
       const ICON_BOX = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>';
       // v3: cada pendiente es una tarjeta tipo comanda (Zeus) con el color del semáforo
-      const ETQ = { cobros:"Ferias", revendedores:"Revendedoras", local:"Local Dulcería", comandas:"Comandas", retirar:"Pedidos para retirar", mayoristas:"Mayoristas", minoristas:"Ventas online", movimientos:"Envíos", incidentes:"Incidentes", caja:"A pagar", stock:"Stock", compras:"Compras", chacra:"Chacra", produccion:"Producción", horas:"Fichaje y sueldos" };
+      const ETQ = { cobros:"Ferias", revendedores:"Revendedoras", local:"Local Dulcería", comandas:"Comandas", retirar:"Pedidos para retirar", mayoristas:"Mayoristas", minoristas:"Ventas online", movimientos:"Envíos", incidentes:"Incidentes", caja:"A pagar", stock:"Stock", compras:"Compras / gastos", chacra:"Chacra", produccion:"Producción", horas:"Fichaje y sueldos" };
       const ORDc = { r:0, y:1, g:2, o:3, "":4, b:5 }, COLN = { r:"Urgente", y:"Hoy", g:"Listo", o:"Plata", "":"Pendiente", b:"Lo que viene" };
       const colorDe = function(it){ if (it.prox) return "b"; if (it.app === "retirar" && (it.rojo || it.hoy)) return "r"; if (it.app === "chacra" && it.hoy) return "r"; return it.rojo ? (it.app === "caja" || it.app === "mayoristas" ? "o" : "r") : it.verde ? "g" : (it.app === "stock" || it.app === "compras" ? "" : "y"); };
       const tks = items.map(function(it, i){ return { it: it, c: colorDe(it), i: i }; }).sort(function(a, b){ return (ORDc[a.c] - ORDc[b.c]) || (a.i - b.i); });

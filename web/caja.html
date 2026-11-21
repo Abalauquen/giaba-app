@@ -582,7 +582,7 @@ html,body{background:var(--bg)}
     retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
     comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras", q: "compras" },
+    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
@@ -2127,7 +2127,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       + (FU.parte ? '<div style="' + st + 'margin-top:8px;background:#1d3324;color:#8fd19e">✓ Se registra como otro pago de la misma factura: el IVA de la factura no se cuenta dos veces.</div>'
         : '<button type="button" class="btn" id="fuParte" style="margin-top:8px">Se pagó una parte de cada lado</button>'
         + '<button type="button" class="btn" id="fuNo" style="margin-top:8px">Vale la otra · no registrar esto</button>'
-        + '<span class="hint" style="display:block;margin-top:4px">Si vale esta y la otra está mal, anulá la otra desde ' + esc(x.origen === "Compras" ? "Compras" : x.origen === "Envío" ? "el envío" : "Caja") + ' y volvé a cargar.</span>');
+        + '<span class="hint" style="display:block;margin-top:4px">Si vale esta y la otra está mal, anulá la otra desde ' + esc(x.origen === "Compras" ? "Compras / gastos" : x.origen === "Envío" ? "el envío" : "Caja") + ' y volvé a cargar.</span>');
     if (el("fuParte")) el("fuParte").addEventListener("click", function(){ FU.parte = true; pintarFU(); validarPago(); });
     if (el("fuNo")) el("fuNo").addEventListener("click", function(){ el("pMonto").value = ""; el("pIva").value = ""; el("pFANum").value = ""; el("pFAProv").value = ""; FU.r = null; P.fa = false; pintarPago(); toast("No se registró nada"); });
   }
@@ -2656,7 +2656,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const puede = !m.anulado && !local && !feria;
     // 21/10: lo cargado a mano se corrige acá; lo que viene de otra app, en su app
     const manual = m.origen === "Manual" && m.tipo !== "Ajuste saldo";
-    const APP_DE = { "Compra": ["compras","Compras"], "Gasto": ["compras","Compras"], "A pagar": ["compras","Compras"], "Venta mayorista": ["mayoristas","Ventas mayoristas"], "Ventas minoristas": ["minoristas","Ventas minoristas"],
+    const APP_DE = { "Compra": ["compras","Compras / gastos"], "Gasto": ["compras","Compras / gastos"], "A pagar": ["compras","Compras / gastos"], "Venta mayorista": ["mayoristas","Ventas mayoristas"], "Ventas minoristas": ["minoristas","Ventas minoristas"],
       "Roberto": ["roberto","Roberto"], "Movimientos": ["movimientos","Movimientos"], "Feria": ["", "Ferias"], "Cierre feria": ["", "Ferias"], "Local": ["", "el Local"] };
     const ap = APP_DE[m.origen];
     el("mvAcc").hidden = !puede && !manual; el("mvEditar").hidden = !(manual && !m.anulado); el("mvAnular").hidden = !puede;

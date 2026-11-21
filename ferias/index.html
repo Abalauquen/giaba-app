@@ -479,6 +479,9 @@
         var ap = j.aperturas || [];
         if (!(Number(j.cobros) > 0) && ap.some(function (x) { return x.dia === undefined; })) return g();   // la base todavía no dice el día: que decida Google
         var apHoy = ap.filter(function (x) { return nd(x.dia) === hoyAR(); });
+        // 21/11 (Lucas: «la dejé lista yo y dice YA ESTÁ ABIERTA · LA ABRIÓ SOFÍA»): una caja inicial de hoy sin cobros puede ser la que se
+        // dejó lista hoy mismo (preparada) — la base acá no trae la observación: que lo decida el servidor (sabe «lista para · la dejó lista»)
+        if (!(Number(j.cobros) > 0) && apHoy.length) return g();
         var pv = j.porVendedor || {}, quien = Object.keys(pv).sort(function (x, y) { return (pv[y] || 0) - (pv[x] || 0); })[0] || (apHoy[0] || ap[0] || {}).vendedor || "";
         ok({ status: "ok", iniciada: (Number(j.cobros) || 0) > 0 || apHoy.length > 0, quien: quien, cobros: j.cobros, apertura: Number(j.apertura) || 0, desde: "base" });
       });
@@ -4913,7 +4916,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         c.addEventListener("click", function(){ LL.sabor = LL.sabor === k ? null : k; pintaSab(); pintaTams(); });
         sab.appendChild(c);
       });
-      if (LL.sabor){ const o = document.createElement("div"); o.className = "chip"; o.textContent = "↺ Otro sabor"; o.addEventListener("click", function(){ LL.sabor = null; pintaSab(); pintaTams(); }); sab.appendChild(o); }
+      if (LL.sabor){ const o = document.createElement("div"); o.className = "chip"; o.textContent = "↺ Otro sabor"; o.addEventListener("click", function(){ LL.sabor = null; pintaSab(); pintaTams(); llAlSabores(); }); sab.appendChild(o); }
       // 29/10: con un sabor elegido no se ve nada más (ni la lista de lo que llevás): solo ese sabor y sus tamaños
       const foco = !!LL.sabor && !el("llAdd").hidden, era = el("screen-llevo").classList.contains("ll-foco");
       el("screen-llevo").classList.toggle("ll-foco", foco);
@@ -4949,6 +4952,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       return Math.floor(((b ? b.hay : 0) - usadoLL(k.sku)) / k.cant);
     }));
   }
+  function llAlSabores(){ setTimeout(function(){ const b = el("llAdd"); if (b && !b.hidden){ b.scrollIntoView({ block: "start" }); window.scrollBy(0, -70); } }, 30); }
   function pintaTams(){
     const t = el("llTams"); t.innerHTML = ""; t.classList.toggle("foco", !!LL.sabor);
     if (!LL.sabor) return;
@@ -4972,7 +4976,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       t.appendChild(r);
     });
     const ok = document.createElement("div"); ok.className = "btn"; ok.textContent = "✓ Listo con " + LL.sabor;
-    ok.addEventListener("click", function(){ LL.sabor = null; pintaLlevo(); setTimeout(function(){ el("llList").scrollIntoView({ block: "start" }); window.scrollBy(0, -70); }, 30); });
+    // 21/11 (Lucas): al terminar un sabor queda abajo, en los sabores (antes volvía arriba de todo y había que bajar de nuevo)
+    ok.addEventListener("click", function(){ LL.sabor = null; pintaLlevo(); llAlSabores(); });
     t.appendChild(ok);
   }
   function pintarPedidosFeria(peds, destino){

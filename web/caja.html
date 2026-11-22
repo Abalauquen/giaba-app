@@ -1039,10 +1039,45 @@ window.PagoComun = (function(){
   }
   function ctasV(v){ return cajaFeria(v) ? CTAS.concat(["Efectivo"]) : CTAS.slice(); }
   function ctaVLbl(c, v){ if (c !== "Efectivo") return c; var K = cajaFeria(v); return "Efectivo de la feria" + (K ? " · " + feriaNom(K) : ""); }
+  // 21/11 (Lucas, mockup-horas-vendedoras): «Trabajó 12 a 19 · 7 h de 8» y «✏️ Horas» (solo Lucas / Adriana)
+  function esAdm(){ return ["Lucas", "Adriana"].indexOf(yo()) !== -1; }
+  function hTxt(h){ return String(h).replace(".", ","); }
+  function horasSub(f){
+    var g = f.sugerido; if (!g || !g.entro || !g.salio) return "";
+    var t = "trabajó " + g.entro.replace(":00", "") + " a " + g.salio.replace(":00", "") + " · " + hTxt(g.horas) + " h" + (g.horas !== 8 ? " de 8" : "");
+    return '<small>' + esc(t) + (esAdm() ? ' <span data-pg="vHoras" data-v="' + esc(clave(f)) + '" style="color:var(--pg-y);font-weight:800;padding:6px 4px">✏️ Horas</span>' : '') + '</small>';
+  }
+  function hMin(x){ var p = String(x || "").match(/(\d{1,2}):(\d{2})/); return p ? +p[1] * 60 + +p[2] : 0; }
+  function hFmt(m){ m = Math.max(0, Math.min(23 * 60 + 30, m)); return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + m % 60).slice(-2); }
+  function hEditor(){
+    var E = S.hed; if (!E) return "";
+    var hs = Math.round((hMin(E.salio) - hMin(E.entro)) / 60 * 100) / 100, base = E.diaBase || 0, dia = hs > 0 ? Math.round(base * hs / 8) : 0;
+    var bx = function(k, v){ return '<div style="display:flex;align-items:center;justify-content:space-between;border:2px solid var(--pg-l);border-radius:12px;padding:4px"><button type="button" class="pg-chip" data-pg="hMenos" data-v="' + k + '" style="min-width:46px;justify-content:center">−</button><b class="pg-mono" style="font-size:20px">' + v + '</b><button type="button" class="pg-chip" data-pg="hMas" data-v="' + k + '" style="min-width:46px;justify-content:center">+</button></div>'; };
+    return '<div class="pg-card y" style="gap:8px"><span class="pg-k">✏️ Horas de ' + esc(E.vend) + ' · ' + esc(feriaNom(E.f)) + '</span>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="pg-lbl">Entró</div><div class="pg-lbl">Salió</div>' + bx("e", E.entro) + bx("s", E.salio) + '</div>'
+      + (E.fd && E.fh ? '<div class="pg-chips"><button type="button" class="pg-chip' + (E.entro === E.fd && E.salio === E.fh ? " on" : "") + '" data-pg="hFeria">Igual que la feria (' + E.fd.replace(":00", "") + ' a ' + E.fh.replace(":00", "") + ')</button></div>' : '')
+      + '<div class="pg-rr"><span>' + (hs > 0 ? hTxt(hs) + " h" : "revisá las horas") + '</span><b class="pg-mono">' + (hs > 0 && base ? fm(dia) : "") + '</b></div>'
+      + '<button type="button" class="pg-btn" data-pg="hGuardar">' + (S.busy ? "Guardando…" : "Guardar") + '</button><button type="button" class="pg-btn2" data-pg="hCancel">Cancelar</button></div>';
+  }
+  function hAbrir(k){
+    var vv = vendDe(top().nombre), f = vv && vv.ferias.filter(function(x){ return clave(x) === k; })[0]; if (!f) return;
+    var g = f.sugerido || {};
+    S.hed = { f: f, vend: vv.nombre, entro: g.entro || g.feriaDesde || "12:00", salio: g.salio || g.feriaHasta || "20:00", fd: g.feriaDesde || "", fh: g.feriaHasta || "", diaBase: g.diaBase || 0 };
+    pintar();
+  }
+  function hGuardar(){
+    var E = S.hed; if (!E) return;
+    S.busy = true; pintar();
+    run("vendHorasGuardar", { fecha: E.f.fecha, vendedora: E.vend, feria: E.f.feria || "", ubicacion: E.f.ubicacion || "", entro: E.entro, salio: E.salio }).then(function(r){
+      S.busy = false;
+      if (r && r.status === "ok"){ S.hed = null; toast("✓ " + hTxt(r.horas) + " h guardadas" + (r.dia != null ? " · día " + fm(r.dia) : "")); cargar(); pintar(); }
+      else { toast((r && r.msg) || "No se pudo guardar", true); pintar(); }
+    });
+  }
   function feriaSub(f){
     var t = "vendió " + fm(f.vendido) + (f.sugerido && f.sugerido.dia != null ? " · día " + (f.sugerido.horas && f.sugerido.horas !== 8 ? "(" + String(f.sugerido.horas).replace(".", ",") + " h) " : "") + fm(f.sugerido.dia) + (f.sugerido.comision ? " + comisión " + fm(f.sugerido.comision) : "") + (f.sugerido.bono ? " + " + (f.sugerido.bonoMotivo || "bono").toLowerCase() + " " + fm(f.sugerido.bono) : "") : "") + (f.descuento ? " − sacó " + fm(f.descuento) : "") + (f.pagado ? " − pagado " + fm(f.pagado) : "");
     var tag = f.abierta || (f.hoy && f.abierta === undefined) ? '<small class="b">hoy · todavía abierta</small>' : f.hoy ? '<small class="b">hoy</small>' : "";
-    return tag + (S.pre[clave(f)] ? '<small class="b">ya viene marcada</small>' : "") + '<small>' + esc(t) + '</small>';
+    return tag + (S.pre[clave(f)] ? '<small class="b">ya viene marcada</small>' : "") + '<small>' + esc(t) + '</small>' + horasSub(f);
   }
   function hV(vw){
     var v = vendDe(vw.nombre);
@@ -1050,7 +1085,7 @@ window.PagoComun = (function(){
     if (!v) return alDia("👛 " + vw.nombre);
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0)), todas = v.ferias.length && sel.length === v.ferias.length;
     var L = ctasV(v); if (L.indexOf(S.vcta) === -1) S.vcta = ctaDef("v", CTAS);
-    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
+    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hEditor() + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
       + '<div class="pg-sub">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + ' · elegí cuáles le pagás</div>';
     if (v.ferias.length > 1) h += '<button type="button" class="pg-btn2" data-pg="vTodas">' + (todas ? "☐ Desmarcar todas" : "☑ Marcar todas") + '</button>';
     h += v.ferias.map(function(f){ var on = !!S.vsel[clave(f)]; return '<button type="button" class="pg-fe" data-pg="vCk" data-v="' + esc(clave(f)) + '"><span class="pg-ck' + (on ? " on" : "") + '">' + (on ? "✓" : "") + '</span><span class="t">' + esc(feriaNom(f)) + feriaSub(f) + '</span><span class="m">' + fm(f.falta) + '</span></button>'; }).join("");
@@ -1279,6 +1314,11 @@ window.PagoComun = (function(){
     if (a === "entV"){ entrar({ v: "v", nombre: v }); return; }
     if (a === "entP"){ entrar({ v: "p", nombre: v }); return; }
     if (a === "entR"){ entrar({ v: "r" }); return; }
+    if (a === "vHoras"){ e.preventDefault(); e.stopPropagation(); hAbrir(v); return; }
+    if (a === "hMas" || a === "hMenos"){ var E = S.hed; if (!E) return; var k = v === "e" ? "entro" : "salio"; E[k] = hFmt(hMin(E[k]) + (a === "hMas" ? 30 : -30)); pintar(); return; }
+    if (a === "hFeria"){ if (S.hed){ S.hed.entro = S.hed.fd; S.hed.salio = S.hed.fh; } pintar(); return; }
+    if (a === "hCancel"){ S.hed = null; pintar(); return; }
+    if (a === "hGuardar"){ hGuardar(); return; }
     if (a === "vCk"){ if (S.vsel[v]) delete S.vsel[v]; else S.vsel[v] = 1; guardaV(); pintar(); return; }
     if (a === "vTodas"){ var vv = vendDe(top().nombre); if (!vv) return; var todas = vv.ferias.every(function(f){ return S.vsel[clave(f)]; }); S.vsel = {}; if (!todas) vv.ferias.forEach(function(f){ S.vsel[clave(f)] = 1; }); guardaV(); pintar(); return; }
     if (a === "vCta"){ guardaV(); S.vcta = v; pintar(); return; }

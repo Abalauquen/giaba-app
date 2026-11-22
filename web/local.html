@@ -1715,10 +1715,45 @@ window.PagoComun = (function(){
   }
   function ctasV(v){ return cajaFeria(v) ? CTAS.concat(["Efectivo"]) : CTAS.slice(); }
   function ctaVLbl(c, v){ if (c !== "Efectivo") return c; var K = cajaFeria(v); return "Efectivo de la feria" + (K ? " · " + feriaNom(K) : ""); }
+  // 21/11 (Lucas, mockup-horas-vendedoras): «Trabajó 12 a 19 · 7 h de 8» y «✏️ Horas» (solo Lucas / Adriana)
+  function esAdm(){ return ["Lucas", "Adriana"].indexOf(yo()) !== -1; }
+  function hTxt(h){ return String(h).replace(".", ","); }
+  function horasSub(f){
+    var g = f.sugerido; if (!g || !g.entro || !g.salio) return "";
+    var t = "trabajó " + g.entro.replace(":00", "") + " a " + g.salio.replace(":00", "") + " · " + hTxt(g.horas) + " h" + (g.horas !== 8 ? " de 8" : "");
+    return '<small>' + esc(t) + (esAdm() ? ' <span data-pg="vHoras" data-v="' + esc(clave(f)) + '" style="color:var(--pg-y);font-weight:800;padding:6px 4px">✏️ Horas</span>' : '') + '</small>';
+  }
+  function hMin(x){ var p = String(x || "").match(/(\d{1,2}):(\d{2})/); return p ? +p[1] * 60 + +p[2] : 0; }
+  function hFmt(m){ m = Math.max(0, Math.min(23 * 60 + 30, m)); return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + m % 60).slice(-2); }
+  function hEditor(){
+    var E = S.hed; if (!E) return "";
+    var hs = Math.round((hMin(E.salio) - hMin(E.entro)) / 60 * 100) / 100, base = E.diaBase || 0, dia = hs > 0 ? Math.round(base * hs / 8) : 0;
+    var bx = function(k, v){ return '<div style="display:flex;align-items:center;justify-content:space-between;border:2px solid var(--pg-l);border-radius:12px;padding:4px"><button type="button" class="pg-chip" data-pg="hMenos" data-v="' + k + '" style="min-width:46px;justify-content:center">−</button><b class="pg-mono" style="font-size:20px">' + v + '</b><button type="button" class="pg-chip" data-pg="hMas" data-v="' + k + '" style="min-width:46px;justify-content:center">+</button></div>'; };
+    return '<div class="pg-card y" style="gap:8px"><span class="pg-k">✏️ Horas de ' + esc(E.vend) + ' · ' + esc(feriaNom(E.f)) + '</span>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="pg-lbl">Entró</div><div class="pg-lbl">Salió</div>' + bx("e", E.entro) + bx("s", E.salio) + '</div>'
+      + (E.fd && E.fh ? '<div class="pg-chips"><button type="button" class="pg-chip' + (E.entro === E.fd && E.salio === E.fh ? " on" : "") + '" data-pg="hFeria">Igual que la feria (' + E.fd.replace(":00", "") + ' a ' + E.fh.replace(":00", "") + ')</button></div>' : '')
+      + '<div class="pg-rr"><span>' + (hs > 0 ? hTxt(hs) + " h" : "revisá las horas") + '</span><b class="pg-mono">' + (hs > 0 && base ? fm(dia) : "") + '</b></div>'
+      + '<button type="button" class="pg-btn" data-pg="hGuardar">' + (S.busy ? "Guardando…" : "Guardar") + '</button><button type="button" class="pg-btn2" data-pg="hCancel">Cancelar</button></div>';
+  }
+  function hAbrir(k){
+    var vv = vendDe(top().nombre), f = vv && vv.ferias.filter(function(x){ return clave(x) === k; })[0]; if (!f) return;
+    var g = f.sugerido || {};
+    S.hed = { f: f, vend: vv.nombre, entro: g.entro || g.feriaDesde || "12:00", salio: g.salio || g.feriaHasta || "20:00", fd: g.feriaDesde || "", fh: g.feriaHasta || "", diaBase: g.diaBase || 0 };
+    pintar();
+  }
+  function hGuardar(){
+    var E = S.hed; if (!E) return;
+    S.busy = true; pintar();
+    run("vendHorasGuardar", { fecha: E.f.fecha, vendedora: E.vend, feria: E.f.feria || "", ubicacion: E.f.ubicacion || "", entro: E.entro, salio: E.salio }).then(function(r){
+      S.busy = false;
+      if (r && r.status === "ok"){ S.hed = null; toast("✓ " + hTxt(r.horas) + " h guardadas" + (r.dia != null ? " · día " + fm(r.dia) : "")); cargar(); pintar(); }
+      else { toast((r && r.msg) || "No se pudo guardar", true); pintar(); }
+    });
+  }
   function feriaSub(f){
     var t = "vendió " + fm(f.vendido) + (f.sugerido && f.sugerido.dia != null ? " · día " + (f.sugerido.horas && f.sugerido.horas !== 8 ? "(" + String(f.sugerido.horas).replace(".", ",") + " h) " : "") + fm(f.sugerido.dia) + (f.sugerido.comision ? " + comisión " + fm(f.sugerido.comision) : "") + (f.sugerido.bono ? " + " + (f.sugerido.bonoMotivo || "bono").toLowerCase() + " " + fm(f.sugerido.bono) : "") : "") + (f.descuento ? " − sacó " + fm(f.descuento) : "") + (f.pagado ? " − pagado " + fm(f.pagado) : "");
     var tag = f.abierta || (f.hoy && f.abierta === undefined) ? '<small class="b">hoy · todavía abierta</small>' : f.hoy ? '<small class="b">hoy</small>' : "";
-    return tag + (S.pre[clave(f)] ? '<small class="b">ya viene marcada</small>' : "") + '<small>' + esc(t) + '</small>';
+    return tag + (S.pre[clave(f)] ? '<small class="b">ya viene marcada</small>' : "") + '<small>' + esc(t) + '</small>' + horasSub(f);
   }
   function hV(vw){
     var v = vendDe(vw.nombre);
@@ -1726,7 +1761,7 @@ window.PagoComun = (function(){
     if (!v) return alDia("👛 " + vw.nombre);
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0)), todas = v.ferias.length && sel.length === v.ferias.length;
     var L = ctasV(v); if (L.indexOf(S.vcta) === -1) S.vcta = ctaDef("v", CTAS);
-    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
+    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hEditor() + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
       + '<div class="pg-sub">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + ' · elegí cuáles le pagás</div>';
     if (v.ferias.length > 1) h += '<button type="button" class="pg-btn2" data-pg="vTodas">' + (todas ? "☐ Desmarcar todas" : "☑ Marcar todas") + '</button>';
     h += v.ferias.map(function(f){ var on = !!S.vsel[clave(f)]; return '<button type="button" class="pg-fe" data-pg="vCk" data-v="' + esc(clave(f)) + '"><span class="pg-ck' + (on ? " on" : "") + '">' + (on ? "✓" : "") + '</span><span class="t">' + esc(feriaNom(f)) + feriaSub(f) + '</span><span class="m">' + fm(f.falta) + '</span></button>'; }).join("");
@@ -1955,6 +1990,11 @@ window.PagoComun = (function(){
     if (a === "entV"){ entrar({ v: "v", nombre: v }); return; }
     if (a === "entP"){ entrar({ v: "p", nombre: v }); return; }
     if (a === "entR"){ entrar({ v: "r" }); return; }
+    if (a === "vHoras"){ e.preventDefault(); e.stopPropagation(); hAbrir(v); return; }
+    if (a === "hMas" || a === "hMenos"){ var E = S.hed; if (!E) return; var k = v === "e" ? "entro" : "salio"; E[k] = hFmt(hMin(E[k]) + (a === "hMas" ? 30 : -30)); pintar(); return; }
+    if (a === "hFeria"){ if (S.hed){ S.hed.entro = S.hed.fd; S.hed.salio = S.hed.fh; } pintar(); return; }
+    if (a === "hCancel"){ S.hed = null; pintar(); return; }
+    if (a === "hGuardar"){ hGuardar(); return; }
     if (a === "vCk"){ if (S.vsel[v]) delete S.vsel[v]; else S.vsel[v] = 1; guardaV(); pintar(); return; }
     if (a === "vTodas"){ var vv = vendDe(top().nombre); if (!vv) return; var todas = vv.ferias.every(function(f){ return S.vsel[clave(f)]; }); S.vsel = {}; if (!todas) vv.ferias.forEach(function(f){ S.vsel[clave(f)] = 1; }); guardaV(); pintar(); return; }
     if (a === "vCta"){ guardaV(); S.vcta = v; pintar(); return; }
@@ -2390,6 +2430,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div id="calfMapa" hidden style="display:flex;flex-direction:column;gap:8px"></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label class="label" style="display:flex;flex-direction:column;gap:4px">Desde<input type="time" id="calfDesde" class="inp-date"></label><label class="label" style="display:flex;flex-direction:column;gap:4px">Hasta<input type="time" id="calfHasta" class="inp-date"></label></div>
   <span class="label">Quién va</span><div class="chips" id="calfVend"></div>
+  <div id="calfVh" hidden style="display:flex;flex-direction:column;gap:10px"></div>
   <div id="calfExtra" style="display:flex;flex-direction:column;gap:10px">
     <span class="label">Documentación presentada</span><div class="seg" id="calfDoc"><div data-v="">Todavía no</div><div data-v="1">Sí, presentada</div></div>
     <span class="label">Estado</span><div class="seg" id="calfEst"><div data-v="Confirmada">Confirmada</div><div data-v="Suspendida">Cancelada (no se hace)</div></div>
@@ -3429,6 +3470,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   // ---- sesión del día ----
   function sesionDeHoy(){ return session && session.vendedor && session.feria && session.dia === todayKey(); }
+  function adminFeriaDeOtra(){
+    try {
+      const a = auth(), d = lsGet(fxKey(), null); if (!a || !d || !d.ferias || !session) return false;
+      const t = new Date(), hoy = ("0" + t.getDate()).slice(-2) + "/" + ("0" + (t.getMonth() + 1)).slice(-2) + "/" + t.getFullYear();
+      const nrm = function(x){ return String(x || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); };
+      const x = d.ferias.filter(function(f){ return String(f.fecha || "").slice(0, 10) === hoy && (nrm(f.ubic) === nrm(session.ubicacion) || (!session.ubicacion && nrm(f.feria) === nrm(session.feria))); })[0];
+      if (!x || !x.vend) return false;
+      return nrm(x.vend).indexOf(nrm(a.nombre)) === -1;
+    } catch (e) { return false; }
+  }
   function guardarSesion(s){ session = ubicNorm(s); lsSet(SESSION_KEY, s); }
 
   // ---- inicio de ferias ----
@@ -3439,7 +3490,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("homeSeguir").hidden = !seguir;
     if (seguir){ el("homeSeguirTxt").textContent = session.ubicacion || session.feria;
       el("homeSeguir").querySelector(".k").textContent = session.abriendo ? "ESTÁS ABRIENDO LA FERIA" : "ESTÁS COBRANDO";
-      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : "Seguir cobrando ›"; }
+      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando en " + (session.ubicacion || session.feria) + " ›" : "Seguir cobrando ›"); }
     // 30/10 (Adri): si salió de la app mientras dejaba lista una feria, al volver retoma ahí (no arranca de cero)
     HOME_PREP = null; el("homeDescartar").hidden = true;
     // 07/11 (Lucas): solo la ve quien la estaba dejando lista (si entra otra persona en el mismo teléfono, no) y se puede descartar
@@ -3521,7 +3572,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("ctaFer").innerHTML = F.map(function(x){
       return '<div class="ctaf"><b>' + esc(dia(x.fecha) + String(x.fecha).slice(0, 5) + " · " + (x.ubicacion || x.feria)) + '</b>'
         + (x.vendido ? '<span class="hint" style="margin-top:-4px">Vendiste ' + formatMoney(x.vendido) + '</span>' : '')
-        + fila("Pago por el día", formatMoney(x.dia || 0))
+        + fila("Pago por el día" + (x.entro && x.salio ? ' <small style="color:var(--ink-soft)">' + esc(x.entro.replace(":00", "") + " a " + x.salio.replace(":00", "") + " · " + String(x.horas).replace(".", ",") + " h") + '</small>' : ""), formatMoney(x.dia || 0))
         + (x.comision ? fila("+ Comisión", formatMoney(x.comision)) : "")
         + (x.bono ? fila("+ " + esc(x.bonoMotivo || "Bono"), formatMoney(x.bono)) : "")
         + (x.descuento ? fila("− Lo que sacaste", "− " + formatMoney(x.descuento)) : "")
@@ -4056,6 +4107,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("calfUbicOtra").onchange = function(){ if (el("calfUbicOtra").value.trim().length >= 4) calMapaBuscar(""); };
     qvChips(el("calfVend"), o.vendedores, x ? x.vend : "");
     el("calfDesde").value = x && x.desde || "11:00"; el("calfHasta").value = x && x.hasta || "19:00";
+    CALVH = {}; ((x && x.vh) ? Object.keys(x.vh) : []).forEach(function(k){ CALVH[k] = { e: x.vh[k].entro, s: x.vh[k].salio, ya: true }; }); calVhPintar();
     calSeg(el("calfDoc"), x && x.doc ? "1" : ""); calSeg(el("calfEst"), x && x.estado === "Suspendida" ? "Suspendida" : "Confirmada");
     el("calfObs").value = x && x.obs || "";
     el("calfPuesto").value = x && x.puesto !== null && x.puesto !== undefined ? String(x.puesto) : "";
@@ -4064,6 +4116,36 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     showScreen("calf");
   }
   function calEditar(x){ calForm(x, false); }
+  // 21/11 (Lucas, mockup-horas-vendedoras): «Horario de <vendedora>» si no hace el horario de la feria (± media hora). Lo cargan Lucas / Adriana.
+  let CALVH = {};
+  function vhM(x){ const p = String(x || "").match(/(\d{1,2}):(\d{2})/); return p ? +p[1] * 60 + +p[2] : 0; }
+  function vhF(m){ m = Math.max(0, Math.min(23 * 60 + 30, m)); return ("0" + Math.floor(m / 60)).slice(-2) + ":" + ("0" + m % 60).slice(-2); }
+  function calVhPintar(){
+    const box = el("calfVh"); if (!box) return;
+    const vs = CAL.fija ? [] : qvSep(qvVal(el("calfVend"))), fd = el("calfDesde").value, fh = el("calfHasta").value;
+    if (!vs.length || !esAdmin()){ box.hidden = true; box.innerHTML = ""; return; }
+    box.hidden = false;
+    box.innerHTML = vs.map(function(v){
+      const H = CALVH[v] || { e: fd, s: fh }, hs = Math.round((vhM(H.s) - vhM(H.e)) / 60 * 100) / 100, igual = H.e === fd && H.s === fh;
+      const bx = function(k, t){ return '<div style="display:flex;align-items:center;justify-content:space-between;border:2px solid var(--line-2);border-radius:12px;padding:4px"><button type="button" class="chip" data-vh="' + esc(v) + '" data-k="' + k + '" data-d="-30" style="min-width:44px;justify-content:center">−</button><b style="font-size:18px">' + t + '</b><button type="button" class="chip" data-vh="' + esc(v) + '" data-k="' + k + '" data-d="30" style="min-width:44px;justify-content:center">+</button></div>'; };
+      return '<div style="border:2px solid ' + (igual ? 'var(--line-2)' : 'var(--accent)') + ';border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px"><span class="label" style="margin:0">Horario de ' + esc(v) + '</span>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + bx("e", H.e) + bx("s", H.s) + '</div>'
+        + '<div class="chips"><div class="chip' + (igual ? ' active' : '') + '" data-vhig="' + esc(v) + '">Igual que la feria</div></div>'
+        + '<span class="hint" style="margin:0">' + (hs > 0 ? String(hs).replace(".", ",") + ' h' + (hs === 8 ? ' · fijo completo' : ' · el fijo es por 8 h') : 'Revisá las horas') + '</span></div>';
+    }).join("") + '<span class="hint" style="margin:0">Los ± van de a media hora. Si no tocás nada, cuenta el horario de la feria.</span>';
+    Array.prototype.forEach.call(box.querySelectorAll("[data-vh]"), function(b){ b.onclick = function(){ const v = b.dataset.vh, H = CALVH[v] || { e: el("calfDesde").value, s: el("calfHasta").value }; H[b.dataset.k] = vhF(vhM(H[b.dataset.k]) + +b.dataset.d); H.toc = true; CALVH[v] = H; calVhPintar(); }; });
+    Array.prototype.forEach.call(box.querySelectorAll("[data-vhig]"), function(b){ b.onclick = function(){ const v = b.dataset.vhig; CALVH[v] = { e: el("calfDesde").value, s: el("calfHasta").value, toc: true, ya: CALVH[v] && CALVH[v].ya }; calVhPintar(); }; });
+  }
+  el("calfVend").addEventListener("click", function(){ setTimeout(calVhPintar, 0); });
+  el("calfDesde").addEventListener("change", calVhPintar); el("calfHasta").addEventListener("change", calVhPintar);
+  function calVhGuardar(p){
+    const a = auth(); if (!a || !gs()) return;
+    Object.keys(CALVH).forEach(function(v){ const H = CALVH[v]; if (!H || !H.toc) return;
+      if (H.e === p.desde && H.s === p.hasta && !H.ya) return;   // igual que la feria y nunca se cargó: no hace falta guardar nada
+      google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok") showToast("Las horas de " + v + " no se guardaron" + (r && r.msg ? ": " + r.msg : ""), true); }).withFailureHandler(function(){ showToast("Las horas de " + v + " no se guardaron (sin señal)", true); })
+        .vendHorasGuardar(a.nombre, a.pin, { fecha: p.fecha, vendedora: v, feria: p.feria, ubicacion: p.ubic, entro: H.e, salio: H.s });
+    });
+  }
   // ---- 30/10 (Lucas): quién va = una o varias («Julieta y Sofía»); se cambia rápido y se elige qué días ----
   function qvSep(v){ return String(v || "").split(/\s*(?:,|\/|\+|\sy\s)\s*/).map(function(t){ return t.trim(); }).filter(Boolean); }
   function qvJoin(L){ return L.length <= 1 ? (L[0] || "") : L.slice(0, -1).join(", ") + " y " + L[L.length - 1]; }
@@ -4151,7 +4233,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     p.estado = el("calfEst").querySelector(".on") ? el("calfEst").querySelector(".on").dataset.v : "Confirmada"; p.obs = el("calfObs").value;
     const pv = String(el("calfPuesto").value || "").replace(/[^\d]/g, ""); p.puesto = pv === "" ? "" : Number(pv);
     FER3.sel = p.fecha;
-    google.script.run.withSuccessHandler(function(r){ fin(r, r && r.fija ? "Guardada · se repite sola ✓" : r && r.dias ? "Feria guardada · " + r.dias + " días ✓" : "Feria guardada ✓"); }).withFailureHandler(function(){ fin(null); }).guardarAgendaFeria(a.nombre, a.pin, p);
+    google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok" && !p.fechaHasta && !p.repite) calVhGuardar(p); fin(r, r && r.fija ? "Guardada · se repite sola ✓" : r && r.dias ? "Feria guardada · " + r.dias + " días ✓" : "Feria guardada ✓"); }).withFailureHandler(function(){ fin(null); }).guardarAgendaFeria(a.nombre, a.pin, p);
   });
   el("calfDel").addEventListener("click", function(){
     const a = auth(), b = el("calfDel"); if (!a || !gs()) return;
@@ -7525,7 +7607,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       return;
     }
     if (!conAuth){ startWizard(); return; }
-    if (sesionDeHoy() && !lsGet(cerradaKey(), false)) continuarFeria();
+    // 21/11 (Lucas 14:38, aprobado): Lucas / Adriana van directo a cobrar solo si hoy esa feria es suya en el calendario;
+    // si están cobrando en la feria de otra (ej. Lucas en Saavedra de Sofía), abren en el inicio con «💳 Seguir cobrando en X ›»
+    if (sesionDeHoy() && !lsGet(cerradaKey(), false)){ if (esAdmin() && adminFeriaDeOtra()) renderHome(); else continuarFeria(); }
     else renderHome();
   })();
   // ---- respuesta al toque ----

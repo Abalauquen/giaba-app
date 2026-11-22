@@ -369,7 +369,8 @@
     cartel.style.background = via === "google" ? "#fee2e2" : PRUEBA ? "#fde68a" : "#d1fae5";
     cartel.style.color = via === "google" ? "#991b1b" : PRUEBA ? "#78350f" : "#065f46";
     // 14/11 (Lucas 18:10): las vendedoras no ven el cartelito (solo Lucas y Adriana, o en modo prueba)
-    var a = quien(); cartel.style.display = PRUEBA || (a && /^(lucas|adriana)$/i.test(a.nombre)) ? "" : "none";
+    // 21/11 22:59 (Lucas): «sacar esos carteles que dicen directo a la base» → solo se ve en modo prueba
+    cartel.style.display = PRUEBA ? "" : "none";
   }
 
   function lsG(k, f) { try { var v = localStorage.getItem(k); return v === null ? f : JSON.parse(v); } catch (e) { return f; } }

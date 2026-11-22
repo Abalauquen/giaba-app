@@ -3407,12 +3407,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   const SCREENS = { home: el("screen-home"), config: el("config"), pin: el("screen-pin"), loop: el("loop"), "ir-menu": el("screen-ir-menu"),
     caja: el("screen-caja"), ped: el("screen-ped"), hist: el("screen-hist"), cierre: el("screen-cierre"), apertura: el("screen-apertura"), cerrada: el("screen-cerrada"), llevo: el("screen-llevo"), volvio: el("screen-volvio"), lprod: el("screen-lprod"), post: el("screen-post"), mis: el("screen-mis"), det: el("screen-det"), cs: el("screen-cs"), anal: el("screen-anal"), cal: el("screen-cal"), calf: el("screen-calf"), calq: el("screen-calq"),
     cta: el("screen-cta"), cn: el("screen-cn"), cnd: el("screen-cnd"), cnb: el("screen-cnb"), cns: el("screen-cns"), cnr: el("screen-cnr"), cni: el("screen-cni"), cnp: el("screen-cnp"), cnk: el("screen-cnk"), cnc: el("screen-cnc"), pgc: el("screen-pgc") };
-  function showScreen(which){ Object.keys(SCREENS).forEach(function(k){ SCREENS[k].hidden = (k!==which); }); window.scrollTo(0,0); SCREENS[which].scrollTop = 0; rcPill(); if (which === "loop") setTimeout(tecladoAlto, 0); }
+  function showScreen(which){ Object.keys(SCREENS).forEach(function(k){ SCREENS[k].hidden = (k!==which); }); window.scrollTo(0,0); SCREENS[which].scrollTop = 0; rcPill(); if (which === "loop"){ tecladoAlto.hecho = false; tecladoAlto.t0 = Date.now(); setTimeout(tecladoAlto, 0); } }
   // 22/11 (Lucas, foto de Sofía): Pedidos · Caja · Stock son secundarios: el teclado crece hasta que «Cobrar» queda al fondo de la pantalla
   // y esa fila queda abajo (se llega bajando). Se calcula al abrir y al girar / cambiar el tamaño; deja lugar para el renglón de QR o factura.
   function tecladoAlto(){
     try {
-      const L = el("loop"), kp = el("keypad"), ac = el("acceptBtn"); if (!L || L.hidden || !kp || !ac) return;
+      // 22/11 19:50 (video de Julieta): en Android la barra de Chrome aparece y se va al tocar → «resize» → el teclado cambiaba de alto y la pantalla saltaba.
+      // Se calcula UNA vez por apertura (o al girar el celu: cambia el ancho), nunca mientras se cobra.
+      const L = el("loop"), kp = el("keypad"), ac = el("acceptBtn"); if (!L || L.hidden || !kp || !ac || tecladoAlto.hecho) return;
+      tecladoAlto.hecho = true;
       L.classList.remove("kr"); L.style.removeProperty("--kr");
       const k0 = kp.querySelector(".key"); if (!k0) return;
       const h0 = k0.getBoundingClientRect().height, filas = Math.ceil(kp.children.length / 3) || 4;
@@ -3423,7 +3426,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       L.style.setProperty("--kr", h + "px"); L.classList.add("kr");
     } catch (e) {}
   }
-  window.addEventListener("resize", function(){ clearTimeout(tecladoAlto.t); tecladoAlto.t = setTimeout(tecladoAlto, 150); });
+  let TA_ANCHO = window.innerWidth;
+  window.addEventListener("resize", function(){ if (Math.abs(window.innerWidth - TA_ANCHO) < 40) return; TA_ANCHO = window.innerWidth; clearTimeout(tecladoAlto.t); tecladoAlto.t = setTimeout(function(){ tecladoAlto.hecho = false; tecladoAlto(); }, 150); });
   el("irMenuLink").href = GIABA_BASE_URL;
   el("irMenuBackLink").addEventListener("click", function(){ startWizard(); });
 
@@ -5681,7 +5685,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function rapKeyUs(){ return "rap_on_" + String((auth() || {}).nombre || ""); }
   function rapOn(){ const v = lsGet(rapKeyUs(), null); return v === null ? true : !!v; }
   el("rapSw").addEventListener("click", function(){ lsSet(rapKeyUs(), !rapOn()); pintarRap(); });
-  function pintarRap(){ setTimeout(tecladoAlto, 0);   // 22/11: los cobros rápidos cambian el alto: se recalcula el teclado
+  function pintarRap(){ if (Date.now() - (tecladoAlto.t0 || 0) < 4000) setTimeout(function(){ tecladoAlto.hecho = false; tecladoAlto(); }, 0);   // 22/11: los cobros rápidos cambian el alto: se recalcula solo al abrir
 
     const box = el("rapBox"), P0 = !LOCAL && session ? lsGet("promos_" + (session.feria === "Feria El Bolsón" ? "sur" : "caba"), null) : null;
     if (!P0 || !P0.length){ box.hidden = true; return; }

@@ -219,7 +219,10 @@
           function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
     });
   }
-  function porRuntime(n, args, cb) {
+  function porRuntime(n, args, cb, intento) {
+    // 22/11 (Julieta en Alberti: le llegó el stock vacío): con la base como dueña, Google tiene la copia atrasada.
+    // Si la base tarda o se corta, se le pregunta una vez más (con más tiempo) antes de ir a Google.
+    var cb0 = cb; cb = function (x, reintentar) { if (reintentar && !intento && RTL && RTL.todo) return porRuntime(n, args, cb0, 1); cb0(x); };
     if (Date.now() < (RT_NO[n] || 0)) return cb(null);
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
@@ -228,7 +231,7 @@
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
-      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null, true); }, intento ? 20000 : 7000);
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq }), signal: ctl ? ctl.signal : undefined })
         .then(function (r) { return r.json(); })
         .then(function (j) {
@@ -236,8 +239,8 @@
           if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
           if (j && j.status === "token") lsS("ap_pase", null);
           if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
-          cb(null);
-        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+          cb(null, !(j && (j.status === "token" || /todavía no|apagado|lista/.test(String(j.motivo || "")))));
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null, true); });
     });
   }
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)

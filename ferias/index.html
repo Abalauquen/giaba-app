@@ -217,7 +217,10 @@
           function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
     });
   }
-  function porRuntime(n, args, cb) {
+  function porRuntime(n, args, cb, intento) {
+    // 22/11 (Julieta en Alberti: le llegó el stock vacío): con la base como dueña, Google tiene la copia atrasada.
+    // Si la base tarda o se corta, se le pregunta una vez más (con más tiempo) antes de ir a Google.
+    var cb0 = cb; cb = function (x, reintentar) { if (reintentar && !intento && RTL && RTL.todo) return porRuntime(n, args, cb0, 1); cb0(x); };
     if (Date.now() < (RT_NO[n] || 0)) return cb(null);
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
@@ -226,7 +229,7 @@
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
-      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null); }, 7000);
+      var tmo = setTimeout(function () { if (listo) return; listo = true; try { ctl && ctl.abort(); } catch (e) {} cb(null, true); }, intento ? 20000 : 7000);
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq }), signal: ctl ? ctl.signal : undefined })
         .then(function (r) { return r.json(); })
         .then(function (j) {
@@ -234,8 +237,8 @@
           if (j && j.status === "ok") { try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} return cb(j.r); }
           if (j && j.status === "token") lsS("ap_pase", null);
           if (j && /todavía no|apagado/.test(String(j.motivo || ""))) RT_NO[n] = Date.now() + RT_NO_MS;
-          cb(null);
-        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+          cb(null, !(j && (j.status === "token" || /todavía no|apagado|lista/.test(String(j.motivo || "")))));
+        }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null, true); });
     });
   }
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
@@ -1163,6 +1166,8 @@ body.v3f .pf .bt{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
 body.v3f .pf .bt button{min-height:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font-weight:800;font-size:16px;padding:4px 8px;cursor:pointer}
 body.v3f .pf .bt .y{border-color:var(--accent);color:var(--accent)}body.v3f .pf .bt .g{border-color:var(--good);color:var(--good)}body.v3f .pf .bt .r{border-color:#ff8a83;color:#ff8a83}
 body.v3f .pf .bt .one{grid-column:1/-1}
+body.v3f .pf .bt.b3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}body.v3f .pf .bt.b3 button{font-size:15px;padding:4px 6px;line-height:1.15}
+body.v3f .pf .bt .ys{background:var(--accent);border-color:var(--accent);color:#1b1b1c}
 body.v3f .pf .mot{display:flex;flex-wrap:wrap;gap:8px}body.v3f .pf .mot button{min-height:48px;padding:0 14px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font-weight:800;font-size:15px;cursor:pointer}
 body.v3f .pf .st-g{color:var(--good)}body.v3f .pf .st-w{color:var(--warn)}
 body.v3f .pf .em-inp{min-height:52px;border-radius:14px;font-size:17px}
@@ -2383,6 +2388,9 @@ body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:56px!important
 body.v3f #loop .key{height:56px!important;min-height:56px!important;font-size:24px!important}
 @media (max-height:760px){ body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:47px!important;gap:6px!important} body.v3f #loop .key{height:47px!important;min-height:47px!important;font-size:22px!important} }
 body.v3f #loop .key.del{font-size:15px!important}
+body.v3f #loop.kr .keypad,body.v3f #loop.kr .keypad.grow{grid-auto-rows:var(--kr)!important}
+body.v3f #loop.kr .key{height:var(--kr)!important;min-height:var(--kr)!important;font-size:27px!important}
+body.v3f #loop.kr .key.del{font-size:16px!important}
 /* 07/11 (Lucas): las opciones de QR en un solo renglón */
 body.v3f #loop .qr-sub:not([hidden]){display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin-top:0}
 body.v3f #loop .qr-sub>span{flex:0 1 auto;font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
@@ -3399,7 +3407,23 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   const SCREENS = { home: el("screen-home"), config: el("config"), pin: el("screen-pin"), loop: el("loop"), "ir-menu": el("screen-ir-menu"),
     caja: el("screen-caja"), ped: el("screen-ped"), hist: el("screen-hist"), cierre: el("screen-cierre"), apertura: el("screen-apertura"), cerrada: el("screen-cerrada"), llevo: el("screen-llevo"), volvio: el("screen-volvio"), lprod: el("screen-lprod"), post: el("screen-post"), mis: el("screen-mis"), det: el("screen-det"), cs: el("screen-cs"), anal: el("screen-anal"), cal: el("screen-cal"), calf: el("screen-calf"), calq: el("screen-calq"),
     cta: el("screen-cta"), cn: el("screen-cn"), cnd: el("screen-cnd"), cnb: el("screen-cnb"), cns: el("screen-cns"), cnr: el("screen-cnr"), cni: el("screen-cni"), cnp: el("screen-cnp"), cnk: el("screen-cnk"), cnc: el("screen-cnc"), pgc: el("screen-pgc") };
-  function showScreen(which){ Object.keys(SCREENS).forEach(function(k){ SCREENS[k].hidden = (k!==which); }); window.scrollTo(0,0); SCREENS[which].scrollTop = 0; rcPill(); }
+  function showScreen(which){ Object.keys(SCREENS).forEach(function(k){ SCREENS[k].hidden = (k!==which); }); window.scrollTo(0,0); SCREENS[which].scrollTop = 0; rcPill(); if (which === "loop") setTimeout(tecladoAlto, 0); }
+  // 22/11 (Lucas, foto de Sofía): Pedidos · Caja · Stock son secundarios: el teclado crece hasta que «Cobrar» queda al fondo de la pantalla
+  // y esa fila queda abajo (se llega bajando). Se calcula al abrir y al girar / cambiar el tamaño; deja lugar para el renglón de QR o factura.
+  function tecladoAlto(){
+    try {
+      const L = el("loop"), kp = el("keypad"), ac = el("acceptBtn"); if (!L || L.hidden || !kp || !ac) return;
+      L.classList.remove("kr"); L.style.removeProperty("--kr");
+      const k0 = kp.querySelector(".key"); if (!k0) return;
+      const h0 = k0.getBoundingClientRect().height, filas = Math.ceil(kp.children.length / 3) || 4;
+      const reserva = 50, libre = window.innerHeight - ac.getBoundingClientRect().bottom - reserva - 8;
+      if (libre <= 8) return;
+      const h = Math.min(84, Math.round(h0 + libre / filas));
+      if (h <= h0 + 2) return;
+      L.style.setProperty("--kr", h + "px"); L.classList.add("kr");
+    } catch (e) {}
+  }
+  window.addEventListener("resize", function(){ clearTimeout(tecladoAlto.t); tecladoAlto.t = setTimeout(tecladoAlto, 150); });
   el("irMenuLink").href = GIABA_BASE_URL;
   el("irMenuBackLink").addEventListener("click", function(){ startWizard(); });
 
@@ -3677,6 +3701,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function prepGuardarCanasto(id){ if (!PREP) return; PREP.canasto = id; const pc = lsGet("prep_curso", null); if (pc && pc.fecha === PREP.fecha){ pc.canasto = id; lsSet("prep_curso", pc); } }
   function terminarPrep(msg){
     lsSet("prep_curso", null);
+    try { lsSet(llDraftKey(), null); } catch (e) {}   // 22/11: lo que se dejó listo ya está guardado; el borrador no se vuelve a ofrecer
     const t = PREP ? PREP.txt : "", P0 = PREP && session ? { fecha: PREP.fecha, feria: session.feria, ubicacion: session.ubicacion || "", txt: t } : null;
     if (PREP){ session = PREP.sesionReal; PREP = null; }
     showToast(msg || ("Feria del " + t + " · revisando que quedó guardada…"));
@@ -3726,7 +3751,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("homeSeguir").hidden = !seguir;
     if (seguir){ el("homeSeguirTxt").textContent = session.ubicacion || session.feria;
       el("homeSeguir").querySelector(".k").textContent = session.abriendo ? "ESTÁS ABRIENDO LA FERIA" : "ESTÁS COBRANDO";
-      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando en " + (session.ubicacion || session.feria) + " ›" : "Seguir cobrando ›"); }
+      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando ›" : "Seguir cobrando ›"); }
     // 30/10 (Adri): si salió de la app mientras dejaba lista una feria, al volver retoma ahí (no arranca de cero)
     HOME_PREP = null; el("homeDescartar").hidden = true;
     // 07/11 (Lucas): solo la ve quien la estaba dejando lista (si entra otra persona en el mismo teléfono, no) y se puede descartar
@@ -3988,12 +4013,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const mot = PF_AB !== k ? "" : (PF_OTRO ? '<span class="hint" style="color:var(--ink)">¿Por qué no se hace?</span><input class="em-inp" id="pfOtro" placeholder="Escribí el motivo"><div class="bt"><button type="button" class="r" data-pfok="' + k + '">Cancelar la feria</button><button type="button" data-pfx="1">Volver</button></div>'
       : '<span class="hint" style="color:var(--ink)">¿Por qué no se hace?</span><div class="mot">' + MOTIVOS_CANC.map(function(m){ return '<button type="button" data-pfm="' + esc(m) + '" data-k="' + k + '">' + esc(m) + '</button>'; }).join("") + '<button type="button" data-pfx="1">Volver</button></div>');
     return '<div class="pf' + (!x.vend ? ' sv' : x.listo ? ' ok' : '') + '"><div class="t"><b>' + esc(cuando + " · " + x.ubicacion) + '</b><span>' + sub + '</span></div>'
-      + (mot || '<div class="bt">' + b1 + '<button type="button" class="r" data-pfc="' + k + '">✕ Cancelar</button></div>') + '</div>';
+      // 22/11 (Lucas, aprobado): feria de hoy lista y sin abrir → «▶ Empezar feria» la abre directo con lo que se dejó listo
+      + (mot || '<div class="bt' + (hoy && x.listo && x.vend ? ' b3' : '') + '">' + b1 + (hoy && x.listo && x.vend ? '<button type="button" class="ys" data-pfa="' + k + '">▶ Empezar feria</button>' : '') + '<button type="button" class="r" data-pfc="' + k + '">✕ Cancelar</button></div>') + '</div>';
   }
   function pfBind(box, r){
     const on = function(sel, fn){ Array.prototype.forEach.call(box.querySelectorAll(sel), function(b){ b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); }); };
     const repinta = function(){ pintarAdm(r); };
     on("[data-pfp]", function(b){ const x = pfDe(r, b.dataset.pfp); if (x) prepararDesdeAdm(x); });
+    on("[data-pfa]", function(b){ const x = pfDe(r, b.dataset.pfa); if (x) empezarListaHoy(x, b); });
     on("[data-pfq]", function(b){ const x = pfDe(r, b.dataset.pfq), c = lsGet(calKey(), null), y = c && c.ferias ? c.ferias.filter(function(z){ return z.id === x.id; })[0] : null;
       if (y){ CAL.d = c; FER3.sel = y.fecha; CAL.volver = "home"; calQuien(y); } else abrirCal(fDate(x.fecha)); });
     on("[data-pfc]", function(b){ PF_AB = b.dataset.pfc; PF_OTRO = false; repinta(); });
@@ -4020,6 +4047,34 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     PREP = { fecha: x.fecha, txt: x.dia + " " + x.fecha.slice(0,5), sesionReal: session, listo: !!x.listo };
     buildWizardSteps(); wizardAnswers = { vendedor: (qvSep(x.vend).some(function(n){ return n.toLowerCase().slice(0, 4) === String(a.nombre).toLowerCase().slice(0, 4); }) ? a.nombre : "") || vendDeAgenda(x.vend) || x.vend || a.nombre, zona: a.zona, feria: x.feria, ubicacion: x.ubicacion }; wizardStart = 1;
     empezarSesion(x.feria, x.ubicacion);
+  }
+  // 22/11 (Lucas): abrir una feria de hoy que quedó lista (para otra vendedora o para vos) sin repetir la caja ni el stock
+  function empezarListaHoy(x, b){
+    const a = auth(); if (!a || !x) return;
+    if (!gs()){ showToast("Sin señal", true); return; }
+    b.disabled = true; b.textContent = "Abriendo…";
+    let ini = null, st = null, listo = false;
+    const fin = function(){
+      if (listo || !ini || !st) return; listo = true; b.disabled = false; b.textContent = "▶ Empezar feria";
+      PREP = null; wizardAnswers = { vendedor: a.nombre, zona: a.zona, feria: x.feria, ubicacion: x.ubicacion };
+      guardarSesion({ vendedor: a.nombre, feria: x.feria, ubicacion: x.ubicacion || "", dia: todayKey(), abriendo: true });
+      const L = (st.llevado || []).filter(function(y){ return Number(y.cant) > 0; });
+      const ov = document.createElement("div"); ov.id = "ovEmpLista";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+      ov.innerHTML = '<div style="background:var(--bg);border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px;max-height:90vh;overflow:auto"><b style="font-size:21px">Abrís ' + esc(x.ubicacion || x.feria) + '</b>'
+        + '<span class="hint">La dejaste lista para ' + esc(x.vend) + '. Esto ya está cargado:</span>'
+        + '<div style="display:flex;justify-content:space-between;gap:10px;background:var(--surface);border-radius:12px;padding:10px 12px;font-size:17px"><span>Cambio inicial</span><b>' + formatMoney(Number(ini.apertura) || 0) + '</b></div>'
+        + '<div style="display:flex;justify-content:space-between;gap:10px;background:var(--surface);border-radius:12px;padding:10px 12px;font-size:17px"><span>Productos</span><b>' + L.length + '</b></div>'
+        + '<div style="display:flex;flex-direction:column;gap:2px;font-size:15px">' + L.slice(0, 5).map(function(y){ return '<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 4px"><span>' + esc(y.nombre || y.sku) + '</span><b>' + y.cant + '</b></div>'; }).join("") + (L.length > 5 ? '<span class="hint">…y ' + (L.length - 5) + ' productos más</span>' : '') + '</div>'
+        + '<div class="btn" id="empOk">✓ Todo bien, a vender</div><div class="btn2" id="empCor">Corregir antes de abrir · la caja o el stock</div><div class="btn2" id="empNo">Volver</div></div>';
+      document.body.appendChild(ov);
+      ov.querySelector("#empOk").onclick = function(){ ov.remove(); sumarseAbierta(ini); };
+      ov.querySelector("#empCor").onclick = function(){ ov.remove(); lsSet(llDraftKey(), null); seguirApertura(); };
+      ov.querySelector("#empNo").onclick = function(){ ov.remove(); guardarSesion(null); renderHome(); };
+    };
+    const falla = function(){ if (listo) return; listo = true; b.disabled = false; b.textContent = "Sin señal · probá de nuevo"; };
+    google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok"){ falla(); return; } if (r.cerrada){ listo = true; b.disabled = false; b.textContent = "▶ Empezar feria"; showToast("Esa feria ya se cerró hoy", true); return; } ini = r; fin(); }).withFailureHandler(falla).feriaIniciada(x.feria, x.ubicacion || "");
+    google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok"){ falla(); return; } st = r; fin(); }).withFailureHandler(falla).getStockFeria(x.feria, x.ubicacion || "");
   }
   function prepOkTxt(){ const a = auth(), v = session && session.vendedor; return "✓ Dejar lista para " + (v && a && v !== a.nombre ? v + " · " : "el ") + PREP.txt; }
   // 💡 Te recomiendo llevar esto (Lucas / Adriana): promedio de lo vendido en las últimas ferias de ese lugar y día, con margen
@@ -5252,6 +5307,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const box = el("llDraft"); box.hidden = true; LL.draftPend = null;
     if (LL.refuerzo) return;
     const d = lsGet(llDraftKey(), null);
+    // 22/11 (Lucas): si la feria ya quedó lista (hay stock cargado en el puesto), se arranca siempre con eso, sin borrador
+    if (d && LL.ya && LL.ya.length){ lsSet(llDraftKey(), null); return; }
     if (!d || !d.items || !d.items.length || llFirma(d.items) === llBaseFirma()) return;
     // 08/11 (Adriana): se recupera SOLO lo que había cargado (antes había que tocar «Seguís…» y si tocaba un frasco antes, se perdía)
     const prev = LL.items;
@@ -5624,7 +5681,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function rapKeyUs(){ return "rap_on_" + String((auth() || {}).nombre || ""); }
   function rapOn(){ const v = lsGet(rapKeyUs(), null); return v === null ? true : !!v; }
   el("rapSw").addEventListener("click", function(){ lsSet(rapKeyUs(), !rapOn()); pintarRap(); });
-  function pintarRap(){
+  function pintarRap(){ setTimeout(tecladoAlto, 0);   // 22/11: los cobros rápidos cambian el alto: se recalcula el teclado
+
     const box = el("rapBox"), P0 = !LOCAL && session ? lsGet("promos_" + (session.feria === "Feria El Bolsón" ? "sur" : "caba"), null) : null;
     if (!P0 || !P0.length){ box.hidden = true; return; }
     const P = P0.map(function(x, i){ return { x: x, i: i }; }).sort(function(a, b){ return rapKey(a.x) - rapKey(b.x) || a.i - b.i; }).map(function(z){ return z.x; });

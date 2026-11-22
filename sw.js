@@ -1,5 +1,5 @@
 /* GIABA instalable · service worker: guarda la app en el celu (abre al instante, y sin señal abre la guardada). */
-var VERSION = "giaba-16dff1e";
+var VERSION = "giaba-9d76b3c";
 var ARCHIVOS = ["./", "./index.html", "./ferias/index.html", "./ferias/gsr.js", "./manifest.webmanifest", "./icono.svg", "./icono-192.png", "./icono-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));

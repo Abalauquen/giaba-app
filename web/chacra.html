@@ -178,11 +178,14 @@
   var RT_NO = {}, RT_NO_MS = 10 * 60000;
   try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
   // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
+  // 22/11 (Lucas no pudo pagarle a Julieta: «GIABA ahora guarda en la base…»): con poca señal la lista no llegaba en 4 s, RTL quedaba vacío
+  // y el guardado se iba a Google, que ya no guarda. Se recuerda la última lista en el celu: sin respuesta, se usa esa (la base sigue siendo la dueña).
   var RTL = null, RTL_T = 0, RTL_ESP = [];
+  try { var RTL0 = lsG("ap_rtl", null); if (RTL0 && RTL0.guarda) RTL = RTL0; } catch (e) {}
   function rtLista(cb) {
     if (RTL && Date.now() - RTL_T < RT_NO_MS) return cb(RTL);
     RTL_ESP.push(cb); if (RTL_ESP.length > 1) return;
-    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
+    var fin = function (x) { if (x) { RTL = x; RTL_T = Date.now(); try { lsS("ap_rtl", x); } catch (e) {} } RTL_ESP.splice(0).forEach(function (f) { try { f(RTL); } catch (e) {} }); };
     conPase(function (p) {
       if (!p) return fin(null);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;

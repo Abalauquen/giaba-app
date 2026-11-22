@@ -1715,8 +1715,6 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       T.push(["🍇","Materia prima e insumos", "Fruta, azúcar, frascos, tapas, etiquetas", bm ? ["r", bm + " bajos"] : null, "goMP"]);
       T.push(["🛒","A pedir", MP.aPedir.length ? pend + " pendientes · " + (MP.aPedir.length - pend) + " pedidos" : "Nada para pedir", MP.aPedir.length ? ["y", MP.aPedir.length + (MP.aPedir.length === 1 ? " para pedir" : " para pedir")] : null, "goAP"]);
     } else if (DEP === "Fábrica") T.push(["🍇","Materia prima e insumos","Cargando…",null,"goMP"]);
-    const nAp = apDe(null, DEP).length;   // 06/11 (apartados): cuántos hay para resolver (nunca sumar frascos de distintos tamaños)
-    if (nAp) T.push(["⛔","Apartados","No se venden: salió mal, golpeados, para reelaborar", ["o", nAp + " para resolver"], "goApl"]);
     T.push(["📋","Comandas", coms.length ? coms.length + (coms.length === 1 ? " abierta" : " abiertas") : "No hay comandas abiertas", coms.length ? ["y", String(coms.length)] : null, "goComandas"]);
     if (D.admin && DEP === "CABA") T.push(["📦","Mercado Libre Full","Stock en el depósito de ML", null, "goFull"]);
     T.push(["🧾","Historial de movimientos","Qué entró y salió, quién y con cuánto quedó",null,"goHist"]);
@@ -1728,7 +1726,29 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       T.push(["🔗","La Teodora","Saavedra · stock y ventas de sus productos", TEO && TEO.resumen && TEO.resumen.sinUnir ? ["y", TEO.resumen.sinUnir + " sin unir"] : null, "goTeo"]); }
     el("hTiles").innerHTML = T.map(tileHtml).join("");
     bindTiles();
-    pintarSeCard("hSe");
+    pintarApCard();
+  }
+  // 21/11 (Lucas, mockup-apartados-v2 aprobado): UNA tarjeta «⛔ Apartados en <depósito>», como la de «Sin etiquetar»:
+  // bloque amarillo «🏷️ Sin etiquetar» (lo de Sin_Etiquetar + apartados «Le falta etiqueta») y rojo «🔴 Para rehacer / con problemas».
+  function apEsEtq(x){ return x.motivo === "Le falta etiqueta" || (x.motivo === "Otro" && /etiqueta/i.test(x.nota || "")); }
+  function pintarApCard(){
+    const box = el("hSe"); if (!box) return;
+    const se = DEP === "Fábrica" ? seDe() : [], apE = apDe(null, DEP).filter(apEsEtq), apR = apDe(null, DEP).filter(function(x){ return !apEsEtq(x); });
+    if (!se.length && !apE.length && !apR.length){ box.hidden = true; box.innerHTML = ""; return; }
+    const tot = se.reduce(function(a, x){ return a + (x.apart || 0); }, 0) + apE.concat(apR).reduce(function(a, x){ return a + (Number(x.cant) || 0); }, 0);
+    const por = {}, o = []; se.forEach(function(x){ if (!por[x.sku]){ por[x.sku] = []; o.push(x.sku); } por[x.sku].push(x); });
+    const lAp = function(x){ return '<div class="l"><span>' + esc(apNom(x)) + '<small style="display:block;font-weight:600;color:var(--ink-soft);font-size:13px">' + esc([apEsEtq(x) && x.motivo !== "Otro" ? "falta etiqueta" : x.motivo === "Otro" ? "" : String(AP_TAG[x.motivo] || x.motivo).replace(/^\S+\s/, "").toLowerCase(), x.nota || ""].filter(Boolean).join(" · ")) + '</small></span><b>' + nf(x.cant) + '</b></div>'; };
+    const yel = se.length || apE.length ? '<div style="border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px"><div class="card-t" style="font-size:16px">🏷️ Sin etiquetar <button class="btn ol sm" style="width:auto" data-apy="1">Etiqueté ›</button></div>'
+      + o.map(function(k){ const g = por[k], f = seFaltaTxt(g); return '<div class="l"><span>' + esc(seNom(g[0])) + (f ? '<small style="display:block;font-weight:600;color:var(--ink-soft);font-size:13px">' + esc(f.replace(/[()]/g, "")) + '</small>' : '') + '</span><b>' + nf(g.reduce(function(a, x){ return a + x.apart; }, 0)) + '</b></div>'; }).join("")
+      + apE.map(lAp).join("") + '</div>' : '';
+    const red = '<div style="border:1.5px solid var(--red);background:rgba(255,138,131,.10);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:4px"><div class="card-t" style="font-size:16px;color:var(--red)">🔴 Para rehacer / con problemas' + (apR.length ? ' <button class="btn ol sm" style="width:auto" data-apr="1">Resolver ›</button>' : '') + '</div>'
+      + (apR.length ? apR.map(lAp).join("") : '<span style="color:var(--good);font-weight:700;font-size:14px">✓ Nada por ahora</span>') + '</div>';
+    box.innerHTML = '<div class="card-t">⛔ Apartados en ' + esc(DEP) + ' <span style="font-size:14px;color:var(--ink-soft)">' + nf(tot) + ' frasco' + (tot === 1 ? '' : 's') + '</span></div>'
+      + (apR.length ? red + yel : yel + red)
+      + '<span class="hint">No cuentan para ' + (DEP === "Fábrica" ? "mandar, " : "") + 'vender ni llevar a feria.</span>';
+    box.hidden = false;
+    const by = box.querySelector("[data-apy]"); if (by) by.addEventListener("click", function(){ if (se.length) abrirEtq("home"); else abrirApl(null, "home"); });
+    const br = box.querySelector("[data-apr]"); if (br) br.addEventListener("click", function(){ abrirApl(null, "home"); });
   }
   function tileHtml(x){ return '<button class="tile" id="' + x[4] + '"><span class="i">' + x[0] + '</span><b>' + x[1] + '</b><span>' + esc(x[2]) + '</span>' + (x[3] ? '<span class="n ' + x[3][0] + '">' + esc(x[3][1]) + '</span>' : '') + '</button>'; }
   function filaAlerta(p){
@@ -1825,8 +1845,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // ================= 06/11 (apartados): ⛔ apartado · no se vende (mockup-apartados.html aprobado) =================
   // Está en el estante pero no se vende. El número grande es lo que se puede vender; lo apartado va en naranja abajo.
   // Apartan y resuelven Francisco, Adriana y Lucas (Francisco en Fábrica). ♻️ Usar: desde Producción › Elaboración.
-  const AP_MOT = [["Salió mal", "😕 Salió mal"], ["Para reelaborar", "♻️ Para reelaborar"], ["Golpeado o roto", "💥 Golpeado / roto"], ["Otro", "✏️ Otro"]];
-  const AP_TAG = { "Salió mal": "😕 Salió mal", "Para reelaborar": "♻️ Para reelaborar", "Golpeado o roto": "💥 Golpeado", "Otro": "✏️ Otro" };
+  const AP_MOT = [["Salió mal", "😕 Salió mal"], ["Para reelaborar", "♻️ Para reelaborar"], ["Golpeado o roto", "💥 Golpeado / roto"], ["Le falta etiqueta", "🏷️ Le falta etiqueta"], ["Otro", "✏️ Otro"]];
+  const AP_TAG = { "Salió mal": "😕 Salió mal", "Para reelaborar": "♻️ Para reelaborar", "Golpeado o roto": "💥 Golpeado", "Le falta etiqueta": "🏷️ Falta etiqueta", "Otro": "✏️ Otro" };
   function apN(p, dep){ return ((p && p.apd) || {})[dep || DEP] || 0; }
   function apDe(sku, dep){ return ((D && D.apartados) || []).filter(function(x){ return (!sku || x.sku === sku) && (!dep || x.dep === dep); }); }
   function apEdit(dep){ return !!D && (D.editables || D.depositos).indexOf(dep || DEP) !== -1; }

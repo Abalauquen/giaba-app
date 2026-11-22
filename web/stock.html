@@ -1241,6 +1241,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="seg2" id="hDep"></div>
   <div class="row2" id="hActs"></div>
   <div class="tiles" id="hTiles"></div>
+  <div id="hST" hidden></div>
   <div class="av" id="hSe" hidden></div>
   <div class="card" id="hAl"><div class="empty">Cargando…</div></div>
   <div class="hint">El stock se mueve solo: Producción suma, ventas y envíos restan. En materia prima, Compras suma y Elaboración resta.</div>
@@ -1727,7 +1728,51 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("hTiles").innerHTML = T.map(tileHtml).join("");
     bindTiles();
     pintarApCard();
+    pintarST();
   }
+  // ===== 22/11 (Lucas, mockup-se-termina v2): «⏳ Se termina pronto» · lo que sale por semana (6 semanas, todos los canales) vs lo que hay =====
+  const ST_CAN = [["Fer", "Ferias", "#e07a2e"], ["May", "Mayoristas y comercios", "#2f6fb3"], ["Onl", "Online, Local y WhatsApp", "#8a4fbf"]];
+  let ST = { d: null, fil: "todo", ab: null, pidio: false };
+  function stLsS(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+  function stTraer(){
+    if (ST.pidio) return; ST.pidio = true;
+    if (!ST.d) ST.d = lsGet("st_cache", null);
+    run("getSeTermina").then(function(r){ if (r && r.status === "ok"){ ST.d = r; stLsS("st_cache", r); if (!el("s-home").hidden) pintarST(); } });
+  }
+  function stNo(){ return lsGet("st_no", {}) || {}; }
+  function pintarST(){
+    const box = el("hST"); if (!box || !D) return;
+    stTraer();
+    if (!ST.d || !ST.d.items){ box.hidden = true; return; }
+    const sem = ST.d.semanas || 6, no = stNo(), ahora = Date.now(), otro = DEP === "CABA" ? "Fábrica" : "CABA";
+    const porSem = function(x){ let t = 0; Object.keys(x.u).forEach(function(k){ if (ST.fil === "todo" || ST.fil === k) t += x.u[k]; }); return t / sem; };
+    const L = ST.d.items.filter(function(x){ return x.dep === DEP; }).map(function(x){ const p = prodDe(x.sku); if (!p) return null; const ps = porSem(x), hay = Math.max(0, qty(p) || 0); return { x: x, p: p, ps: ps, hay: hay, w: ps ? hay / ps : 99 }; })
+      .filter(function(o){ return o && o.ps > 0.3 && o.w < 3 && !(no[DEP + "|" + o.x.sku] > ahora); }).sort(function(a, b){ return a.w - b.w; });
+    box.hidden = false;
+    const fmt1 = function(v){ return String(Math.round(v * 10) / 10).replace(".", ","); };
+    const pill = function(o){ if (o.hay <= 0) return '<span class="pill r">agotado</span>'; if (o.w < 1.5) return '<span class="pill r">' + (o.w < 1 ? "menos de 1 semana" : "~1 semana") + '</span>'; return '<span class="pill w">~' + Math.round(o.w) + ' semanas</span>'; };
+    const fin = function(o){ if (o.hay <= 0) return "ya no hay"; const d = new Date(ahora + o.w * 7 * 864e5); return "se termina ~" + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2); };
+    const mix = function(o){ let t = 0; Object.keys(o.x.u).forEach(function(k){ t += o.x.u[k]; }); return '<div style="display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--line)">' + ST_CAN.filter(function(c){ return o.x.u[c[0]]; }).map(function(c){ return '<i style="display:block;width:' + (o.x.u[c[0]] / t * 100) + '%;background:' + c[2] + ';opacity:' + (ST.fil === "todo" || ST.fil === c[0] ? 1 : .25) + '"></i>'; }).join("") + '</div>'; };
+    let h = '<div class="card" style="display:flex;flex-direction:column;gap:10px"><div class="card-t">⏳ Se termina pronto en ' + esc(DEP) + (L.length ? ' <span style="font-size:14px;color:var(--ink-soft)">' + L.length + '</span>' : '') + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + [["todo", "Todo"]].concat(ST_CAN.map(function(c){ return [c[0], c[1]]; })).map(function(f){ return '<button type="button" class="btn sm ' + (ST.fil === f[0] ? "" : "ol") + '" style="width:auto;min-height:38px;font-size:14px" data-stf="' + f[0] + '">' + f[1] + '</button>'; }).join("") + '</div>';
+    if (!L.length) h += '<div class="okb">✓ En ' + esc(DEP) + ' no hay nada que se termine en las próximas 3 semanas' + (ST.fil === "todo" ? "" : " (con este filtro)") + '.</div>';
+    h += L.map(function(o){ const k = o.x.sku, ab = ST.ab === k, op = prodDe(k), hayOtro = op ? Math.max(0, qty(op, otro) || 0) : 0;
+      let r = '<div style="border:1.5px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:6px"><button type="button" data-sts="' + esc(k) + '" style="background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left;display:flex;flex-direction:column;gap:6px;cursor:pointer">'
+        + '<span style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + dot(o.p.sabor) + ' ' + esc(nomP(o.p)) + '</b>' + pill(o) + '</span>'
+        + '<span style="display:flex;justify-content:space-between;gap:8px;font-size:14px;color:var(--ink-soft)"><span>quedan ' + nf(o.hay) + ' · salen ' + fmt1(o.ps) + ' por semana</span><span>' + fin(o) + '</span></span>' + mix(o) + '</button>';
+      if (ab) r += '<div style="font-size:13px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 12px">' + ST_CAN.filter(function(c){ return o.x.u[c[0]]; }).map(function(c){ return '<span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + c[2] + ';margin-right:5px"></i>' + c[1] + ' ' + fmt1(o.x.u[c[0]] / sem) + '/sem</span>'; }).join("") + '</div>'
+        + '<div style="font-size:14px">En ' + otro + ' hay <b>' + nf(hayOtro) + '</b>. Para 4 semanas harían falta ~' + nf(Math.ceil(o.ps * 4)) + '.</div>'
+        + '<div class="row2"><button type="button" class="btn y" data-stc="' + esc(k) + '">+ ' + (DEP === "CABA" ? "Pedir a Fábrica" : "Elaborar") + '</button><button type="button" class="btn ol" data-stn="' + esc(k) + '">Ahora no</button></div>';
+      return r + '</div>'; }).join("");
+    h += '<span class="hint">Lo que salió de ' + esc(DEP) + ' en las últimas ' + sem + ' semanas (ferias, mayoristas y comercios, online, Local y WhatsApp) contra lo que hay hoy. Aparece si alcanza para menos de 3 semanas.</span></div>';
+    box.innerHTML = h;
+  }
+  el("hST").addEventListener("click", function(ev){
+    const f = ev.target.closest("[data-stf]"); if (f){ ST.fil = f.dataset.stf; pintarST(); return; }
+    const s0 = ev.target.closest("[data-sts]"); if (s0){ ST.ab = ST.ab === s0.dataset.sts ? null : s0.dataset.sts; pintarST(); return; }
+    const c = ev.target.closest("[data-stc]"); if (c){ const p = prodDe(c.dataset.stc); if (p) abrirAComanda(p, "home"); return; }
+    const n = ev.target.closest("[data-stn]"); if (n){ const no = stNo(); no[DEP + "|" + n.dataset.stn] = Date.now() + 14 * 864e5; stLsS("st_no", no); ST.ab = null; pintarST(); toast("Listo, no te lo muestro por 2 semanas"); return; }
+  });
   // 21/11 (Lucas, mockup-apartados-v2 aprobado): UNA tarjeta «⛔ Apartados en <depósito>», como la de «Sin etiquetar»:
   // bloque amarillo «🏷️ Sin etiquetar» (lo de Sin_Etiquetar + apartados «Le falta etiqueta») y rojo «🔴 Para rehacer / con problemas».
   function apEsEtq(x){ return x.motivo === "Le falta etiqueta" || (x.motivo === "Otro" && /etiqueta/i.test(x.nota || "")); }

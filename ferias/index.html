@@ -7053,7 +7053,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const x = cnOpc().filter(function(s){ return s.sabor === CN.su.sabor; })[0]; if (!x) return;
     const sku = (cnTamsDe(x.sku)[CN.su.tam] || cnTamsDe(x.sku)[0])[1], b = el("cnsOk"); b.dataset.busy = "1"; b.textContent = "Guardando…";
     google.script.run.withSuccessHandler(function(r){ delete b.dataset.busy; b.textContent = "✓ Sumar al canasto";
-      if (r && r.status === "ok"){ showToast("Sumado · " + CN.su.sabor + " sale del stock de " + c.zona); cnCargar(function(){ cnAbrirDet(); }); } else showToast((r && r.msg) || "No se pudo", true); })
+      // 22/11 (Lucas: «tardó cuando pensó la carga de los minis»): se ve al instante en el canasto y se actualiza por detrás
+      if (r && r.status === "ok"){ showToast("Sumado · " + CN.su.sabor + " sale del stock de " + c.zona); try { c.deg.push({ sku: sku, sabor: CN.su.sabor, tam: +String(sku).split("-").pop() || 40, desde: "hoy", nombre: CN.su.sabor }); c.faltan = (c.faltan || []).filter(function(f){ return f !== CN.su.sabor; }); } catch (e) {} cnAbrirDet(); cnCargar(function(){ if (!SCREENS.cnd || !SCREENS.cnd.hidden) cnAbrirDet(); }); } else showToast((r && r.msg) || "No se pudo", true); })
       .withFailureHandler(function(){ delete b.dataset.busy; b.textContent = "✓ Sumar al canasto"; showToast("Sin señal", true); })
       .canastoSumarDeg({ canasto: c.id, sku: sku, quien: (auth() || {}).nombre || "" });
   });
@@ -7075,7 +7076,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const t0 = btn ? btn.textContent : "";
     if (btn){ btn.dataset.busy = "1"; btn.textContent = "Guardando…"; btn.style.opacity = .6; }
     const suelta = function(){ if (btn){ delete btn.dataset.busy; btn.textContent = t0; btn.style.opacity = 1; } };
-    google.script.run.withSuccessHandler(function(r){ suelta(); if (r && r.status === "ok"){ showToast(r.dup ? "Ya estaba repuesto (no se repitió)" : "Repuesto ✓"); cnCargar(function(){ cnAbrirDet(); }); } else showToast((r && r.msg) || "No se pudo", true); })
+    google.script.run.withSuccessHandler(function(r){ suelta(); if (r && r.status === "ok"){ showToast(r.dup ? "Ya estaba repuesto (no se repitió)" : "Repuesto ✓"); try { if (o.tipo === "ins"){ const it = c.ins.filter(function(y){ return y.id === o.id; })[0]; if (it) it.estado = "ok"; } else if (o.tipo === "muestra") c.muestras = Math.min(c.muestrasMax || 99, (c.muestras || 0) + (o.cant || 1)); } catch (e) {} cnAbrirDet(); cnCargar(function(){ if (!SCREENS.cnd || !SCREENS.cnd.hidden) cnAbrirDet(); }); } else showToast((r && r.msg) || "No se pudo", true); })
       .withFailureHandler(function(){ suelta(); showToast("Sin señal", true); })
       .canastoReponer({ canasto: c.id, tipo: o.tipo, id: o.id, cant: o.cant, quien: (auth() || {}).nombre || "", idApp: makeId() });
   }

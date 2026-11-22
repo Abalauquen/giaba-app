@@ -2085,6 +2085,28 @@ body.v3f #loop .fx-row .fx-t{font-size:15px;flex-basis:100%}
 body.v3f #loop .fx-row .chip{height:48px;font-size:15px;flex:1 1 0;justify-content:center;display:flex;align-items:center;border-style:solid;border-radius:12px}
 body.v3f #loop .fam-row{margin-top:2px}
 body.v3f #loop .accept-btn{height:54px!important;min-height:54px;margin-top:10px}
+/* 21/11 19:05 (Lucas, captura): achicar «‹ Ferias», el total y el ⚡ para que el teclado tenga teclas más altas */
+body.v3f #loop .topbar{min-height:40px}
+body.v3f #loop .topbar .back{height:40px;min-width:40px;padding:0 12px 0 8px;font-size:15px;border-radius:12px}
+body.v3f #loop .topbar .back svg{width:18px;height:18px}
+body.v3f #loop .topbar .pill{font-size:13px;padding:6px 12px}
+body.v3f #loop .total-card{padding:5px 10px!important}
+body.v3f #loop .total-card .k{font-size:11px!important}
+body.v3f #loop .total-card .v{font-size:18px!important}
+body.v3f #loop .total-card .sync{font-size:11px!important}
+body.v3f #loop .total-card .count{min-height:34px!important;padding:0 10px!important;font-size:13px!important}
+body.v3f #loop #rapBox{min-height:36px}
+body.v3f #loop .rap-sw{height:34px;padding:0 4px 0 8px;font-size:13px}
+body.v3f #loop .rap-sw i{width:32px;height:20px}
+body.v3f #loop .rap-sw i::after{width:14px;height:14px}
+body.v3f #loop .rap-sw.on i::after{left:15px}
+body.v3f #loop .rap-off{font-size:13px}
+body.v3f #loop .rap div{min-height:40px}
+body.v3f #loop .amount{font-size:32px!important;margin:0!important}
+body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:56px!important;gap:8px!important;margin-top:2px}
+body.v3f #loop .key{height:56px!important;min-height:56px!important;font-size:24px!important}
+@media (max-height:760px){ body.v3f #loop .keypad,body.v3f #loop .keypad.grow{grid-auto-rows:47px!important;gap:6px!important} body.v3f #loop .key{height:47px!important;min-height:47px!important;font-size:22px!important} }
+body.v3f #loop .key.del{font-size:15px!important}
 /* 07/11 (Lucas): las opciones de QR en un solo renglón */
 body.v3f #loop .qr-sub:not([hidden]){display:flex;flex-wrap:nowrap;align-items:center;gap:6px;margin-top:0}
 body.v3f #loop .qr-sub>span{flex:0 1 auto;font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
@@ -3293,12 +3315,20 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (pinBuffer.length === 4) setTimeout(function(){ intentarValidar(nombre); }, 150);
   }
   function tieneAcceso(apps){ return (apps||[]).some(function(a){ return PIN_APPS.indexOf(a) !== -1; }); }
+  // 21/11 13:23 (Lucas: «unifiquemos el link y que cada uno vea lo suyo»): en el link instalable (…/ferias/), quien no es vendedora
+  // (Fran, Luis) y Lucas / Adriana (13:27: «nosotros tenemos que ver todo») abren en el menú; las vendedoras, en Ferias.
+  // Desde el menú, «Ferias» entra con ?app=ferias y ahí no vuelve a mandar al menú.
+  function vaAlMenu(nombre, apps){ if (LOCAL || !/\/ferias\//.test(location.pathname) || /[?&]app=/.test(location.search)) return false;
+    const L = (Array.isArray(apps) ? apps : String(apps || "").split(",")).map(function(x){ return String(x).trim(); }).filter(Boolean); return L.some(function(x){ return ["ferias", "cobros", "revendedores", "local"].indexOf(x) === -1; }); }
+  function irAlMenu(){ try { location.replace("../web/menu.html" + location.search); } catch (e) {} }
+  (function(){ try { const a0 = JSON.parse(localStorage.getItem("giaba_auth") || "null"); if (a0 && a0.nombre && vaAlMenu(a0.nombre, a0.apps)) irAlMenu(); } catch (e) {} })();
   function intentarValidar(nombre){
     const pinIngresado = pinBuffer;
     el("pinError").textContent = "Verificando..."; el("pinError").classList.add("checking");
     function manejarResultado(res){
       el("pinError").classList.remove("checking");
       if (res && res.status === 'ok'){
+        if (vaAlMenu(nombre, res.apps)){ lsSet("giaba_auth", { nombre: nombre, pin: pinIngresado, apps: res.apps, zona: res.zona, ts: Date.now() }); irAlMenu(); return; }
         if (!tieneAcceso(res.apps)){
           el("pinError").textContent = "Tu usuario no tiene acceso a esta sección"; markPinError();
           setTimeout(function(){ pinBuffer=""; renderPinDots(); }, 1000);
@@ -3720,7 +3750,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     // 10/11 (Lucas): si ya tenés stock cargado, la recomendación queda plegada (y sin «recomiendo N» en cada renglón) hasta que la pidas
     if (LL.recVer == null) LL.recVer = !(LL.items && LL.items.some(function(it){ return Number(it.cant) > 0; }));
     if (!LL.recVer){
-      box.innerHTML = '<button class="btn2" type="button" id="llRecVer" style="width:100%">💡 Ver la recomendación</button>';
+      box.innerHTML = '<button type="button" id="llRecVer" style="width:100%;display:flex;align-items:center;gap:8px;min-height:40px;padding:6px 12px;border:1.5px dashed #6b5a00;border-radius:12px;background:transparent;color:#e8d98a;font:700 14px Manrope,sans-serif;cursor:pointer;text-align:left">💡 Ver la recomendación<b style="margin-left:auto;font-size:13px;font-weight:700;opacity:.7">tocá para abrir</b></button>';
       box.hidden = false;
       LL.recMap = null;
       el("llRecVer").addEventListener("click", function(){ LL.recVer = true; pintarRec(rec); pintaLlevo(); });
@@ -3740,7 +3770,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     };
     LL.recMap = {}; its.forEach(function(x){ LL.recMap[x.sku] = x; });
     // 28/10 (Lucas 18:47): la recomendación NO se carga sola; solo con el botón (la base es lo que se llevó la última vez)
-    el("llRecOk").addEventListener("click", function(){ cargar(); pintaLlevo(); el("llRepe").hidden = true; showToast("Cargué la recomendación"); });
+    el("llRecOk").addEventListener("click", function(){ cargar(); LL.recVer = false; pintarRec(rec); pintaLlevo(); el("llRepe").hidden = true; showToast("Cargué la recomendación"); });
     el("llRecOcultar").addEventListener("click", function(){ LL.recVer = false; pintarRec(rec); pintaLlevo(); });
   }
   // ===== 27/10 (v3): calendario de ferias (se carga desde acá; se copia solo a la planilla de redes) =====
@@ -4949,25 +4979,27 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     box.innerHTML = h; box.hidden = false;
     vs.forEach(function(v, i){ el("llVol" + i).addEventListener("click", function(){
       LL.items = llDeLista(v.items); LL.pre = { fecha: v.fecha, feria: v.feria, vol: true }; LL.ori = llOriDe(v.items, true, (v.lugar || v.feria.split(" · ").pop()) + " · " + dia(v.fecha));
-      box.hidden = true; pintaLlevo(); showToast("Arrancás con lo que volvió · podés sumar o sacar"); }); });
+      box.hidden = true; llRecPlegar(); pintaLlevo(); showToast("Arrancás con lo que volvió · podés sumar o sacar"); }); });
     if (x) el("llRepeOk").addEventListener("click", function(){
       LL.items = llDeLista(x.items); LL.pre = { fecha: x.fecha, feria: x.feria }; LL.ori = llOriDe(x.items, false, x.feria.split(" · ").pop() + " · " + dia(x.fecha));
-      box.hidden = true; pintaLlevo(); showToast("Cargué lo mismo · ajustá lo que cambie"); });
+      box.hidden = true; llRecPlegar(); pintaLlevo(); showToast("Cargué lo mismo · ajustá lo que cambie"); });
     llCeroBind(box);
   }
+  // 21/11 (Lucas, mockup-recomendacion-plegada aprobado 21:59): al elegir de dónde sale el stock, la recomendación se achica a «💡 Ver la recomendación»
+  function llRecPlegar(){ if (LL.rec){ LL.recVer = false; pintarRec(LL.rec); } }
   // 30/10 (Lucas): opción clara de empezar de cero (antes solo estaba «+ Agregar más productos» abajo)
   const LL_CERO = '<div class="btn2" id="llCero" style="margin-top:10px">✏️ Empezar de cero · elijo producto por producto</div>';
   function llCeroBind(box){
     const b = el("llCero"); if (!b) return;
     b.addEventListener("click", function(){
-      box.hidden = true; el("llRec").hidden = true; LL.cero = true;
+      box.hidden = true; llRecPlegar(); LL.cero = true;
       if (el("llAdd").hidden) el("llOtro").click();
     });
   }
   function llVolBind(box, v){
     el("llVolOk").addEventListener("click", function(){
       LL.items = llDeLista(v.items); LL.pre = { fecha: v.fecha, feria: v.feria, vol: true };
-      box.hidden = true; pintaLlevo(); showToast("Cargué lo que volvió · sumá lo que agregás");
+      box.hidden = true; llRecPlegar(); pintaLlevo(); showToast("Cargué lo que volvió · sumá lo que agregás");
     });
   }
   // pedidos de la feria, compactos (se entregan desde "Pedidos" en la pantalla de cobro)

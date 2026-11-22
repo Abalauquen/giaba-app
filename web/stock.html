@@ -1969,11 +1969,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       let h = '<div class="ent" data-id="' + esc(x.id) + '"><span class="ap-tag">' + esc((AP_TAG[x.motivo] || x.motivo) + " · " + apHace(x.dias)) + '</span><b>' + nf(x.cant) + ' × ' + esc(apNom(x)) + '</b>'
         + '<span class="d">' + (x.partida ? 'Partida ' + esc(x.label) : 'Sin partida') + (x.quien ? ' · apartó ' + esc(apQuien(x.quien)) : '') + (x.nota ? ' · «' + esc(x.nota) + '»' : '') + '</span>';
       if (!x.partida && ed) h += '<button class="btn ol sm" data-acc="partida">¿De qué partida? ›</button>';
-      h += ed ? '<div class="row3"><button class="btn gol" data-acc="venta">✓ A la venta</button><button class="btn b" data-acc="usar">♻️ Usar</button><button class="btn r" data-acc="tira">🗑️ Se tira</button></div>'
+      // 22/11 (mockup-apartados-v2): desde CABA «🚚 A Fábrica a rehacer»; en los dos, «🏷️ De segunda» y «🗑️ Descartar»
+      h += ed ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' + (x.dep === "CABA" ? '<button class="btn b" data-acc="fabrica">🚚 A Fábrica a rehacer</button>' : '<button class="btn b" data-acc="usar">♻️ Rehacer (usar)</button>') + '<button class="btn gol" data-acc="venta">✓ Vuelve a la venta</button><button class="btn ol" data-acc="segunda">🏷️ Venta de segunda</button><button class="btn r" data-acc="tira">🗑️ Descartar</button></div>'
         : '<span class="hint">Lo de ' + esc(x.dep) + ' lo resuelven Lucas o Adriana.</span>';
       if (o && o.acc === "usar") h += '<div class="info">♻️ Se usa desde <b>Producción › Elaboración</b>: en «♻️ Dulce ya hecho» elegís ' + esc(apNom(x)) + ' y se descuenta de acá (primero lo apartado). No se descuenta fruta por esa parte.</div>';
       else if (o) h += '<div class="ap-act"><div class="armrow"><span class="lbl">¿Cuántas?</span><div class="stp"><button data-d="-1">−</button><input inputmode="numeric" value="' + o.n + '"><button data-d="1">+</button></div></div>'
         + (o.acc === "venta" ? '<button class="btn g" data-ok="1">' + (AL.busy ? "Guardando…" : "✓ Volver " + nf(o.n) + " a la venta") + '</button>'
+          : o.acc === "fabrica" ? '<button class="btn b" data-ok="1">' + (AL.busy ? "Guardando…" : "🚚 Mandar " + nf(o.n) + " a Fábrica a rehacer") + '</button><span class="hint">Van en el próximo envío CABA → Fábrica, sin contar como stock. En Fábrica aparecen en «🔴 Para rehacer».</span>'
+          : o.acc === "segunda" ? '<button class="btn gol" data-ok="1">' + (AL.busy ? "Guardando…" : "🏷️ " + nf(o.n) + " a la venta como de segunda") + '</button><span class="hint">Vuelven al stock para venderlos con descuento.</span>'
           : '<button class="btn r" data-ok="1"' + (o.conf ? ' style="background:var(--red);color:#2a0d0b"' : '') + '>' + (AL.busy ? "Guardando…" : (o.conf ? "¿Seguro? Tocá de nuevo: se tira" + (o.n === 1 ? "" : "n") + " " + nf(o.n) : "🗑️ Tirar " + nf(o.n))) + '</button>')
         + '</div>';
       return h + '</div>';
@@ -2000,7 +2003,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       AL.busy = false;
       if (!r || r.status !== "ok"){ pintarApl(); toast(r && r.status === "error" && /señal|network|Failed/i.test(r.msg || "") ? "Sin señal: tocá de nuevo (no se carga dos veces)" : ((r && r.msg) || "No se pudo, probá de nuevo"), true); return; }
       D.apartados = r.items || []; if (r.merma) D.apMerma = r.merma; AL.open = null;
-      toast(o.acc === "venta" ? "Listo · " + nf(o.n) + " vuelve" + (o.n === 1 ? "" : "n") + " a la venta" : "Anotado como merma" + (r.costo ? " · " + fmP(r.costo) : ""));
+      toast(o.acc === "venta" ? "Listo · " + nf(o.n) + " vuelve" + (o.n === 1 ? "" : "n") + " a la venta" : o.acc === "fabrica" ? "Listo · mandalos en el próximo envío a Fábrica" : o.acc === "segunda" ? "Listo · a la venta como de segunda" : "Anotado como merma" + (r.costo ? " · " + fmP(r.costo) : ""));
       pintarApl(); cargar().then(function(){ if (!el("s-apl").hidden) pintarApl(); });
     });
   });

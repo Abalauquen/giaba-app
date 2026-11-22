@@ -3420,7 +3420,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const okS = frascos > 0, okC = caja !== null && ap.aperturas.length > 0, sinDato = frascos === null || caja === null;
       box.className = "card"; box.style.border = "2px solid " + (okS && okC ? "var(--good)" : "var(--terra)");
       box.innerHTML = '<b>' + (okS && okC ? "✓ Feria del " + esc(P0.txt || P0.fecha) + " lista" : "⚠ La feria del " + esc(P0.txt || P0.fecha) + " NO quedó completa") + ' · ' + esc(P0.ubicacion || P0.feria) + '</b>'
-        + '<span>' + (frascos === null ? "❓ Lo que lleva: no pude leerlo" : okS ? "✓ Lleva " + frascos + " frasco" + (frascos === 1 ? "" : "s") : "✗ Lo que lleva: NO está guardado") + '</span>'
+        + '<span>' + (frascos === null ? "❓ Lo que lleva: no pude leerlo" : okS ? "✓ Quedaron " + st.llevado.length + " producto" + (st.llevado.length === 1 ? "" : "s") + " (" + frascos + " frasco" + (frascos === 1 ? "" : "s") + ") en " + esc(P0.ubicacion || P0.feria) : "✗ NO se guardó lo que lleva") + '</span>'
         + '<span>' + (caja === null ? "❓ Caja inicial: no pude leerla" : okC ? "✓ Caja inicial " + formatMoney(caja) : "✗ Caja inicial: NO está guardada") + '</span>'
         + (okS && okC ? "" : '<span class="hint">' + (sinDato ? "Probá de nuevo con señal." : "Tocá «Dejar lista» y cargá lo que falta.") + '</span>');
     };

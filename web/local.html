@@ -2310,7 +2310,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function empezar(el) {
     PEND++;
     if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
-    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
+    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var ra = document.getElementById('rcAct'); if (ra && !ra.hidden) return; /* 22/11 (Lucas: dos «cargando» a la vez): si arriba ya dice «↻ actualizando…», no se suma el cartel de abajo */ var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
   }
   function terminar(el) {
     PEND = Math.max(0, PEND - 1);
@@ -4986,7 +4986,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   let guardandoLL = false;
   // 29/10 (Lucas 12:15): guardar nunca se traba por el stock, el canasto ni productos con «hay 0». Si algo falta, dice qué.
   function llFin(){ guardandoLL = false; el("llOk").style.opacity = 1; }
-  function llNoGuardo(r, txt){ llFin(); showToast((r && r.msg) || txt || "No se pudo guardar · probá de nuevo", true); }
+  function llNoGuardo(r, txt){ llFin(); showToast((r && r.msg) || txt || "No se pudo guardar · probá de nuevo", true);
+    // 22/11: el puesto ya tenía lo cargado y este celu no lo había visto → se descarta lo armado y se vuelve a traer lo cargado
+    if (r && r.yaCargado){ try { lsSet(llDraftKey(), null); } catch (e) {} setTimeout(function(){ abrirLlevo(LL && LL.inicio); }, 1800); } }
   // 15/11 (Sofi 11:18 y Juli 12:24: «Guardar cambios» llegó sin el cambio): si el número se escribió con el teclado y se tocó Guardar
   // sin cerrar el teclado, el número todavía no estaba tomado. Antes de guardar se cierra el teclado (así se toma lo escrito).
   function tomarEscrito(){ const a = document.activeElement; if (a && a.classList && a.classList.contains("stp-n")) a.blur(); }
@@ -5039,7 +5041,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
       else llNoGuardo(r);
     }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
-      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP, idApp: llIdApp(items), preparo: PREP ? ((auth() || {}).nombre || "") : "" });
+      .guardarLlevado({ feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, items: items, fecha: fechaP, idApp: llIdApp(items), preparo: PREP ? ((auth() || {}).nombre || "") : "", vi: (LL.ya || []).length });
   });
   function llResumenVolvio(items){
     const base = {}, ahora = {}, nom = {};

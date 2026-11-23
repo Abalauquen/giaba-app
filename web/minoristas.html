@@ -1193,7 +1193,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function empezar(el) {
     PEND++;
     if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
-    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
+    if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var ra = document.getElementById('rcAct'); if (ra && !ra.hidden) return; /* 22/11 (Lucas: dos «cargando» a la vez): si arriba ya dice «↻ actualizando…», no se suma el cartel de abajo */ var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
   }
   function terminar(el) {
     PEND = Math.max(0, PEND - 1);

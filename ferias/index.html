@@ -4540,7 +4540,25 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     p.estado = el("calfEst").querySelector(".on") ? el("calfEst").querySelector(".on").dataset.v : "Confirmada"; p.obs = el("calfObs").value;
     const pv = String(el("calfPuesto").value || "").replace(/[^\d]/g, ""); p.puesto = pv === "" ? "" : Number(pv);
     FER3.sel = p.fecha;
+    // 22/11 (Lucas: Saavedra $ 150.000 eran los 2 días): feria de varios días con valor de puesto → ¿es el total o por día?
+    const nDias = p.fechaHasta ? Math.round((new Date(dh) - new Date(dv)) / 864e5) + 1 : 1;
+    if (nDias > 1 && p.puesto > 0 && !p.puestoModo){
+      const ov = document.createElement("div"); ov.id = "ovPuestoDias";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+      ov.innerHTML = '<div style="background:var(--bg);border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">'
+        + '<b style="font-size:19px">El puesto de ' + formatMoney(p.puesto) + '…</b><span class="hint">La feria dura ' + nDias + ' días.</span>'
+        + '<div class="btn" id="pdTot">Es por los ' + nDias + ' días · ' + formatMoney(Math.round(p.puesto / nDias)) + ' cada día</div>'
+        + '<div class="btn2" id="pdDia">Es por día · ' + formatMoney(p.puesto) + ' cada día</div><div class="btn2" id="pdNo">Volver</div></div>';
+      document.body.appendChild(ov);
+      ov.querySelector("#pdTot").onclick = function(){ ov.remove(); p.puestoModo = "total"; p.puesto = Math.round(p.puesto / nDias); enviarAg(); };
+      ov.querySelector("#pdDia").onclick = function(){ ov.remove(); p.puestoModo = "dia"; enviarAg(); };
+      ov.querySelector("#pdNo").onclick = function(){ ov.remove(); delete b.dataset.ocup; b.textContent = "Guardar"; };
+      return;
+    }
+    enviarAg();
+    function enviarAg(){
     google.script.run.withSuccessHandler(function(r){ if (r && r.status === "ok" && !p.fechaHasta && !p.repite) calVhGuardar(p); fin(r, r && r.fija ? "Guardada · se repite sola ✓" : r && r.dias ? "Feria guardada · " + r.dias + " días ✓" : "Feria guardada ✓"); }).withFailureHandler(function(){ fin(null); }).guardarAgendaFeria(a.nombre, a.pin, p);
+    }
   });
   el("calfDel").addEventListener("click", function(){
     const a = auth(), b = el("calfDel"); if (!a || !gs()) return;

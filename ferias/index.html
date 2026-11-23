@@ -2006,7 +2006,9 @@ window.PagoComun = (function(){
     if (!v) return alDia("👛 " + vw.nombre);
     var sel = v.ferias.filter(function(f){ return S.vsel[clave(f)]; }), tt = r2(sel.reduce(function(a, f){ return a + f.falta; }, 0)), todas = v.ferias.length && sel.length === v.ferias.length;
     var L = ctasV(v); if (L.indexOf(S.vcta) === -1) S.vcta = ctaDef("v", CTAS);
-    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hEditor() + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
+    // 22/11 (Lucas): adelanto a cuenta (se le pagó de más): se descuenta solo de las próximas ferias cerradas
+    var hAd = v.adelanto > 0.5 ? '<div class="pg-card y" style="gap:4px"><b>Adelanto a cuenta: ' + fm(v.adelanto) + '</b><span class="pg-hint" style="margin:0">' + esc(v.adelantoNota || '') + ' · se descuenta solo de la próxima feria que se le deba (ya cerrada).</span></div>' : '';
+    var h = '<h2>👛 ' + esc(v.nombre) + ' · le debemos</h2>' + hEditor() + hAd + hTodoJunto(v) + '<div class="pg-card"><span class="pg-mono pg-big pg-red" style="text-align:center">' + fm(v.saldo) + '</span></div>'
       + '<div class="pg-sub">' + pl(v.ferias.length, "feria sin pagar", "ferias sin pagar") + ' · elegí cuáles le pagás</div>';
     if (v.ferias.length > 1) h += '<button type="button" class="pg-btn2" data-pg="vTodas">' + (todas ? "☐ Desmarcar todas" : "☑ Marcar todas") + '</button>';
     h += v.ferias.map(function(f){ var on = !!S.vsel[clave(f)]; return '<button type="button" class="pg-fe" data-pg="vCk" data-v="' + esc(clave(f)) + '"><span class="pg-ck' + (on ? " on" : "") + '">' + (on ? "✓" : "") + '</span><span class="t">' + esc(feriaNom(f)) + feriaSub(f) + '</span><span class="m">' + fm(f.falta) + '</span></button>'; }).join("");
@@ -3760,7 +3762,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (seguir){ el("homeSeguirTxt").textContent = session.ubicacion || session.feria;
       const faltaCerrar = !session.abriendo && !!lsGet("ci_resumen_" + todayKey() + "|" + session.feria + "|" + (session.ubicacion || ""), null);
       el("homeSeguir").querySelector(".k").textContent = session.abriendo ? "ESTÁS ABRIENDO LA FERIA" : (faltaCerrar ? "⚠ TE FALTA CERRAR LA FERIA" : "ESTÁS COBRANDO");
-      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando ›" : "Seguir cobrando ›"); }
+      el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando ›" : "Seguir cobrando ›");
+      // 22/11 (Lucas: Sofía cerró Saavedra desde su celu y en el de Lucas seguía «Seguir cobrando»): se pregunta a la base si ya se cerró
+      if (!session.abriendo && gs() && !renderHome.mir){ renderHome.mir = 1; const ses = session;
+        google.script.run.withSuccessHandler(function(r){ renderHome.mir = 0;
+          if (r && r.status === "ok" && r.cerrada && session === ses){ lsSet(cerradaKey(), true); guardarSesion(null); renderHome(); showToast((ses.ubicacion || ses.feria) + " ya se cerró ✓"); } })
+          .withFailureHandler(function(){ renderHome.mir = 0; }).getEstadoPuesto(session.feria, session.ubicacion || ""); } }
     // 30/10 (Adri): si salió de la app mientras dejaba lista una feria, al volver retoma ahí (no arranca de cero)
     HOME_PREP = null; el("homeDescartar").hidden = true;
     // 07/11 (Lucas): solo la ve quien la estaba dejando lista (si entra otra persona en el mismo teléfono, no) y se puede descartar

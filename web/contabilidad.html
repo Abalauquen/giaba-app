@@ -1596,6 +1596,30 @@ button.stt.on{border-color:var(--accent);background:var(--accent-soft)}
 .btn,.chip,.tl,.seg3 button,.hb,.kc,.vcol,.sfi,.ibtn,.rp,.mnav button,button.stt{transition:transform .08s ease}
 a.tl,a.btn,a.back{text-decoration:none}
 a.tl{color:inherit}
+.cd-sec{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:800;margin-bottom:4px}
+.cd-n{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:15px;font-weight:900;flex:none}
+.cd-it{border-top:1px solid var(--line);padding-top:10px;margin-top:6px;display:flex;flex-direction:column;gap:8px}
+.cd-ops{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cd-ops .btn{min-height:58px;font-size:15px;flex-direction:column;gap:2px;padding:8px 6px}
+.cd-ops .btn small{font-weight:600;font-size:12px;opacity:.8}
+.cd-res{background:var(--good-soft);border-radius:12px;padding:8px 8px 8px 12px;font-size:15px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cd-res.r{background:var(--red-soft)}
+.cd-res .btn.sm{min-height:42px;font-size:15px;flex:none}
+.cd-nc{background:var(--red-soft);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.cd-nc>b{color:var(--red)}
+.cd-why{background:var(--s2);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--ink-mid);margin-top:8px}
+.cd-fe{border:1.5px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.cd-fe.ok{border-color:transparent;background:var(--good-soft)}
+.cd-fe .rr b{font-size:17px}
+.cd-tot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.cd-tot div{background:var(--s2);border-radius:10px;padding:8px 4px;text-align:center}
+.cd-tot small{display:block;font-size:12px;color:var(--ink-mid);font-weight:700}
+.cd-tot b{font-size:14.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cd-tot .mal{background:var(--red-soft)}.cd-tot .mal b{color:var(--red)}
+.cd-tot .bien{background:var(--good-soft)}.cd-tot .bien b{color:var(--good)}
+.cd-cob{background:var(--s2);border-radius:14px;padding:11px;display:flex;flex-direction:column;gap:8px}
+.cd-pill{font-size:13px;font-weight:800;border-radius:999px;padding:4px 10px;background:var(--red-soft);color:var(--red);white-space:nowrap}
+.cd-pill.ok{background:var(--good-soft);color:var(--good)}
 a.btn{color:var(--ink)}
 /* 02/11 · Conciliación MP (MP Fábrica vs facturas) y sus preguntas */
 .avc{min-height:64px;border-radius:16px;border:2px solid var(--warn);background:var(--warn-soft);color:var(--ink);display:flex;align-items:center;gap:12px;padding:10px 14px;text-align:left;width:100%;font-weight:800;font-size:16px;line-height:1.3}
@@ -2001,7 +2025,7 @@ function salto(s){
   if(s==="fact"){FIL="Todo";SEMSEL=-1;}
   if(s==="ret"){RMES=MES;}
   if(s==="pat"){PATO="";}
-  if(s==="cdia"){CD.sel={};CD.conf=false;CD.res=null;}
+  if(s==="cdia"){CD.sel={};CD.conf=false;CD.res=null;CD.hist=[];CQ.sel={};CQ.real={};}
   if(s==="cmes"){CMES=HOY_MES;CM.conf=false;CM.res=null;}
   ir(s);}
 function mover(d){MES=mesMas(MES,d);SEMSEL=-1;CRO="";PERC_IN=null;ZIP.n=1;ZIP.estado="";ir(CUR);}
@@ -2630,8 +2654,8 @@ function cdSel(x){if(Object.prototype.hasOwnProperty.call(CD.sel,x.id))return CD
 /* lo que hay que mandar: decisiones nuevas (o las marcadas «como la última vez», que todavía no están guardadas) y lo que se factura */
 function cdArmar(r){const dec=[],fac=[];
   (r.pend||[]).forEach(x=>{const s=cdSel(x);
-    if(s!==x.sel||(x.last&&s==="fac"))dec.push({id:x.id,op:s==="desp"||!s?"":s,nom:x.quien,clave:x.clave,monto:x.monto,fs:x.fs});
-    if(s==="fac"&&!(CD.excl&&CD.excl["mp:"+x.id]))fac.push({k:"mp",id:x.id,t:x.hora+" · "+x.tipo+" · "+x.quien,monto:x.monto});});
+    if(s!==x.sel||(x.last&&s==="fac"))dec.push({id:x.id,op:s==="desp"||!s?"":s==="fe"?"fac":s,acl:s==="fe"?"Venta de una feria (no estaba cargada)":"",nom:x.quien,clave:x.clave,monto:x.monto,fs:x.fs});
+    if((s==="fac"||s==="fe")&&!(CD.excl&&CD.excl["mp:"+x.id]))fac.push({k:"mp",id:x.id,t:x.hora+" · "+x.tipo+" · "+x.quien,monto:x.monto});});
   (r.appSin||[]).forEach(x=>{if(!(CD.excl&&CD.excl["app:"+x.ref]))fac.push({k:"app",origen:x.origen,ref:x.ref,t:x.t,monto:x.monto});});
   return {dec:dec,fac:fac,tot:r2(fac.reduce((a,x)=>a+x.monto,0))};}
 function cdSinGuardar(){const r=cdDat();return !!(r&&!r.error&&cdArmar(r).dec.some(d=>{const x=r.pend.find(p=>p.id===d.id);return x&&!x.last;}));}
@@ -2643,73 +2667,120 @@ function cdElegir(v){if(!v)return;const a=v.split("-");const f=a[2]+"/"+a[1]+"/"
 function cdActualizar(){if(CD.busy)return;const k="getCierreDia|"+CDIA+"|1";delete V[k];delete TV[k];t("Bajando lo último de Mercado Pago…");
   /* 21/11 noche: el cierre lo arma la base; bajar lo de MP es aparte (cierreTraerMP, con internet) y después se rearma */
   run("cierreTraerMP",CDIA).then(()=>run("getCierreDia",CDIA)).then(r=>{if(r&&r.status==="ok"){V["getCierreDia|"+CDIA]=r;TV["getCierreDia|"+CDIA]=Date.now();t("✓ Actualizado");repintar();}else t("No se pudo actualizar",true);});}
-function cdOp(id,op){if(CD.busy)return;CD.sel[id]=op;CD.res=null;cdPint();}
+/* 23/11 (Lucas, mockup-cierre-dia-v4 aprobado 00:33): 1 · Para facturar (con nota de crédito) · 2 · Control de ferias, un recuadro por feria.
+   Lo que se contesta queda en el celu hasta tocar un botón; «↶ Deshacer» vuelve atrás la última respuesta. */
+CD.hist=[];
+function cdHist(o,k){CD.hist.push([o,k,Object.prototype.hasOwnProperty.call(o,k)?o[k]:undefined]);}
+function cdDeshacer(){if(CD.busy)return;const h=CD.hist.pop();if(!h)return;if(h[2]===undefined)delete h[0][h[1]];else h[0][h[1]]=h[2];cdPint();t("Deshecho");}
+function cdOp(id,op){if(CD.busy)return;cdHist(CD.sel,id);CD.sel[id]=op;CD.res=null;cdPint();}
+function cqOp(ref,op){if(CD.busy)return;cdHist(CQ.sel,ref);CQ.sel[ref]=op;CQ.res=null;cdPint();}
+const CDTOP=[["fac","Sí, es venta","se factura"],["fe","Venta de una feria","se factura · queda anotada"],["no","No es venta","se resta, no se factura"],["tr","Entre cuentas","pasé plata mía · se resta"]];
+const CDCOP=[["enc","Lo encontré en MP","suma a la comisión"],["mas","No pagaron / de más","nota de crédito · no suma"],["rep","Estaba repetido","nota de crédito del repetido"],["desp","Lo reviso después","queda pendiente"]];
+const fmE=n=>fm(n).replace(/,00$/,"");
+const cdTxt=(L,k)=>{const o=L.find(z=>z[0]===k);return o?o[1]+" · "+o[2]:"";};
+function cdOps(L,fn,id){return `<div class="cd-ops">${L.map(o=>`<button type="button" class="btn y" onclick="${fn}('${jsq(id)}','${o[0]}')">${o[1]}<small>${o[2]}</small></button>`).join("")}</div>`;}
+function cdRes(txt,fn,id,rojo){return `<div class="cd-res${rojo?" r":""}"><span>${esc(txt)}</span><button type="button" class="btn y sm" onclick="${fn}('${jsq(id)}','')">Cambiar</button></div>`;}
+/* qué hay que mandar del control de ferias: notas de crédito / anular (mas, rep), «lo encontré» y «después» */
+function cdCtl(r){const nq=(r.appNoMP||[]).filter(x=>!x.resp||x.resp==="desp");
+  const nc=nq.filter(x=>x.org==="cob"&&(CQ.sel[x.ref]==="mas"||CQ.sel[x.ref]==="rep"));
+  const otras=nq.filter(x=>x.org==="cob"&&(CQ.sel[x.ref]==="enc"||(CQ.sel[x.ref]==="desp"&&x.resp!=="desp")));
+  return {nq:nq,nc:nc,otras:otras,ncTot:r2(nc.filter(x=>x.fac).reduce((a,x)=>a+x.monto,0))};}
 function cdPint(){
   const r=cdDat();
   $("cdFec").value=CDIA.split("/").reverse().join("-");$("cdFec").max=HOY_ISO;
   $("cdTit").innerHTML=`📒 Cierre del día · ${esc(r&&r.dia?r.dia:diaTxt(CDIA))}`;
   if(!r){$("cdBody").innerHTML=est(r);return;}
   if(r.error){$("cdBody").innerHTML=`<div class="card"><div class="card-t">No pude armar el cierre del ${esc(CDIA.slice(0,5))}</div><div class="wrb">${esc(r.error)}. Si dice que falta la clave, pegala en Incidentes › «💳 Mercado Pago».</div><button class="btn sm" style="width:100%" onclick="olvidar(/^getCierreDia/);cdPint()">Probar de nuevo</button></div>`;return;}
-  /* 22/11 (Lucas, mockup-cierre-dia-v3 «la cuenta arriba, lo raro abajo»): entró − facturado = lo que hay que facturar, un solo botón;
-     abajo solo lo que necesita respuesta: la feria donde se cargó de más (sin mirar horarios) y las transferencias de personas */
-  const A2=cdArmar(r), pend=r.pend||[], nq=(r.appNoMP||[]).filter(x=>!x.resp||x.resp==="desp");
+  const A2=cdArmar(r), pend=r.pend||[], K=cdCtl(r), nq=K.nq;
   const trans=pend.filter(x=>!cdSeguro(x)), transSin=trans.filter(x=>{const s=cdSel(x);return !s||s==="desp";});
+  const noVen=r2(pend.filter(x=>{const s=cdSel(x);return s==="no"||s==="tr";}).reduce((a,x)=>a+x.monto,0));
+  const antes=r2(pend.filter(x=>x.sel==="no"||x.sel==="tr").reduce((a,x)=>a+x.monto,0));
+  const entro=r2((r.entro||0)+antes);
   const falta=r2(pend.filter(x=>{const s=cdSel(x);return s!=="no"&&s!=="tr";}).reduce((a,x)=>a+x.monto,0)+(r.appSin||[]).reduce((a,x)=>a+x.monto,0));
-  const sobraTot=r2(nq.filter(x=>x.fac&&CQ.sel[x.ref]!=="rep"&&CQ.sel[x.ref]!=="mon").reduce((a,x)=>a+x.monto,0));
-  const nc=r2(nq.filter(x=>x.fac&&(CQ.sel[x.ref]==="rep"||CQ.sel[x.ref]==="mon")).reduce((a,x)=>a+(CQ.sel[x.ref]==="mon"?x.monto-(CQ.real[x.ref]||0):x.monto),0));
-  const noTr=r2(pend.filter(x=>{const s=cdSel(x);return (s==="no"||s==="tr")&&x.sel!=="no"&&x.sel!=="tr";}).reduce((a,x)=>a+x.monto,0));
   const F=r2(nq.filter(x=>x.fac).reduce((a,x)=>a+x.monto,0));
-  /* entró (sin lo que dijiste que no es venta) · facturado de verdad (lo de MP con factura + lo facturado que no entró) · lo que falta después de las notas de crédito */
-  const entro=r2((r.entro||0)-noTr), facturado=r2((r.entro||0)-falta-noTr+F), dif=r2(entro-facturado+nc);
-  /* ferias con cobros cargados que no entraron a MP (agrupados por la feria, la primera parte de «Plaza Pagano · Adriana · Transferencia») */
-  const FE={},feOrd=[];nq.forEach(x=>{const f=String(x.que||"").split(" · ")[0]||"Otros";if(!FE[f]){FE[f]=[];feOrd.push(f);}FE[f].push(x);});
-  const feSin=feOrd.filter(f=>FE[f].some(x=>!CQ.sel[x.ref]||CQ.sel[x.ref]==="desp"));
-  const ncL=nq.filter(x=>CQ.sel[x.ref]&&CQ.sel[x.ref]!=="desp"&&x.org==="cob");
-  const cerrado=Math.abs(dif)<1&&!transSin.length&&!feSin.length&&!A2.fac.length&&!ncL.length;
-  let h=`<div class="rr" style="font-size:14px;color:var(--ink-mid)"><span>${r.traerError?"⚠ Mercado Pago no contestó · lo guardado":r.mpTrajo?"Mercado Pago al día · "+esc(r.mpTrajo):"Mercado Pago: lo guardado en la base"}</span><button class="btn sm" type="button" style="width:auto" onclick="cdActualizar()">↻ Actualizar</button></div>`;
-  h+=`<div class="card ${cerrado?"ok":dif<0?"wr":"hl"}"><div class="rr"><span>Entró a MP Fábrica</span><b>${fm(entro)}</b></div><div class="rr"><span>Facturado</span><b>${fm(facturado)}</b></div>`
-    +(cerrado?`<div style="font-size:24px;font-weight:800;color:var(--good)">✓ Día cerrado</div>`
-      :feSin.length?`<span class="lbl3" style="margin-top:4px">${dif<0?"Se facturó de más":"Falta facturar"}</span><div style="font-size:26px;font-weight:800">${fm(Math.abs(dif))}</div><div class="note">Primero mirá la feria donde se cargó de más (abajo): cambia la cuenta.</div>`
-      :Math.abs(dif)<1&&nc?`<span class="lbl3" style="margin-top:4px">Falta la nota de crédito</span><div style="font-size:26px;font-weight:800">${fm(nc)}</div>`
-      :`<span class="lbl3" style="margin-top:4px">Falta facturar</span><div style="font-size:26px;font-weight:800">${fm(Math.max(0,dif))}</div>${transSin.length?`<div class="note">De esto, ${fm(transSin.reduce((a,x)=>a+x.monto,0))} son transferencias de personas: contestá abajo si son venta.</div>`:""}`)+`</div>`;
+  const facturado=r2(entro-noVen-falta+F);
+  const sinAclF=r2(nq.filter(x=>x.fac&&(!CQ.sel[x.ref]||CQ.sel[x.ref]==="desp")).reduce((a,x)=>a+x.monto,0));
+  const cuenta=r2(entro-noVen-facturado+K.ncTot);
+  const cerrado=!transSin.length&&!A2.fac.length&&!K.nc.length&&!nq.some(x=>!CQ.sel[x.ref]||CQ.sel[x.ref]==="desp")&&!K.otras.length&&!A2.dec.length;
+  let h=`<div class="rr" style="font-size:14px;color:var(--ink-mid)"><span>${r.traerError?"⚠ Mercado Pago no contestó · lo guardado":r.mpTrajo?"Mercado Pago al día · "+esc(r.mpTrajo):"Mercado Pago: lo guardado en la base"}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn sm" type="button" style="width:100%" ${CD.hist.length&&!CD.busy?"":"disabled"} onclick="cdDeshacer()">↶ Deshacer</button><button class="btn sm" type="button" style="width:100%" onclick="cdActualizar()">↻ Actualizar</button></div>`;
   if(CD.res)h+=CD.res;
   if(CQ.res)h+=CQ.res;
-  if(feOrd.length){h+=`<span class="lbl3" style="margin:6px 2px -2px">Cargado que no entró a MP, por feria</span>`;
-    h+=feOrd.map(f=>{const L=FE[f],t=r2(L.reduce((a,x)=>a+x.monto,0)),ok=!feSin.includes(f);
-      return `<div class="card" id="cdFe_${esc(f).replace(/\W/g,"")}"><div class="rr"><b>${esc(f)}</b><b style="color:${ok?"var(--good)":"var(--warn)"}">${ok?"✓ contestado":"sobra "+fm(t)}</b></div><div class="note">Cobros cargados que no aparecen en MP ese día ni el siguiente (sin mirar el horario).</div>`
-        +L.map(x=>{const s=CQ.sel[x.ref]||(x.resp==="desp"?"desp":""),ok2=x.org==="cob";return `<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px"><div class="rr"><span>${esc(String(x.que||"").split(" · ").slice(1).join(" · "))}${x.hora?" · "+esc(x.hora):""}<small>${x.fac?"facturado "+esc(x.fac):"sin factura"}</small></span><b>${fm(x.monto)}</b></div>`
-          +(ok2?`<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px">${CQOP.map(o=>`<button class="btn sm ${s===o[0]?"y":"ol"}" style="width:100%;font-size:14px" onclick="cqOp('${jsq(x.ref)}','${o[0]}')">${o[1]}</button>`).join("")}</div>${s==="mon"?`<input class="cq-in" inputmode="numeric" placeholder="Monto real que entró" value="${CQ.real[x.ref]||""}" oninput="CQ.real['${jsq(x.ref)}']=Number(this.value.replace(/\D/g,''))||0" onchange="cdPint()">`:""}`:'<div class="note">Es de un pedido: se corrige en Ventas o Mayoristas.</div>')+`</div>`;}).join("")+`</div>`;}).join("");}
-  if(trans.length){h+=`<span class="lbl3" style="margin:6px 2px -2px">¿Estas transferencias son venta?</span>`;
-    h+=trans.map(x=>{const s=cdSel(x);return `<div class="card"><div class="rr"><span>${esc(x.tipo)} · ${esc(x.hora)}<small>${esc(x.quien)}${x.last&&x.sel?" · como la última vez":""}</small></span><b>${fm(x.monto)}</b></div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">${[["fac","Sí, venta"],["no","No es venta"],["tr","Entre cuentas"]].map(o=>`<button class="btn sm ${s===o[0]?"y":"ol"}" style="width:100%;font-size:14px" onclick="cdOp('${jsq(x.id)}','${o[0]}')">${o[1]}</button>`).join("")}</div></div>`;}).join("");}
-  /* el botón: siempre dice qué sigue */
-  if(CD.conf){h+=`<div class="card hl"><div class="card-t"><span>¿Hago esto?</span></div>
-      ${ncL.map(x=>`<div class="rr"><span>${esc(x.que)}<small>${CQ.sel[x.ref]==="rep"?(x.fac?"nota de crédito contra "+esc(x.fac)+" · se anula el cobro":"se anula el cobro"):"se corrige a "+fm(CQ.real[x.ref]||0)+(x.fac?" (nota de crédito y factura nueva)":"")}</small></span><b>${fm(x.monto)}</b></div>`).join("")}
+  /* ---- 1 · Para facturar ---- */
+  h+=`<div class="card${transSin.length?" hl":cerrado?" ok":""}"><div class="cd-sec"><span class="cd-n">1</span>Para facturar</div>
+    <div class="rr"><span>Entró a MP Fábrica</span><b>${fm(entro)}</b></div>
+    ${noVen?`<div class="rr" style="color:var(--good)"><span>No es venta (no se factura)</span><b>− ${fm(noVen)}</b></div>`:""}
+    <div class="rr"><span>Ya facturado</span><b>− ${fm(facturado)}</b></div>
+    ${K.ncTot?`<div class="rr" style="color:var(--red)"><span>Facturado sin cobrar (nota de crédito)</span><b>+ ${fm(K.ncTot)}</b></div>`:""}
+    <div style="height:1px;background:var(--line);margin:4px 0"></div>`;
+  if(cerrado)h+=`<div style="font-size:24px;font-weight:800;color:var(--good)">✓ Día cerrado</div>`;
+  else h+=`<span class="lbl3">${transSin.length?"Falta facturar (provisorio)":"Falta facturar"}</span><div style="font-size:30px;font-weight:800">${fm(A2.tot)}</div>`;
+  if(trans.length){h+=transSin.length?`<span class="lbl3" style="margin-top:6px">Contestá antes de facturar</span>`:"";
+    h+=trans.map(x=>{const s=cdSel(x),ab=!s||s==="desp";return `<div class="cd-it"><div class="rr"><span>${esc(x.tipo)} · ${esc(x.hora)}<small>${esc(x.quien)}${x.last&&x.sel?" · como la última vez":""}</small></span><b>${fm(x.monto)}</b></div>
+      ${ab?`<div class="note">Entró a MP pero nadie la cargó en la app. ¿Qué es?</div>`+cdOps(CDTOP,"cdOp",x.id):cdRes(cdTxt(CDTOP,s),"cdOp",x.id)}</div>`;}).join("");}
+  if(K.nc.length){const conF=K.nc.filter(x=>x.fac),sinF=K.nc.filter(x=>!x.fac);
+    h+=`<div class="cd-nc"><b>${conF.length?"Hay que hacer nota de crédito":"Hay que anular cobros"}</b>
+      <div class="note">${conF.map(x=>"Factura "+esc(x.fac)+" ("+fm(x.monto)+")").join(" y ")}${conF.length?": se facturó pero la plata no entró. Se anula con nota de crédito y se anula el cobro.":""}${sinF.length?(conF.length?" · ":"")+sinF.length+" cobro"+(sinF.length===1?"":"s")+" sin factura: se anula"+(sinF.length===1?"":"n")+".":""}</div>
+      ${CD.conf==="nc"?`<div class="info">La nota de crédito sale con <b>fecha de hoy</b>.</div><div class="row2"><button class="btn" onclick="CD.conf=false;cdPint()">Volver</button><button class="btn y" ${CD.busy?"disabled":""} onclick="cdHacerNC()">${CD.busy?"Haciendo… (no cierres)":"Sí, hacerlo"}</button></div>`
+        :`<button class="btn y" ${CD.busy?"disabled":""} onclick="CD.conf='nc';cdPint()">${conF.length?"Hacer nota de crédito "+fm(K.ncTot):"Anular "+sinF.length+" cobro"+(sinF.length===1?"":"s")}</button>`}</div>`;}
+  if(CD.conf==="fac"){h+=`<div class="card hl" style="margin-top:6px"><div class="card-t"><span>¿Hago esto?</span></div>
       ${A2.fac.map(x=>`<div class="rr"><span>${esc(x.t)}<small>${x.k==="mp"?"Factura B · Consumidor Final · fecha "+esc(CDIA.slice(0,5)):"se reintenta su factura"}</small></span><b>${fm(x.monto)}</b></div>`).join("")}
-      <div class="rr tt big"><span>Se factura</span><b>${fm(A2.tot)}</b></div>${nc?`<div class="rr"><span>Nota de crédito</span><b>${fm(nc)}</b></div>`:""}
+      <div class="rr tt big"><span>Se factura</span><b>${fm(A2.tot)}</b></div>
       <div class="row2"><button class="btn" onclick="CD.conf=false;cdPint()">Volver</button><button class="btn y" id="cdOk" ${CD.busy?"disabled":""} onclick="cdHacerTodo()">${CD.busy?"Haciendo… (no cierres)":"Sí, hacerlo"}</button></div></div>`;}
   else if(!cerrado){
-    if(feSin.length)h+=`<button class="btn y" style="min-height:58px" onclick="document.getElementById('cdFe_${esc(feSin[0]).replace(/\W/g,"")}').scrollIntoView({behavior:'smooth',block:'start'})">Primero revisá ${esc(feSin[0])} ›</button>`;
-    else if(transSin.length)h+=`<button class="btn off" style="min-height:58px" disabled>Contestá ${transSin.length===1?"la transferencia":"las "+transSin.length+" transferencias"} de arriba</button>`;
-    else if(A2.fac.length||ncL.length)h+=`<button class="btn y" style="min-height:60px;font-size:17px" id="facBtn" onclick="CD.conf=true;cdPint()">${A2.fac.length?"Facturar "+fm(A2.tot)+" · B a Consumidor Final":""}${A2.fac.length&&nc?" + ":""}${nc?"nota de crédito "+fm(nc):""}${!A2.fac.length&&!nc?"Guardar lo contestado":""}</button>`;
-    else if(A2.dec.length)h+=`<button class="btn y" style="min-height:56px" id="facBtn" onclick="cdFacturar()">${CD.busy?"Guardando…":"Guardar lo decidido"}</button>`;}
+    if(transSin.length)h+=`<button class="btn off" style="min-height:58px" disabled>Contestá ${transSin.length===1?"la pregunta":"las "+transSin.length+" preguntas"} para facturar</button><div class="note">El número cambia según lo que contestes arriba.</div>`;
+    else if(A2.fac.length)h+=`<button class="btn y" style="min-height:60px;font-size:17px" id="facBtn" onclick="CD.conf='fac';cdPint()">Facturar ${fm(A2.tot)} · Factura B Consumidor Final</button><div class="note">Se factura por la provincia con el IIBB más barato. Los botones los apretás vos.</div>`;
+    else if(A2.dec.length)h+=`<button class="btn y" style="min-height:56px" id="facBtn" onclick="cdFacturar()">${CD.busy?"Guardando…":"Guardar lo contestado"}</button>`;
+    else if(!K.nc.length)h+=`<div class="note">No falta facturar nada.</div>`;}
+  if(!transSin.length&&noVen&&A2.tot>0)h+=`<div class="cd-why">¿Por qué sigue pidiendo facturar? Lo que dijiste que no es venta (${fm(noVen)}) nunca se había facturado, así que solo se resta (no lleva nota de crédito). Quedan <b>${fm(A2.tot)}</b> de otras entradas del día sin factura (abajo, en «Qué hay en lo que falta»).</div>`;
+  if(Math.abs(cuenta-A2.tot)>=1&&sinAclF)h+=`<div class="cd-why">La cuenta de arriba da ${fm(Math.max(0,cuenta))}: la diferencia con ${fm(A2.tot)} son ${fm(sinAclF)} facturados que no aparecen en MP. Aclaralos en el control de ferias (abajo).</div>`;
+  h+=`</div>`;
+  /* ---- 2 · Control de ferias ---- */
+  const por=r.appDigPor||{}, ven=r.appDigVend||{}, FE={}, ord=[];
+  Object.keys(por).filter(k=>k!=="Mayorista"&&!/^Minorista/.test(k)).forEach(k=>{FE[k]=[];ord.push(k);});
+  nq.forEach(x=>{const f=String(x.que||"").split(" · ")[0]||"Otros";if(!FE[f]){FE[f]=[];ord.push(f);}FE[f].push(x);});
+  if(ord.length){h+=`<div class="card"><div class="cd-sec"><span class="cd-n">2</span>Control de ferias</div><div class="note" style="margin-bottom:4px">Se cruzan los cobros digitales de cada vendedora con lo que entró a MP. Lo que no aparece no suma a su comisión hasta que lo aclares.</div>`;
+    ord.sort((a,b)=>(FE[b].length?1:0)-(FE[a].length?1:0)).forEach(f=>{const L=FE[f],vend=ven[f]||String((L[0]&&L[0].que)||"").split(" · ")[1]||"";
+      if(!L.length){h+=`<div class="cd-fe ok"><div class="rr"><span><b>${esc(f)}</b><small>${esc(vend)}</small></span><span class="cd-pill ok">✓ todo coincide</span></div></div>`;return;}
+      const carg=por[f]!=null?por[f]:r2(L.reduce((a,x)=>a+x.monto,0));
+      const abiertos=L.filter(x=>!CQ.sel[x.ref]||CQ.sel[x.ref]==="desp");
+      const sinA=r2(abiertos.reduce((a,x)=>a+x.monto,0)), noEnt=r2(L.filter(x=>CQ.sel[x.ref]!=="enc").reduce((a,x)=>a+x.monto,0));
+      h+=`<div class="cd-fe${abiertos.length?"":" ok"}"><div class="rr"><span><b>${esc(f)}</b><small>${esc(vend)}${vend?" · ":""}cobros que no coinciden</small></span><span class="cd-pill${abiertos.length?"":" ok"}">${abiertos.length?abiertos.length+" sin aclarar":"✓ aclarado"}</span></div>
+        <div class="cd-tot"><div><small>Cargó</small><b>${fmE(carg)}</b></div><div class="${noEnt<carg?"bien":""}"><small>En MP</small><b>${fmE(Math.max(0,r2(carg-noEnt)))}</b></div><div class="${sinA?"mal":"bien"}"><small>Sin aclarar</small><b>${fmE(sinA)}</b></div></div>`;
+      h+=L.map(x=>{const s=CQ.sel[x.ref]||"",ab=!s||(s==="desp"&&x.resp==="desp"&&!Object.prototype.hasOwnProperty.call(CQ.sel,x.ref)),det=String(x.que||"").split(" · ").slice(2).join(" · ")||"Cobro";
+        let c=`<div class="cd-cob"><div class="rr"><span>${esc(det)}${x.hora?" · "+esc(x.hora):""}<small>${x.fac?"Factura "+esc(x.fac):"sin factura"}${x.resp==="desp"&&!s?" · lo ibas a revisar":""}</small></span><b>${fm(x.monto)}</b></div>`;
+        if(x.org!=="cob")return c+`<div class="note">Es de un pedido: se corrige en Ventas o Mayoristas.</div></div>`;
+        if(!s)c+=`<div class="note" style="color:var(--ink)">${esc(vend||"La vendedora")} lo cargó, pero no aparece en MP ni ese día ni el siguiente.</div>`+cdOps(CDCOP,"cqOp",x.ref);
+        else{c+=cdRes(cdTxt(CDCOP,s),"cqOp",x.ref,s==="mas"||s==="rep");
+          if(s==="enc")c+=`<input class="cq-in" inputmode="numeric" placeholder="¿Entró otro monto? Escribilo (si es el mismo, dejalo vacío)" value="${CQ.real[x.ref]||""}" oninput="CQ.real['${jsq(x.ref)}']=Number(this.value.replace(/\D/g,''))||0">`;}
+        return c+`</div>`;}).join("")+`</div>`;});
+    if(K.otras.length)h+=`<button class="btn y" ${CD.busy?"disabled":""} onclick="cdGuardarCtl()">${CD.busy?"Guardando…":"Guardar lo contestado ("+K.otras.length+")"}</button>`;
+    h+=`</div>`;}
   const fold=(t,inner)=>`<details class="card" style="padding:12px 14px"><summary style="cursor:pointer;display:flex;justify-content:space-between;font-weight:700;color:var(--ink-mid)"><span>${t}</span><span>ver ›</span></summary>${inner}</details>`;
-  const enDif=pend.filter(x=>cdSel(x)==="fac").map(x=>`<div class="rr"><span>${esc(x.tipo)} ${esc(x.hora)}<small>${cdSeguro(x)?"venta segura, nadie la cargó":"dijiste venta"}</small></span><b>${fm(x.monto)}</b></div>`).join("")+(r.appSin||[]).map(x=>`<div class="rr"><span>${esc(x.t)}<small>${esc(x.w)}</small></span><b>${fm(x.monto)}</b></div>`).join("");
-  if(enDif)h+=fold("Qué hay en la diferencia",enDif);
+  const enDif=pend.filter(x=>{const s=cdSel(x);return s==="fac"||s==="fe";}).map(x=>`<div class="rr"><span>${esc(x.tipo)} ${esc(x.hora)}<small>${cdSeguro(x)?"venta segura, nadie la cargó":"dijiste venta"}</small></span><b>${fm(x.monto)}</b></div>`).join("")+(r.appSin||[]).map(x=>`<div class="rr"><span>${esc(x.t)}<small>${esc(x.w)}</small></span><b>${fm(x.monto)}</b></div>`).join("");
+  if(enDif)h+=fold("Qué hay en lo que falta facturar",enDif);
   if((r.reg||[]).length)h+=fold("✓ Ya facturado",r.reg.map(g=>`<div class="rr"><span>${esc(g.t)}${g.sub?`<small>${esc(g.sub)}</small>`:""}</span><b>${fm(g.total)}</b></div>`).join(""));
   $("cdBody").innerHTML=h;}
-/* 22/11: un solo «Sí, hacerlo»: primero lo de las ferias (notas de crédito / anular), después la facturación */
-async function cdHacerTodo(){if(CD.busy)return;const r=cdDat();if(!r||r.error)return;CD.busy=true;cdPint();
-  const L=(r.appNoMP||[]).filter(x=>CQ.sel[x.ref]&&x.org==="cob"),ok=[],mal=[];
-  for(const x of L){if(CQ.sel[x.ref]==="mon"&&!(CQ.real[x.ref]>0&&CQ.real[x.ref]<x.monto)){mal.push(esc(x.que)+" · escribí el monto real (menor)");continue;}
-    const q=await run("responderCuadraMP",{ref:x.ref,fecha:CDIA,resp:CQ.sel[x.ref],real:CQ.real[x.ref]||0,confirmar:true});
+/* control de ferias: una respuesta por cobro (la nota de crédito la hace la base, nunca sin «Sí, hacerlo») */
+async function cdCtlMandar(L){const ok=[],mal=[];
+  for(const x of L){const s=CQ.sel[x.ref],re=CQ.real[x.ref]||0;
+    if(s==="enc"&&re&&!(re<x.monto)){mal.push(esc(x.que)+" · el monto que entró tiene que ser menor a "+fm(x.monto));continue;}
+    const q=await run("responderCuadraMP",{ref:x.ref,fecha:CDIA,resp:s,real:s==="enc"?re:0,confirmar:true});
     if(q&&q.status==="ok")ok.push(esc(x.que)+" · "+esc(q.hecho||"listo"));else mal.push(esc(x.que)+" · "+esc((q&&q.msg)||"no se pudo"));}
+  return {ok:ok,mal:mal};}
+function cdCtlRes(o){return o.ok.length||o.mal.length?`<div class="card ${o.mal.length?"wr":"ok"}">${o.ok.map(z=>`<div class="note">✓ ${z}</div>`).join("")}${o.mal.map(z=>`<div class="wrb">${z}</div>`).join("")}</div>`:null;}
+async function cdHacerNC(){if(CD.busy)return;const r=cdDat();if(!r||r.error)return;const K=cdCtl(r);CD.busy=true;cdPint();
+  const o=await cdCtlMandar(K.nc);CD.busy=false;CD.conf=false;K.nc.forEach(x=>{delete CQ.sel[x.ref];});CD.hist=[];
+  CQ.res=cdCtlRes(o);olvidar(/^(getCierre|getConciliacion|getFacturas|getSinFacturar)/);t(o.mal.length?"Hubo problemas: mirá el detalle":"Listo ✓",!!o.mal.length);cdPint();window.scrollTo(0,0);}
+async function cdGuardarCtl(){if(CD.busy)return;const r=cdDat();if(!r||r.error)return;const K=cdCtl(r);CD.busy=true;cdPint();
+  const o=await cdCtlMandar(K.otras);CD.busy=false;K.otras.forEach(x=>{delete CQ.sel[x.ref];delete CQ.real[x.ref];});CD.hist=[];
+  CQ.res=cdCtlRes(o);olvidar(/^(getCierre|getConciliacion)/);t(o.mal.length?"Hubo problemas: mirá el detalle":"Guardado ✓",!!o.mal.length);cdPint();}
+/* «Facturar»: guarda lo contestado de las transferencias y factura (lo de las ferias va con su propio botón) */
+async function cdHacerTodo(){if(CD.busy)return;const r=cdDat();if(!r||r.error)return;CD.busy=true;cdPint();
   const A2=cdArmar(r);let fx=null;
   if(A2.fac.length||A2.dec.length)fx=await run("cierreConfirmar",A2.dec,A2.fac.map(x=>x.k==="mp"?{k:"mp",id:x.id}:{k:"app",origen:x.origen,ref:x.ref}));
-  CD.busy=false;CD.conf=false;CD.sel={};CQ.sel={};CQ.real={};
-  CQ.res=ok.length||mal.length?`<div class="card ${mal.length?"wr":"ok"}">${ok.map(z=>`<div class="note">✓ ${z}</div>`).join("")}${mal.map(z=>`<div class="wrb">${z}</div>`).join("")}</div>`:null;
+  CD.busy=false;CD.conf=false;CD.sel={};CD.hist=[];
   CD.res=fx&&fx.status==="ok"?ciResHtml(fx):(fx?`<div class="wrb">${esc((fx&&fx.msg)||"No se pudo facturar")}</div>`:null);
-  olvidar(/^(getCierre|getConciliacion|getFacturas|getSinFacturar)/);t(mal.length||(fx&&fx.status!=="ok")?"Hubo problemas: mirá el detalle":"Listo ✓",!!mal.length);cdPint();window.scrollTo(0,0);}
+  olvidar(/^(getCierre|getConciliacion|getFacturas|getSinFacturar)/);t(fx&&fx.status!=="ok"?"Hubo problemas: mirá el detalle":"Listo ✓",!!(fx&&fx.status!=="ok"));cdPint();window.scrollTo(0,0);}
 /* «2 · Para facturar»: lo marcado «Venta» + lo registrado sin factura; se puede destildar algo para no facturarlo ahora */
 function cdFacTodos(r){const L=[];
   (r.pend||[]).forEach(x=>{if(cdSel(x)==="fac")L.push({key:"mp:"+x.id,t:x.tipo+" "+x.hora+" · "+x.quien,w:x.last&&x.sel==="fac"?"como la última vez":"la marcaste como venta",monto:x.monto});});
@@ -2717,7 +2788,7 @@ function cdFacTodos(r){const L=[];
   return L;}
 function cdTildar(k){if(CD.busy)return;CD.excl=CD.excl||{};if(CD.excl[k])delete CD.excl[k];else CD.excl[k]=1;CD.conf=false;cdPint();}
 function cdFacturar(){if(CD.busy)return;const r=cdDat();if(!r||r.error)return;const A2=cdArmar(r);
-  if(A2.fac.length){CD.conf=true;cdPint();setTimeout(()=>{const b=$("cdOk");if(b)b.scrollIntoView({block:"center",behavior:"smooth"});},30);return;}
+  if(A2.fac.length){CD.conf="fac";cdPint();setTimeout(()=>{const b=$("cdOk");if(b)b.scrollIntoView({block:"center",behavior:"smooth"});},30);return;}
   if(!A2.dec.length)return;
   CD.busy=true;cdPint();
   run("cierreGuardar",A2.dec).then(x=>{CD.busy=false;

@@ -1169,6 +1169,7 @@ body.v3f .pf .bt{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
 body.v3f .pf .bt button{min-height:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font-weight:800;font-size:16px;padding:4px 8px;cursor:pointer}
 body.v3f .pf .bt .y{border-color:var(--accent);color:var(--accent)}body.v3f .pf .bt .g{border-color:var(--good);color:var(--good)}body.v3f .pf .bt .r{border-color:#ff8a83;color:#ff8a83}
 body.v3f .pf .bt .one{grid-column:1/-1}
+#screen-cierre[data-paso="2"] #ciCerrar{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:6;box-shadow:0 -6px 18px rgba(0,0,0,.45)}
 body.v3f .pf .bt.b3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}body.v3f .pf .bt.b3 button{font-size:15px;padding:4px 6px;line-height:1.15}
 body.v3f .pf .bt .ys{background:var(--accent);border-color:var(--accent);color:#1b1b1c}
 body.v3f .pf .mot{display:flex;flex-wrap:wrap;gap:8px}body.v3f .pf .mot button{min-height:48px;padding:0 14px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);color:var(--ink);font-weight:800;font-size:15px;cursor:pointer}
@@ -2886,7 +2887,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="topbar"><a class="back" id="cerradaBack" aria-label="Menú" data-lbl="Menú"></a><div class="pills"><span class="pill" id="ceP1"></span><span class="pill" id="ceP2"></span></div></div>
   <div class="card" style="align-items:center;text-align:center;gap:10px;padding:22px 16px;border-color:var(--line-2)">
     <span class="lockic" id="icLock"></span>
-    <h1>Caja de hoy cerrada</h1>
+    <h1 id="ceTit">Caja de hoy cerrada</h1>
     <span class="hint" id="ceTxt" style="font-size:13px"></span>
   </div>
   <div class="card" id="ceResumen"></div>
@@ -3757,7 +3758,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const seguir = sesionDeHoy() && !lsGet(cerradaKey(), false);
     el("homeSeguir").hidden = !seguir;
     if (seguir){ el("homeSeguirTxt").textContent = session.ubicacion || session.feria;
-      el("homeSeguir").querySelector(".k").textContent = session.abriendo ? "ESTÁS ABRIENDO LA FERIA" : "ESTÁS COBRANDO";
+      const faltaCerrar = !session.abriendo && !!lsGet("ci_resumen_" + todayKey() + "|" + session.feria + "|" + (session.ubicacion || ""), null);
+      el("homeSeguir").querySelector(".k").textContent = session.abriendo ? "ESTÁS ABRIENDO LA FERIA" : (faltaCerrar ? "⚠ TE FALTA CERRAR LA FERIA" : "ESTÁS COBRANDO");
       el("homeSeguir").querySelector(".go").textContent = session.abriendo ? "Seguir abriendo la feria ›" : (esAdmin() ? "💳 Seguir cobrando ›" : "Seguir cobrando ›"); }
     // 30/10 (Adri): si salió de la app mientras dejaba lista una feria, al volver retoma ahí (no arranca de cero)
     HOME_PREP = null; el("homeDescartar").hidden = true;
@@ -7419,7 +7421,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function ciPaso(n){
     SCREENS.cierre.dataset.paso = n;
     el("ciSteps").innerHTML = pasos3(["Qué volvió", "Efectivo", "Cerrar"], n);
-    el("ciTit").textContent = n === 1 ? "Contá el efectivo" : "¡Buena feria" + (session && session.vendedor ? ", " + session.vendedor.split(" ")[0] : "") + "!";
+    // 22/11 (Lucas: Julieta y Sofía vieron «¡Buena feria!» y creyeron que ya habían cerrado): el paso 2 dice que falta cerrar,
+    // el botón queda fijo abajo y el «¡Buena feria!» va recién en la pantalla de feria cerrada
+    el("ciTit").textContent = n === 1 ? "Contá el efectivo" : "Falta un paso: cerrá la feria";
+    if (n === 2) try { lsSet("ci_resumen_" + todayKey() + "|" + (session ? session.feria + "|" + (session.ubicacion || "") : ""), 1); } catch (e) {}
     el("cierreBack").querySelector("span").textContent = n === 2 ? "Efectivo" : (FS ? "Qué volvió" : "Cobrar");
     window.scrollTo(0, 0); SCREENS.cierre.scrollTop = 0;
   }
@@ -7549,6 +7554,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
   function mostrarCerrada(){
     el("ceP1").textContent = session.vendedor; el("ceP2").textContent = session.feria;
+    el("ceTit").textContent = "✓ Feria cerrada · ¡Buena feria" + (session && session.vendedor ? ", " + session.vendedor.split(" ")[0] : "") + "!";
     const c = estadoSrv && estadoSrv.cierre;
     el("ceTxt").textContent = (c ? "Cerrada a las " + c.hora + " por " + c.cerro + ". " : "") + (LOCAL ? "Ya no se pueden cargar cobros ni movimientos de caja hoy." : "Si viene alguien a comprar, usá «Sumar un cobro después del cierre».");
     el("ceResumen").innerHTML = estadoSrv ? htmlResumen(estadoSrv, "Cierre · " + session.feria) : '<div class="empty">Cargando…</div>';

@@ -742,6 +742,21 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:24px;font-weight:800;line
 .seg div.on{background:var(--ink);color:var(--bg)}
 .seg div.on-out{background:var(--terra);color:#fff}
 .seg div.on-in{background:var(--good-soft);color:var(--good)}
+/* 23/11 historial del Local */
+.lh-r{display:grid!important;grid-template-columns:repeat(3,1fr);margin-bottom:10px}
+.lh-r .chip{justify-content:center;height:42px;font-size:14px}
+.lh-r .chip.on{background:var(--accent);color:var(--accent-ink,#111);border-color:var(--accent)}
+.lh-big{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+#lhBody{display:flex;flex-direction:column;gap:8px}
+.lh-dia,.lh-cob{background:var(--surface);border-radius:16px;padding:12px 14px;cursor:pointer}
+.lh-dia{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.lh-dia small{display:block;color:var(--ink-mid);font-size:13px;margin-top:2px}
+.lh-r2{display:flex;align-items:center;gap:8px}.lh-r2 b{font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lh-ch{color:var(--accent);font-weight:900;font-size:18px}
+.lh-cob{display:flex;flex-direction:column;gap:5px}.lh-cob.an{opacity:.5}
+.lh-h{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.lh-h b:last-child{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:16px}
+.lh-it{display:flex;justify-content:space-between;gap:8px;font-size:14px;color:var(--ink-mid)}.lh-it span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.lh-med{display:flex;flex-wrap:wrap;gap:6px}.lh-med span{background:var(--surface-2,rgba(127,127,127,.15));border-radius:99px;padding:4px 10px;font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{height:36px;padding:0 12px;background:var(--surface);border:1.5px solid var(--line);border-radius:99px;color:var(--ink-mid);font-weight:700;font-size:13px;display:flex;align-items:center;cursor:pointer}
 #misRango[hidden]{display:none!important}
@@ -2779,7 +2794,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <span class="undo-info" id="undoInfo"></span><span id="undoFact"></span>
     <span class="undo-btn" id="undoBtn"></span>
   </div>
-  <div class="qa3" id="qaRow"><div id="qaPed" role="button"><span class="i">📦</span>Pedidos<span class="bdg" id="qaPedN" hidden></span></div><div id="qaCaja" role="button"><span class="i">💵</span>Caja</div><div id="qaStock" role="button"><span class="i">🫙</span>Stock</div></div>
+  <div class="qa3" id="qaRow"><div id="qaPed" role="button"><span class="i">📦</span>Pedidos<span class="bdg" id="qaPedN" hidden></span></div><div id="qaCaja" role="button"><span class="i">💵</span>Caja</div><div id="qaStock" role="button"><span class="i">🫙</span>Stock</div><div id="qaLHist" role="button" hidden><span class="i">📜</span>Historial</div></div>
   <div class="btn-red-o" id="cerrarBtn"></div>
   <div class="local-note" id="localNote" hidden>🔒 La caja del local se cierra sola a las 00:00</div>
 </div>
@@ -2848,6 +2863,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 </div>
 
 <!-- Historial de hoy -->
+<!-- 23/11 (Lucas, mockup-historial-local aprobado 13:03): historial del Local por día → cobro → productos -->
+<div id="screen-lh" class="screen" hidden>
+  <div class="topbar"><button class="back" id="lhBack" data-lbl="Volver" aria-label="Volver"></button><div class="pills"><span class="pill" id="lhPill">Historial del Local</span></div></div>
+  <div id="lhBody"><div class="empty">Cargando…</div></div>
+</div>
 <div id="screen-hist" class="screen" hidden>
   <div class="topbar"><button class="back" id="histBack" data-lbl="Cobrar" aria-label="Volver"></button><div class="pills"><span class="pill" id="histPill"></span></div></div>
   <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px"><h1>Cobros de hoy</h1><span class="label" id="histTotal"></span></div>
@@ -3422,7 +3442,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
   const SCREENS = { home: el("screen-home"), config: el("config"), pin: el("screen-pin"), loop: el("loop"), "ir-menu": el("screen-ir-menu"),
     caja: el("screen-caja"), ped: el("screen-ped"), hist: el("screen-hist"), cierre: el("screen-cierre"), apertura: el("screen-apertura"), cerrada: el("screen-cerrada"), llevo: el("screen-llevo"), volvio: el("screen-volvio"), lprod: el("screen-lprod"), post: el("screen-post"), mis: el("screen-mis"), det: el("screen-det"), cs: el("screen-cs"), anal: el("screen-anal"), cal: el("screen-cal"), calf: el("screen-calf"), calq: el("screen-calq"),
-    cta: el("screen-cta"), cn: el("screen-cn"), cnd: el("screen-cnd"), cnb: el("screen-cnb"), cns: el("screen-cns"), cnr: el("screen-cnr"), cni: el("screen-cni"), cnp: el("screen-cnp"), cnk: el("screen-cnk"), cnc: el("screen-cnc"), pgc: el("screen-pgc") };
+    cta: el("screen-cta"), cn: el("screen-cn"), cnd: el("screen-cnd"), cnb: el("screen-cnb"), cns: el("screen-cns"), cnr: el("screen-cnr"), cni: el("screen-cni"), cnp: el("screen-cnp"), cnk: el("screen-cnk"), cnc: el("screen-cnc"), pgc: el("screen-pgc"), lh: el("screen-lh") };
   function showScreen(which){ Object.keys(SCREENS).forEach(function(k){ SCREENS[k].hidden = (k!==which); }); window.scrollTo(0,0); SCREENS[which].scrollTop = 0; rcPill(); if (which === "loop"){ tecladoAlto.hecho = false; tecladoAlto.t0 = Date.now(); setTimeout(tecladoAlto, 0); } }
   // 22/11 (Lucas, foto de Sofía): Pedidos · Caja · Stock son secundarios: el teclado crece hasta que «Cobrar» queda al fondo de la pantalla
   // y esa fila queda abajo (se llega bajando). Se calcula al abrir y al girar / cambiar el tamaño; deja lugar para el renglón de QR o factura.
@@ -5705,7 +5725,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("cerrarBtn").hidden = LOCAL;
     el("localNote").hidden = !LOCAL;
     el("pillStock").hidden = true;
-    el("qaPed").hidden = el("qaStock").hidden = LOCAL; el("qaRow").style.gridTemplateColumns = LOCAL ? "1fr" : "";
+    el("qaPed").hidden = el("qaStock").hidden = LOCAL; el("qaLHist").hidden = !LOCAL; el("qaRow").style.gridTemplateColumns = LOCAL ? "1fr 1fr" : "";
     if (!LOCAL) cargarPedidosHoy();
     el("lpSel").hidden = !LOCAL; pintarLpSel();
     pintarRap();
@@ -5769,6 +5789,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     pintarFam();
   }
   el("qaCaja").addEventListener("click", function(){ abrirCaja(null); });
+  el("qaLHist").addEventListener("click", function(){ LH.rango = LH.rango || "30"; LH.dia = null; abrirLH(); });
+  el("lhBack").addEventListener("click", function(){ if (LH.dia){ LH.dia = null; pintarLH(); } else abrirLoop(); });
   // ---- 28/10 (mockup): menú de la caja: cuánto tiene que haber, qué pasó con la plata y lo de hoy (con Anular) ----
   function cjMenu(){
     el("cajaPill1").textContent = session.vendedor; el("cajaPill2").textContent = session.ubicacion || session.feria;
@@ -6819,6 +6841,45 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
   // ---- historial de hoy ----
   let histItems = [], histFiltro = "Todos";
+  /* ---- Historial del Local (23/11) ---- */
+  const LH = { rango: "30", dia: null, data: null, cargando: false };
+  function abrirLH(){
+    showScreen("lh"); LH.data = null; pintarLH();
+    if (!gs()){ el("lhBody").innerHTML = '<div class="empty">Sin señal: probá de nuevo en un ratito.</div>'; return; }
+    const a = auth() || {}, r0 = LH.rango; LH.cargando = true;
+    google.script.run.withSuccessHandler(function(r){ LH.cargando = false; if (r0 !== LH.rango) return; LH.data = r && r.status === "ok" ? r : { error: (r && r.msg) || "No se pudo leer" }; pintarLH(); })
+      .withFailureHandler(function(e){ LH.cargando = false; LH.data = { error: (e && e.message) || "No se pudo leer" }; pintarLH(); })
+      .getHistorialLocal(a.nombre, a.pin, LH.rango);
+  }
+  function lhFm(n){ return n == null ? "" : formatMoney(n); }
+  function lhDiaTxt(f){ const p = String(f).split("/"), d = new Date(+p[2], +p[1] - 1, +p[0]); return ["dom","lun","mar","mié","jue","vie","sáb"][d.getDay()] + " " + p[0] + "/" + p[1]; }
+  function pintarLH(){
+    const b = el("lhBody"), D = LH.data;
+    el("lhPill").textContent = LH.dia ? "Local · " + lhDiaTxt(LH.dia) : "Historial del Local";
+    el("lhBack").dataset.lbl = LH.dia ? "Días" : "Cobrar";
+    if (!D){ b.innerHTML = '<div class="chips lh-r">' + lhChips() + '</div><div class="empty">Cargando…</div>'; lhBindChips(); return; }
+    if (D.error){ b.innerHTML = '<div class="empty">' + esc(D.error) + '</div><div class="btn2" id="lhRe">Probar de nuevo</div>'; el("lhRe").onclick = abrirLH; return; }
+    if (!LH.dia){
+      const tot = D.dias.reduce(function(a, d){ return a + (d.total || 0); }, 0), n = D.dias.reduce(function(a, d){ return a + d.n; }, 0);
+      b.innerHTML = '<div class="chips lh-r">' + lhChips() + '</div>'
+        + '<div class="card" style="gap:4px"><span class="label">' + (LH.rango === "todo" ? "Todo" : "Últimos " + LH.rango + " días") + '</span>' + (D.plata ? '<div class="lh-big">' + lhFm(tot) + '</div>' : '') + '<span class="hint">' + n + ' cobro' + (n === 1 ? "" : "s") + ' · ' + D.dias.length + ' día' + (D.dias.length === 1 ? "" : "s") + ' con ventas</span></div>'
+        + (D.dias.length ? D.dias.map(function(d){ return '<div class="lh-dia" role="button" data-d="' + esc(d.fecha) + '"><span><b>' + lhDiaTxt(d.fecha) + '</b><small>' + d.n + ' cobro' + (d.n === 1 ? "" : "s") + ' · ' + esc(d.quien.join(", ")) + '</small></span><span class="lh-r2">' + (D.plata ? '<b>' + lhFm(d.total) + '</b>' : '') + '<span class="lh-ch">›</span></span></div>'; }).join("") : '<div class="empty">No hay ventas del Local en estos días.</div>');
+      lhBindChips();
+      b.querySelectorAll("[data-d]").forEach(function(x){ x.addEventListener("click", function(){ LH.dia = x.dataset.d; pintarLH(); window.scrollTo(0, 0); }); });
+      return;
+    }
+    const d = D.dias.filter(function(x){ return x.fecha === LH.dia; })[0];
+    if (!d){ LH.dia = null; pintarLH(); return; }
+    b.innerHTML = '<div class="card" style="gap:6px"><div class="lh-h"><span><b>' + lhDiaTxt(d.fecha) + '</b> · ' + d.n + ' cobro' + (d.n === 1 ? "" : "s") + '</span>' + (D.plata ? '<b>' + lhFm(d.total) + '</b>' : '') + '</div>'
+      + (D.plata ? '<div class="lh-med">' + Object.keys(d.medios).map(function(m){ return '<span>' + esc(m) + ' ' + lhFm(d.medios[m]) + '</span>'; }).join("") + '</div>' : '') + '</div>'
+      + d.cobros.map(function(c, i){ return '<div class="lh-cob' + (c.anulado ? ' an' : '') + '" role="button" data-c="' + i + '"><div class="lh-h"><span><b>' + esc(c.hora) + '</b> · ' + esc(c.vendedor) + ' · ' + esc(c.medio) + '</span><b>' + (c.anulado ? 'Anulado' : lhFm(c.monto)) + '</b></div>'
+        + (c.prods.length ? c.prods.map(function(p){ return '<div class="lh-it"><span>' + p.cant + ' × ' + esc(p.nombre) + '</span><span>' + (D.plata && !c.anulado && p.precio != null ? lhFm(Math.round(p.precio * p.cant * 100) / 100) : '') + '</span></div>'; }).join("") : '<div class="lh-it"><span>Sin productos cargados</span><span></span></div>') + '</div>'; }).join("")
+      + (D.plata ? '<div class="hint">El precio de cada producto es su parte del total, repartido según el costo de cada presentación. Tocá un cobro para corregirlo o anularlo.</div>' : '<div class="hint">Tocá un cobro para ver qué se llevó.</div>');
+    b.querySelectorAll("[data-c]").forEach(function(x){ x.addEventListener("click", function(){ const c = d.cobros[+x.dataset.c];
+      abrirMov(c, { admin: esAdmin(), fecha: d.fecha, feria: FERIA_LOCAL, ubicacion: "" }, function(){ abrirLH(); }); }); });
+  }
+  function lhChips(){ return [["7","7 días"],["30","30 días"],["todo","Todo"]].map(function(o){ return '<div class="chip' + (LH.rango === o[0] ? ' on' : '') + '" data-r="' + o[0] + '">' + o[1] + '</div>'; }).join(""); }
+  function lhBindChips(){ el("lhBody").querySelectorAll("[data-r]").forEach(function(x){ x.addEventListener("click", function(){ if (LH.rango === x.dataset.r) return; LH.rango = x.dataset.r; LH.dia = null; abrirLH(); }); }); }
   function abrirHistorial(){
     el("histPill").textContent = session.feria + (session.ubicacion ? " · " + session.ubicacion : "");
     histFiltro = "Todos";

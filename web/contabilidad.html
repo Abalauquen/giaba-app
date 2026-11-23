@@ -2674,8 +2674,8 @@ function cdHist(o,k){CD.hist.push([o,k,Object.prototype.hasOwnProperty.call(o,k)
 function cdDeshacer(){if(CD.busy)return;const h=CD.hist.pop();if(!h)return;if(h[2]===undefined)delete h[0][h[1]];else h[0][h[1]]=h[2];cdPint();t("Deshecho");}
 function cdOp(id,op){if(CD.busy)return;cdHist(CD.sel,id);CD.sel[id]=op;CD.res=null;cdPint();}
 function cqOp(ref,op){if(CD.busy)return;cdHist(CQ.sel,ref);CQ.sel[ref]=op;CQ.res=null;cdPint();}
-const CDTOP=[["fac","Sí, es venta","se factura"],["fe","Venta de una feria","se factura · queda anotada"],["no","No es venta","se resta, no se factura"],["tr","Entre cuentas","pasé plata mía · se resta"]];
-const CDCOP=[["enc","Lo encontré en MP","suma a la comisión"],["mas","No pagaron / de más","nota de crédito · no suma"],["rep","Estaba repetido","nota de crédito del repetido"],["desp","Lo reviso después","queda pendiente"]];
+const CDTOP=[["fac","Sí, es venta","se factura"],["fe","Venta de feria","no sé cuál · se factura"],["no","No es venta","se resta, no se factura"],["tr","Entre cuentas","pasé plata mía · se resta"]];
+const CDCOP=[["enc","Lo encontré en MP","suma a la comisión"],["mas","No entró la plata","se anula · no suma a la comisión"],["rep","Estaba repetido","se anula el repetido · no suma"],["desp","Lo reviso después","queda pendiente"]];
 const fmE=n=>fm(n).replace(/,00$/,"");
 const cdTxt=(L,k)=>{const o=L.find(z=>z[0]===k);return o?o[1]+" · "+o[2]:"";};
 function cdOps(L,fn,id){return `<div class="cd-ops">${L.map(o=>`<button type="button" class="btn y" onclick="${fn}('${jsq(id)}','${o[0]}')">${o[1]}<small>${o[2]}</small></button>`).join("")}</div>`;}

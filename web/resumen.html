@@ -225,7 +225,12 @@
   function porRuntime(n, args, cb, intento) {
     // 22/11 (Julieta en Alberti: le llegó el stock vacío): con la base como dueña, Google tiene la copia atrasada.
     // Si la base tarda o se corta, se le pregunta una vez más (con más tiempo) antes de ir a Google.
-    var cb0 = cb; cb = function (x, reintentar) { if (reintentar && !intento && RTL && RTL.todo) return porRuntime(n, args, cb0, 1); cb0(x); };
+    // 22/11 23:55 (Lucas: «sí», cortar el respaldo): si tampoco sale la segunda vez, ya no se va a Google (copia atrasada):
+    // la pantalla avisa «no se pudo leer» y la falla queda anotada en la base (rt_fallas) para arreglarla.
+    var cb0 = cb, tIni = Date.now(); cb = function (x, reintentar) { if (reintentar && !intento && RTL && RTL.todo) return porRuntime(n, args, cb0, 1);
+      var duro = !!(reintentar && RTL && RTL.todo && RTL.fns && RTL.fns[n]);
+      if (duro && intento) rtFallaAnotar(n, "no contestó a tiempo", Date.now() - tIni);
+      cb0(x, duro); };
     if (Date.now() < (RT_NO[n] || 0)) return cb(null);
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
@@ -245,6 +250,10 @@
           cb(null, !(j && (j.status === "token" || /todavía no|apagado|lista/.test(String(j.motivo || "")))));
         }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null, true); });
     });
+  }
+  function rtFallaAnotar(n, mot, ms) {
+    try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
@@ -320,7 +329,8 @@
               // 19/11 · GIABA sin Google: antes de esperar a Google, la base arma la pantalla con el mismo código (giaba-run).
               // Si no puede (no está en la lista, hay guardados pasando o la copia está atrasada), va por Google como siempre.
               clearTimeout(tope);
-              return porRuntime(n, args, function (x) {
+              return porRuntime(n, args, function (x, duro) {
+                if ((x === null || x === undefined) && duro) { var e = new Error("No se pudo leer de la base. Probá de nuevo en un ratito."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
                 if (x === null || x === undefined) return porGoogle();
                 try { window.__apRuntime = (window.__apRuntime || 0) + 1; } catch (e) {}
                 recordar(kM, x); if (ok) ok(x, uo);

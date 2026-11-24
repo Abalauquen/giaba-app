@@ -1262,7 +1262,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 1) feedback al toque
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
-    if (t.classList.contains('gb-busy')) { e.stopPropagation(); e.preventDefault(); return; }   // ya está trabajando: no dos veces
+    if (t.classList.contains('gb-busy')) {   // ya está trabajando: no dos veces
+      // 24/11 (Lucas, Mayoristas: «no me deja tocar»): nunca callado. Avisa que está trabajando; si pasaron 15 s, lo destraba y deja pasar el toque.
+      var desde = +(t.getAttribute('data-gb-desde') || 0);
+      if (desde && Date.now() - desde > 15000) { t.classList.remove('gb-busy'); t.removeAttribute('aria-busy'); t.removeAttribute('data-gb-desde'); }
+      else { var c0 = cartel(); c0.textContent = 'Está trabajando… esperá un toque'; c0.classList.add('on'); clearTimeout(c0._t); c0._t = setTimeout(function () { if (!PEND) c0.classList.remove('on'); }, 2500); e.stopPropagation(); e.preventDefault(); return; }
+    }
     ULT = { el: t, t: Date.now() };
     t.classList.add('gb-toc'); setTimeout(function () { t.classList.remove('gb-toc'); }, 220);
   }, true);
@@ -1270,12 +1275,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function enLogin() { var ids = ['screen-quien', 'screen-pin', 'screen-login', 's-login', 's-pin']; for (var i = 0; i < ids.length; i++) { var x = document.getElementById(ids[i]); if (x && x.offsetParent !== null && getComputedStyle(x).display !== 'none' && !x.hidden) return true; } return false; }
   function empezar(el) {
     PEND++;
-    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
+    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); el.setAttribute('data-gb-desde', String(Date.now())); }
     if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var ra = document.getElementById('rcAct'); if (ra && !ra.hidden) return; /* 22/11 (Lucas: dos «cargando» a la vez): si arriba ya dice «↻ actualizando…», no se suma el cartel de abajo */ var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
   }
   function terminar(el) {
     PEND = Math.max(0, PEND - 1);
-    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); }
+    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); el.removeAttribute('data-gb-desde'); }
     if (!PEND) { clearTimeout(TBAR); var b = document.getElementById('gbBarra'); if (b) b.classList.remove('on'); var c = document.getElementById('gbCartel'); if (c) c.classList.remove('on'); }
   }
   // 2) engancharse a google.script.run (sin cambiar cómo lo usan las pantallas)
@@ -2089,11 +2094,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("cnArca").addEventListener("click", buscarCuit);
   el("cnCuit").addEventListener("input", function(){ const c = el("cnCuit").value.replace(/\D/g, ""); if (c.length === 11 && c !== CN.consultado) buscarCuit(); });
   el("cnBack").addEventListener("click", function(){ pintarSeguir(); show("cli"); });
-  let guardandoCli = false;
+  let guardandoCli = false, guardandoCliT = 0;
   el("cnOk").addEventListener("click", function(){
-    if (el("cnOk").classList.contains("off") && !guardandoCli){ faltaAca("cnNombre", "Falta el nombre del cliente"); el("cnNombre").focus(); return; }
-    if (el("cnOk").classList.contains("off") || guardandoCli) return;
-    guardandoCli = true; el("cnOk").textContent = "Guardando…";
+    // 24/11 (Lucas, video: «no me deja tocar»): nunca se queda callado. Si hay un guardado en camino lo dice; si pasaron 25 s, se puede tocar de nuevo.
+    if (guardandoCli && Date.now() - guardandoCliT > 25000) guardandoCli = false;
+    if (guardandoCli){ toast("Guardando el cliente… esperá un toque", true); el("cnOk").textContent = "Guardando…"; return; }
+    if (el("cnOk").classList.contains("off")){ faltaAca("cnNombre", "Falta el nombre del cliente"); el("cnNombre").focus(); return; }
+    if (buscandoCuit){ toast("Esperá que termine de buscar el CUIT", true); return; }
+    guardandoCli = true; guardandoCliT = Date.now(); el("cnOk").textContent = "Guardando…";
     run("guardarClienteVM", { id: CN.id || undefined, nombre: el("cnNombre").value.trim(), cuit: el("cnCuit").value.trim(), tel: el("cnTel").value.trim(), email: el("cnMail").value.trim(), iva: CN.iva, tipo: CN.tipo, zona: CN.zona,
       direccion: el("cnDir").value.trim(), notaEntrega: el("cnNotaEnt").value.trim(),
       provincia: el("cnProv").value, localidad: el("cnLoc").value.trim(), cp: el("cnCp").value.trim(), domFiscal: el("cnDomF").value.trim(), arca: CN.arca || "" }).then(function(r){

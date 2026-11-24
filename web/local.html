@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -2410,6 +2410,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <!-- 28/10 (Lucas): arriba lo que carga al toque (los botones); abajo lo que llega del servidor, así nada se corre -->
   <button class="hoy3" id="homeHoy" type="button" hidden><span class="k" id="hoyK"></span><b id="hoyLugar"></b><span id="hoySub"></span><span id="hoyPed" hidden></span><span class="go">Arrancar la feria ›</span></button>
   <button class="hoy3" id="homeSeguir" type="button" hidden><span class="k">ESTÁS COBRANDO</span><b id="homeSeguirTxt"></b><span class="go">Seguir cobrando ›</span></button>
+  <div id="homeAut" hidden style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
   <button type="button" class="btn2" id="homeDescartar" hidden style="min-height:48px;font-size:15px;margin-top:-6px">✕ Descartar · ya no la estoy dejando lista</button>
   <div class="btn2" id="homeCerrada" hidden>🔒 Ya cerraste <span id="homeCerradaTxt"></span> · Sumar un cobro ›</div>
   <!-- 15/11 (mockup-ferias-inicio-cuadrados.html, aprobado): todo en cuadrados de a dos, como en Compras -->
@@ -3557,8 +3558,25 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function guardarSesion(s){ session = ubicNorm(s); lsSet(SESSION_KEY, s); }
 
   // ---- inicio de ferias ----
+  function pintarAutPedidos(){
+    const box = el("homeAut"); if (!box) return;
+    if (!esAdmin() || !gs()){ box.hidden = true; return; }
+    const a = auth();
+    google.script.run.withSuccessHandler(function(r){
+      const L = (r && r.status === "ok" && r.lista) || [];
+      box.hidden = !L.length;
+      box.innerHTML = L.map(function(x){ return '<div class="card" style="border:1.5px solid var(--accent);gap:8px"><b>🔒 ' + esc(x.quien) + ' pide entrar a ' + esc(x.ubic || x.feria) + '</b><span class="hint">' + esc(x.hora) + (x.suya ? ' · su feria de hoy es ' + esc(x.suya) : ' · hoy no tiene feria asignada') + '</span>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="btn2" data-autno="' + esc(x.id) + '">No</button><button class="btn" style="background:var(--accent);color:var(--accent-ink,#111);border-color:var(--accent)" data-autsi="' + esc(x.id) + '">Autorizar</button></div></div>'; }).join("");
+      box.querySelectorAll("[data-autsi],[data-autno]").forEach(function(btn){ btn.addEventListener("click", function(){
+        const si = !!btn.dataset.autsi, id = btn.dataset.autsi || btn.dataset.autno; btn.disabled = true;
+        google.script.run.withSuccessHandler(function(q){ showToast(q && q.status === "ok" ? (si ? "Autorizado ✓ · ya puede entrar" : "Listo: no se autorizó") : "No se pudo guardar", !(q && q.status === "ok")); pintarAutPedidos(); })
+          .withFailureHandler(function(){ btn.disabled = false; showToast("Sin señal · probá de nuevo", true); }).responderAutorizacionFeria(a.nombre, a.pin, id, si);
+      }); });
+    }).getAutorizacionesFeria(a.nombre, a.pin);
+  }
   function renderHome(){
     const a = auth();
+    try { pintarAutPedidos(); } catch (e) {}
     el("homePill").textContent = a ? a.nombre : "";
     const seguir = sesionDeHoy() && !lsGet(cerradaKey(), false);
     el("homeSeguir").hidden = !seguir;
@@ -3870,6 +3888,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 22/11 (Lucas): abrir una feria de hoy que quedó lista (para otra vendedora o para vos) sin repetir la caja ni el stock
   function empezarListaHoy(x, b){
     const a = auth(); if (!a || !x) return;
+    if (!miFeriaHoy(x.feria, x.ubicacion).ok){ pedirAutFeria(x.feria, x.ubicacion, function(){ empezarListaHoy(x, b); }, null); return; }
     if (!gs()){ showToast("Sin señal", true); return; }
     b.disabled = true; b.textContent = "Abriendo…";
     let ini = null, st = null, listo = false;
@@ -4409,7 +4428,56 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!s || feriasPorZona(wizardAnswers.zona).indexOf(s.feria) === -1) return null;
     return s;
   }
+  /* 23/11 (Lucas 22:11): una vendedora solo entra a SU feria de hoy (según el calendario). Para cualquier otra pide autorización
+     y le llega el aviso a Lucas. Lucas y Adriana entran a todas. Si el celu todavía no tiene el calendario, no se frena. */
+  const normN = function(t){ return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); };
+  function autOkKey(feria, ubic){ return "aut_ok_" + todayKey() + "|" + feria + "|" + (ubic || ""); }
+  function miFeriaHoy(feria, ubic){
+    if (esAdmin() || LOCAL || PREP) return { ok: true };
+    if (lsGet(autOkKey(feria, ubic), false)) return { ok: true };
+    const c = lsGet(calKey(), null); if (!c || !c.ferias) return { ok: true, sinCal: true };
+    const hoy = fStr(new Date()), yo = normN((auth() || {}).nombre).slice(0, 4);
+    const L = c.ferias.filter(function(x){ return x.fecha === hoy && x.estado !== "Suspendida"; });
+    const esMia = function(x){ return normN(x.vend).split(/[^a-z]+/).some(function(w){ return w && w.slice(0, 4) === yo; }); };
+    const mias = L.filter(esMia);
+    const igual = function(x){ return ubic ? normN(x.ubic) === normN(ubic) : (!x.feria || x.feria === feria); };
+    if (mias.some(igual)) return { ok: true };
+    return { ok: false, suya: mias.length ? (mias[0].ubic || mias[0].feria || "") : "" };
+  }
+  function pedirAutFeria(feria, ubic, seguir, volver){
+    const P = miFeriaHoy(feria, ubic); if (P.ok){ seguir(); return; }
+    const a = auth() || {}, lugar = ubic || feria;
+    const ov = document.createElement("div"); ov.id = "ovAutFer";
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:flex-end;justify-content:center";
+    const caja = '<div style="background:var(--bg);border-radius:22px 22px 0 0;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">';
+    let timer = null;
+    const cerrar = function(){ if (timer) clearInterval(timer); ov.remove(); };
+    const pintar = function(est, msg){
+      ov.innerHTML = caja + '<b style="font-size:20px">' + (est === "esp" ? "⏳ Esperando a Lucas" : est === "no" ? "Lucas no lo autorizó" : "🔒 No tenés autorización") + '</b>'
+        + '<span class="hint" style="font-size:15px">' + (msg || ("Solo podés entrar a tu feria de hoy" + (P.suya ? ": <b>" + esc(P.suya) + "</b>" : "") + ". Para entrar a <b>" + esc(lugar) + "</b> pedile autorización a Lucas.")) + '</span>'
+        + (est === "pedir" ? '<button class="btn" id="autPedir" style="background:var(--accent);color:var(--accent-ink,#111);border-color:var(--accent)">Pedir autorización</button>' : "")
+        + '<button class="btn2" id="autVolver">' + (est === "esp" ? "Cancelar y volver" : "Volver") + '</button></div>';
+      el("autVolver").onclick = function(){ cerrar(); if (volver) volver(); };
+      if (el("autPedir")) el("autPedir").onclick = function(){
+        if (!gs()){ pintar("pedir", "Sin señal: no se puede pedir la autorización ahora. Volvé a tu feria" + (P.suya ? " (" + esc(P.suya) + ")" : "") + "."); return; }
+        pintar("esp", "Le avisamos a Lucas. Apenas lo autorice, entrás solo: no cierres esta pantalla.");
+        google.script.run.withSuccessHandler(function(r){
+          if (!r || r.status !== "ok"){ pintar("pedir", "No se pudo mandar el pedido. Probá de nuevo."); return; }
+          const id = r.id;
+          const mirar = function(){ google.script.run.withSuccessHandler(function(q){
+            if (!q || q.status !== "ok" || q.estado === "pendiente") return;
+            if (q.estado === "ok"){ lsSet(autOkKey(feria, ubic), true); cerrar(); showToast("Lucas te autorizó ✓"); seguir(); }
+            else { if (timer) clearInterval(timer); timer = null; pintar("no", "Lucas no autorizó la entrada a " + esc(lugar) + ". Volvé a tu feria" + (P.suya ? " (" + esc(P.suya) + ")" : "") + "."); }
+          }).getAutorizacionFeria(a.nombre, a.pin, id); };
+          timer = setInterval(mirar, 8000); if (r.estado === "ok") mirar();
+        }).withFailureHandler(function(){ pintar("pedir", "No se pudo mandar el pedido. Probá de nuevo."); })
+          .pedirAutorizacionFeria(a.nombre, a.pin, { feria: feria, ubicacion: ubic || "", suya: P.suya });
+      };
+    };
+    document.body.appendChild(ov); pintar("pedir");
+  }
   function empezarSesion(feria, ubicacion){
+    if (!PREP && !LOCAL && !miFeriaHoy(feria, ubicacion).ok){ pedirAutFeria(feria, ubicacion, function(){ empezarSesion(feria, ubicacion); }, null); return; }
     if (PREP){
       // no pisa la sesión de hoy: sesión de mentira solo en memoria, con la fecha de la feria
       session = ubicNorm({ vendedor: wizardAnswers.vendedor, feria: feria, ubicacion: ubicacion||"", dia: "prep-" + PREP.fecha, prep: PREP.fecha });

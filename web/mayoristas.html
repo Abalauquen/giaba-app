@@ -199,7 +199,7 @@
     });
   }
   try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
-  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, reservarRetiro: 1, cancelarRetiro: 1 };   // 24/11: + reservarRetiro (elegir feria o turno desde el mail)
   var ENTRAR = { getNombresConAcceso: 1, validarAcceso: 1, apToken: 1, vfToken: 1 }, ENTRADO = {};
   function porEntrar(n, args, cb) {
     var u = window.GIABA_SUPA, h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;

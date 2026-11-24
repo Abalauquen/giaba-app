@@ -199,7 +199,7 @@
     });
   }
   try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
-  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, reservarRetiro: 1, cancelarRetiro: 1 };   // 24/11: + reservarRetiro (elegir feria o turno desde el mail)
   var ENTRAR = { getNombresConAcceso: 1, validarAcceso: 1, apToken: 1, vfToken: 1 }, ENTRADO = {};
   function porEntrar(n, args, cb) {
     var u = window.GIABA_SUPA, h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
@@ -1194,7 +1194,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 1) feedback al toque
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
-    if (t.classList.contains('gb-busy')) { e.stopPropagation(); e.preventDefault(); return; }   // ya está trabajando: no dos veces
+    if (t.classList.contains('gb-busy')) {   // ya está trabajando: no dos veces
+      // 24/11 (Lucas, Mayoristas: «no me deja tocar»): nunca callado. Avisa que está trabajando; si pasaron 15 s, lo destraba y deja pasar el toque.
+      var desde = +(t.getAttribute('data-gb-desde') || 0);
+      if (desde && Date.now() - desde > 15000) { t.classList.remove('gb-busy'); t.removeAttribute('aria-busy'); t.removeAttribute('data-gb-desde'); }
+      else { var c0 = cartel(); c0.textContent = 'Está trabajando… esperá un toque'; c0.classList.add('on'); clearTimeout(c0._t); c0._t = setTimeout(function () { if (!PEND) c0.classList.remove('on'); }, 2500); e.stopPropagation(); e.preventDefault(); return; }
+    }
     ULT = { el: t, t: Date.now() };
     t.classList.add('gb-toc'); setTimeout(function () { t.classList.remove('gb-toc'); }, 220);
   }, true);
@@ -1202,12 +1207,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function enLogin() { var ids = ['screen-quien', 'screen-pin', 'screen-login', 's-login', 's-pin']; for (var i = 0; i < ids.length; i++) { var x = document.getElementById(ids[i]); if (x && x.offsetParent !== null && getComputedStyle(x).display !== 'none' && !x.hidden) return true; } return false; }
   function empezar(el) {
     PEND++;
-    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
+    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); el.setAttribute('data-gb-desde', String(Date.now())); }
     if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var ra = document.getElementById('rcAct'); if (ra && !ra.hidden) return; /* 22/11 (Lucas: dos «cargando» a la vez): si arriba ya dice «↻ actualizando…», no se suma el cartel de abajo */ var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
   }
   function terminar(el) {
     PEND = Math.max(0, PEND - 1);
-    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); }
+    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); el.removeAttribute('data-gb-desde'); }
     if (!PEND) { clearTimeout(TBAR); var b = document.getElementById('gbBarra'); if (b) b.classList.remove('on'); var c = document.getElementById('gbCartel'); if (c) c.classList.remove('on'); }
   }
   // 2) engancharse a google.script.run (sin cambiar cómo lo usan las pantallas)

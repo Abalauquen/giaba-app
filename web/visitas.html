@@ -262,7 +262,7 @@
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
     conPase(function (p) {
-      if (!p) return cb(null);
+      if (!p) return cb(null, !!(RTL && RTL.todo));   // 24/11 (Lucas: «Pedidos para retirar sigue leyendo de Google»): sin pase, con la base como dueña, no se va a la planilla vieja: se reintenta o avisa
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();

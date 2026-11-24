@@ -197,7 +197,7 @@
     });
   }
   try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
-  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, reservarRetiro: 1, cancelarRetiro: 1 };   // 24/11: + reservarRetiro (elegir feria o turno desde el mail)
   var ENTRAR = { getNombresConAcceso: 1, validarAcceso: 1, apToken: 1, vfToken: 1 }, ENTRADO = {};
   function porEntrar(n, args, cb) {
     var u = window.GIABA_SUPA, h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
@@ -260,7 +260,7 @@
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
     conPase(function (p) {
-      if (!p) return cb(null);
+      if (!p) return cb(null, !!(RTL && RTL.todo));   // 24/11 (Lucas: «Pedidos para retirar sigue leyendo de Google»): sin pase, con la base como dueña, no se va a la planilla vieja: se reintenta o avisa
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
@@ -1112,6 +1112,10 @@ body.v3f .ct3{font-size:19px;font-weight:800}
 body.v3f .r{font-size:16px}
 body.v3f .warn{border:0;border-radius:12px;font-size:15px;font-weight:700;padding:10px 12px;line-height:1.4}
 body.v3f .keypad,body.v3f .keypad.grow,body.v3f .keypad.compact{gap:8px;grid-auto-rows:62px;min-height:0;max-height:none;flex:0 0 auto}
+/* 24/11 (Lucas 13:18, iPhone: en «¿Cuánto sacaste?» de la billetera el teclado no entraba): ahí el teclado y el monto van más chicos */
+body.v3f #cnbKp{grid-auto-rows:50px;gap:6px}
+body.v3f #cnbAmt{font-size:46px!important;line-height:1.1}
+body.v3f #screen-cnb{gap:10px}
 body.v3f .key,body.v3f #loop .key,body.v3f .keypad.compact .key,body.v3f .keypad:not(.grow) .key{height:62px;min-height:62px;border-radius:16px;border:2px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:28px;font-weight:800}
 body.v3f .key.del,body.v3f #loop .key.del,body.v3f .keypad.compact .key.del{background:transparent!important;border-color:#ff8a83!important;color:#ff8a83!important;font-size:18px!important;letter-spacing:0}
 body.v3f .amount,body.v3f #loop .amount{text-align:center;border-bottom:0;font-size:46px!important;font-weight:800;padding:0;letter-spacing:-.5px}
@@ -1196,6 +1200,7 @@ body.v3f .tams .tam{min-height:60px;min-width:96px;border-radius:14px;border:2px
 body.v3f .tams .tam small{font-size:13px;color:var(--ink-mid);font-weight:700}
 body.v3f .tams .tam.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}body.v3f .tams .tam.on small{color:var(--accent)}
 /* 29/10 (Lucas 09:22): elegido un sabor, la pantalla queda solo con ese sabor y sus tamaños (cada uno con su cantidad, marcado en amarillo) */
+#llSteps > div:first-child{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 #screen-llevo.ll-foco #llList,#screen-llevo.ll-foco #llPorSab,#screen-llevo.ll-foco #llRec,#screen-llevo.ll-foco #llRepe,#screen-llevo.ll-foco #llDraft,#screen-llevo.ll-foco #llYa,#screen-llevo.ll-foco #llPed,#screen-llevo.ll-foco #llCan,#screen-llevo.ll-foco #llRef,#screen-llevo.ll-foco #llTot,#screen-llevo.ll-foco .sticky3,#screen-llevo.ll-foco #llSkip,#screen-llevo.ll-foco #llOtro,#screen-llevo.ll-foco #llSteps{display:none!important}
 .tamr{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;border:2px solid var(--line-2);background:var(--surface)}
 .tamr.on{border-color:var(--accent);background:var(--accent-soft)}
@@ -1580,11 +1585,11 @@ html,body{background:var(--bg)}
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
     movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
-    chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
+    chacra: { label: "Chacra", q: "chacra" }, mant: { label: "Mantenimiento", q: "mant" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
   var CORTO = { cobros: "Ferias", local: "Local", produccion: "Elaboración", horas: "Fichaje", movimientos: "Movimientos", stock: "Cuánto hay", caja: "Contabilidad", costos: "Costos" };
   var GRUPOS = [{ key: "g_ventas", label: "Ventas", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"] }, { key: "g_stock", label: "Stock", apps: ["stock","movimientos"] }, { key: "g_prod", label: "Producción", apps: ["produccion","comandas","horas","roberto"] }];
-  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
+  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", mant: "🛠️", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
   // atajos: [texto, a qué botón entra (giaba_ir) o «@app» para otra pantalla]
   var SUBS = {
     cobros:     [["Mi feria de hoy (en curso o arrancar)","#homeSeguir,#homeArrancar"],["Dejar lista la de mañana","#homePrep"],["Resumen de ferias","#homeMis"],["Calendario de ferias","#homeCal"]],
@@ -1600,7 +1605,7 @@ html,body{background:var(--bg)}
     costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
     stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
   };
-  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","incidentes"];
+  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","mant","incidentes"];
   var ALIAS = { retiros: "caja", ventas: "cobros", ferias: "cobros", retirosadmin: "retirar" };
   var SV_HB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
   var SV_DN = '<svg class="gn-cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -2611,7 +2616,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 1) feedback al toque
   document.addEventListener('click', function (e) {
     var t = e.target && e.target.closest ? e.target.closest(SEL) : null; if (!t) return;
-    if (t.classList.contains('gb-busy')) { e.stopPropagation(); e.preventDefault(); return; }   // ya está trabajando: no dos veces
+    if (t.classList.contains('gb-busy')) {   // ya está trabajando: no dos veces
+      // 24/11 (Lucas, Mayoristas: «no me deja tocar»): nunca callado. Avisa que está trabajando; si pasaron 15 s, lo destraba y deja pasar el toque.
+      var desde = +(t.getAttribute('data-gb-desde') || 0);
+      if (desde && Date.now() - desde > 15000) { t.classList.remove('gb-busy'); t.removeAttribute('aria-busy'); t.removeAttribute('data-gb-desde'); }
+      else { var c0 = cartel(); c0.textContent = 'Está trabajando… esperá un toque'; c0.classList.add('on'); clearTimeout(c0._t); c0._t = setTimeout(function () { if (!PEND) c0.classList.remove('on'); }, 2500); e.stopPropagation(); e.preventDefault(); return; }
+    }
     ULT = { el: t, t: Date.now() };
     t.classList.add('gb-toc'); setTimeout(function () { t.classList.remove('gb-toc'); }, 220);
   }, true);
@@ -2619,12 +2629,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function enLogin() { var ids = ['screen-quien', 'screen-pin', 'screen-login', 's-login', 's-pin']; for (var i = 0; i < ids.length; i++) { var x = document.getElementById(ids[i]); if (x && x.offsetParent !== null && getComputedStyle(x).display !== 'none' && !x.hidden) return true; } return false; }
   function empezar(el) {
     PEND++;
-    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); }
+    if (el && document.body.contains(el)) { el.classList.add('gb-busy'); el.setAttribute('aria-busy', 'true'); el.setAttribute('data-gb-desde', String(Date.now())); }
     if (PEND === 1) { clearTimeout(TBAR); TBAR = setTimeout(function () { if (PEND > 0) { barra().classList.add('on'); var ra = document.getElementById('rcAct'); if (ra && !ra.hidden) return; /* 22/11 (Lucas: dos «cargando» a la vez): si arriba ya dice «↻ actualizando…», no se suma el cartel de abajo */ var c = cartel(); c.textContent = (el && /guard|registr|pag|cerr|confirm|factur|anul|retir|entreg|cobr|abr/i.test(el.textContent || '')) ? 'Guardando…' : 'Cargando…'; c.classList.add('on'); } }, 500); }
   }
   function terminar(el) {
     PEND = Math.max(0, PEND - 1);
-    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); }
+    if (el) { el.classList.remove('gb-busy'); el.removeAttribute('aria-busy'); el.removeAttribute('data-gb-desde'); }
     if (!PEND) { clearTimeout(TBAR); var b = document.getElementById('gbBarra'); if (b) b.classList.remove('on'); var c = document.getElementById('gbCartel'); if (c) c.classList.remove('on'); }
   }
   // 2) engancharse a google.script.run (sin cambiar cómo lo usan las pantallas)
@@ -4819,10 +4829,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (gs() && !PREP) google.script.run.withSuccessHandler(function(r){
       if (SCREENS.apertura.hidden || !r || r.status !== "ok" || !r.cambios || !r.cambios.length) return;
       AP.camb = r.cambios.filter(function(x){ return x.cambio >= 0; });
-      if (!AP.tocado && AP.modo === "nuevo" && AP.camb.length) apAmt = String(Math.round(AP.camb[0].cambio));
+      if (!AP.tocado && AP.modo === "nuevo" && AP.camb.length){ apAmt = String(Math.round(AP.camb[0].cambio)); AP.fresco = true; }
       apChipsPintar(ult); pintarApertura();
     }).withFailureHandler(function(){}).getCambiosRecientes(session.feria);
-    buildKeypad(el("apKeypad"), function(k){ if (AP.modo === "ya") return; AP.tocado = true; apAmt = applyKey(apAmt, k); pintarApertura(); });
+    apTeclado();
+    AP.fresco = true;   // 24/11 (Adriana en Pagano): el monto que viene puesto se reemplaza con el primer número (no se escribe a continuación)
     pintarApertura();
     showScreen("apertura");
     if (!AP.revisando) return;
@@ -4838,6 +4849,26 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       }
       listo();
     }).withFailureHandler(listo)[PREP ? "getAperturasPuesto" : "getEstadoPuesto"](session.feria, session.ubicacion||"", PREP ? PREP.fecha : undefined);
+  }
+  function apTeclado(){
+    buildKeypad(el("apKeypad"), function(k){
+      if (AP.modo === "ya") return;
+      AP.tocado = true;
+      if (AP.fresco){ AP.fresco = false; apAmt = "0"; if (k === "DEL"){ pintarApertura(); return; } }   // 24/11: «Borrar» sobre el monto que venía puesto lo borra todo
+      apAmt = applyKey(apAmt, k); pintarApertura();
+    });
+  }
+  // 24/11 (Adriana en Pagano: «paso a Stock y no puedo volver a cambiar con qué inicio la caja»): desde Stock, tocando «Cambio» arriba
+  function volverACambio(){
+    if (PREP || !session) return;
+    const m = Number(lsGet(aperturaKey(), 0)) || 0;
+    apNext = function(){ showScreen("llevo"); };
+    AP = { modo: "editar", ya: { monto: m, lista: [{ monto: m, vendedor: session.vendedor, hora: "" }] }, revisando: false, camb: [], tocado: false, otro: false, bils: null, fresco: true, desdeStock: true };
+    apAmt = String(m);
+    el("apPill1").textContent = session.vendedor; el("apPill2").textContent = session.ubicacion || session.feria;
+    el("apSteps").innerHTML = pasos3(["Cambio", "Stock", "¡A vender!"], 0);
+    el("apChips").innerHTML = ""; el("apCambLbl").hidden = true;
+    apTeclado(); pintarApertura(); showScreen("apertura");
   }
   function apChipsPintar(ult){
     const ch = el("apChips"); ch.innerHTML = "";
@@ -4858,11 +4889,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     L.forEach(function(x){
       const b = document.createElement("button"); b.type = "button"; b.className = "cli3"; b.dataset.v = Math.round(x.cambio);
       b.innerHTML = '<span class="t"><b>' + esc(formatMoney(x.cambio)) + '</b><span>' + esc(x.dia + " " + String(x.fecha).slice(0, 5) + " · " + (x.ubic || x.feria) + (x.cerro ? " · cerró " + x.cerro : "") + (x.sinRetiro ? " · todavía sin retiro" : "")) + '</span></span><span class="go"></span>';
-      b.addEventListener("click", function(){ AP.tocado = true; apAmt = b.dataset.v; pintarApertura(); }); ch.appendChild(b);
+      b.addEventListener("click", function(){ AP.tocado = true; AP.fresco = true; apAmt = b.dataset.v; pintarApertura(); }); ch.appendChild(b);
     });
     if (!L.length && ult){
       const a = document.createElement("div"); a.className = "chip"; a.dataset.v = ult; a.textContent = "Igual que la última vez · " + formatMoney(ult);
-      a.addEventListener("click", function(){ AP.tocado = true; apAmt = String(ult); pintarApertura(); }); ch.appendChild(a);
+      a.addEventListener("click", function(){ AP.tocado = true; AP.fresco = true; apAmt = String(ult); pintarApertura(); }); ch.appendChild(a);
     }
     // como el mockup: "Otro monto · lo escribo" deja el teclado en 0 (si arranca sin cambio, sigue con 0)
     const b = document.createElement("div"); b.className = "chip"; b.dataset.otro = "1"; b.textContent = "Otro monto · lo escribo";
@@ -4895,7 +4926,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     ok.classList.add("ready");
     ok.textContent = ya ? "✓ Está bien, seguir" : (AP.modo === "editar" ? (n ? "Guardar caja inicial: " + formatMoney(n) : "Guardar: sin caja inicial") : "Seguir ›");
   }
-  el("apEdit").addEventListener("click", function(){ AP.modo = "editar"; apAmt = "0"; el("apKeypad").hidden = false; pintarApertura(); });
+  el("apEdit").addEventListener("click", function(){ AP.modo = "editar"; apAmt = "0"; AP.fresco = false; el("apKeypad").hidden = false; pintarApertura(); });
   el("apOk").addEventListener("click", function(){
     if (AP.revisando || el("apOk").dataset.busy === "1") return;
     const n = parseInt(apAmt,10) || 0;
@@ -4921,7 +4952,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     }
     if (apNext) apNext();
   });
-  el("apBack").addEventListener("click", function(){ if (PREP){ const p = PREP; startWizard(); PREP = p; return; } if (session && session.abriendo){ renderHome(); return; } startWizard(); });
+  el("apBack").addEventListener("click", function(){ if (AP.desdeStock){ showScreen("llevo"); return; } if (PREP){ const p = PREP; startWizard(); PREP = p; return; } if (session && session.abriendo){ renderHome(); return; } startWizard(); });
   // 27/10 (v3): la feria de hoy sale del calendario (la de quien atiende; si es admin, la primera de hoy)
   // 15/11 (Lucas 08:48): el calendario guardado en el celu es de CADA usuario (si Lucas entró como Sofía, a Julieta no le ofrece la feria de Sofía)
   function calKey(){ return "cal_cache_" + String((auth() || {}).nombre || "").toLowerCase(); }
@@ -5156,7 +5187,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("llOk").textContent = PREP ? "Guardar · queda lista para el " + PREP.txt : (inicio ? "Empezar a cobrar" : "Guardar");
     el("llSkip").textContent = PREP ? "No cargo stock ahora" : (inicio ? "Hoy no cargo stock" : "Volver sin agregar");
     el("llP2").textContent += PREP ? " · " + PREP.txt : "";
-    el("llSteps").hidden = !inicio || !!PREP; el("llSteps").innerHTML = pasos3(["Cambio", "Stock", PREP ? "Listo" : "¡A vender!"], 1);
+    el("llSteps").hidden = !inicio || !!PREP; el("llSteps").innerHTML = pasos3(["Cambio ✏️", "Stock", PREP ? "Listo" : "¡A vender!"], 1);
     el("llTot").hidden = true; el("llRec").hidden = true; el("llCan").hidden = true; LLC = null;
     showScreen("llevo");
     google.script.run.withSuccessHandler(function(r){
@@ -5593,6 +5624,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     box.innerHTML = h;
     box.querySelectorAll("[data-pedok]").forEach(function(b){ b.addEventListener("click", function(){ const id = b.dataset.pedok; if (PED_OK[id]) delete PED_OK[id]; else PED_OK[id] = 1; pintarPedLlevo(PED_LL, sinFeria); }); });
   }
+  el("llSteps").addEventListener("click", function(e){ const d = e.target.closest("#llSteps > div"); if (d && d === el("llSteps").firstElementChild) volverACambio(); });
   el("llBack").addEventListener("click", function(){ if (PREP){ terminarPrep("Quedó cargada la caja inicial; el stock lo podés cargar mañana"); return; } if (LL && LL.inicio) renderHome(); else abrirLoop(); });
   el("pillStock").addEventListener("click", function(){ if (gs()) abrirLlevo(false); else showToast("Sin señal", true); });
 

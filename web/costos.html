@@ -262,7 +262,7 @@
     if (!RTL || Date.now() - RTL_T >= RT_NO_MS) rtLista(function () {});   // la lista se renueva sola
     if (RTL && Date.now() - RTL_T < RT_NO_MS && !RTL.fns[n]) return cb(null);   // no está en la lista: ni pregunto
     conPase(function (p) {
-      if (!p) return cb(null);
+      if (!p) return cb(null, !!(RTL && RTL.todo));   // 24/11 (Lucas: «Pedidos para retirar sigue leyendo de Google»): sin pase, con la base como dueña, no se va a la planilla vieja: se reintenta o avisa
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       var ctl = typeof AbortController === "function" ? new AbortController() : null, listo = false, t0 = Date.now();
@@ -649,11 +649,11 @@ html,body{background:var(--bg)}
     roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
     movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
     caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
-    chacra: { label: "Chacra", q: "chacra" }, incidentes: { label: "Incidentes", q: "incidentes" }
+    chacra: { label: "Chacra", q: "chacra" }, mant: { label: "Mantenimiento", q: "mant" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
   var CORTO = { cobros: "Ferias", local: "Local", produccion: "Elaboración", horas: "Fichaje", movimientos: "Movimientos", stock: "Cuánto hay", caja: "Contabilidad", costos: "Costos" };
   var GRUPOS = [{ key: "g_ventas", label: "Ventas", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"] }, { key: "g_stock", label: "Stock", apps: ["stock","movimientos"] }, { key: "g_prod", label: "Producción", apps: ["produccion","comandas","horas","roberto"] }];
-  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
+  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", mant: "🛠️", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
   // atajos: [texto, a qué botón entra (giaba_ir) o «@app» para otra pantalla]
   var SUBS = {
     cobros:     [["Mi feria de hoy (en curso o arrancar)","#homeSeguir,#homeArrancar"],["Dejar lista la de mañana","#homePrep"],["Resumen de ferias","#homeMis"],["Calendario de ferias","#homeCal"]],
@@ -669,7 +669,7 @@ html,body{background:var(--bg)}
     costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
     stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
   };
-  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","incidentes"];
+  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","mant","incidentes"];
   var ALIAS = { retiros: "caja", ventas: "cobros", ferias: "cobros", retirosadmin: "retirar" };
   var SV_HB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
   var SV_DN = '<svg class="gn-cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -994,6 +994,8 @@ input[type=date].txt{color-scheme:dark;display:block;-webkit-appearance:none;app
 .bigsum .hint{text-transform:none;letter-spacing:0;font-size:15px}
 /* inicio */
 .tiles3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.cv{border-top:1px solid var(--line);padding-top:10px;margin-top:10px;display:flex;flex-direction:column;gap:4px}.cv:first-of-type{border-top:0;margin-top:0}.cv-t{display:flex;justify-content:space-between;gap:8px;align-items:center}.cv small{color:var(--ink-soft)}.cv .rr{display:flex;justify-content:space-between;gap:8px;font-size:14px}.cv-p{font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 9px;white-space:nowrap;background:var(--red-soft);color:var(--red)}.cv-p.dn{background:rgba(127,212,138,.14);color:var(--good)}.cv-b{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.cos-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 10px}.cos-tabs button{min-height:38px;border-radius:999px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--ink);font:700 13.5px inherit;padding:0 14px;cursor:pointer}.cos-tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 @media (min-width:760px){.tiles3{grid-template-columns:repeat(3,minmax(0,1fr))}.tiles3.t4{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .tl{min-height:74px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);display:flex;align-items:center;gap:10px;padding:10px 12px;text-align:left;position:relative;min-width:0}
 .tl.y{border-color:var(--accent)}
@@ -1236,7 +1238,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div id="hmPA"></div>
   <div class="grp">Precios</div>
   <div class="tiles3" id="hmA"></div>
-  <div class="grp">Lo que usa el cálculo</div>
+  <div class="grp">Costos</div>
   <div class="tiles3" id="hmB"></div>
   <div class="grp">Números del mes</div>
   <div class="tiles3" id="hmC"></div>
@@ -1501,7 +1503,7 @@ document.addEventListener("pointerdown", e => { const k = e.target.closest && e.
 /* ================= pantallas y servidor ================= */
 const SC = ["load","noauth","home","cuanto","capas","calc","pub","lpre","lmandar","marg","lista","canal","bolsas","insumos","fijos","cubrimos","productos","rev","alertas"];
 let ACTUAL = "load";
-function show(n){ SC.forEach(s => $("s-" + s).hidden = s !== n); ACTUAL = n; window.scrollTo(0, 0); }
+function show(n){ SC.forEach(s => $("s-" + s).hidden = s !== n); ACTUAL = n; window.scrollTo(0, 0); try { cosPestanas(n); } catch (e) {} }
 const AUTH = lsGet("giaba_auth", null);
 const OK = AUTH && AUTH.pin && ["Lucas","Adriana"].indexOf(AUTH.nombre) !== -1;
 function run(fn){ const args = [].slice.call(arguments, 1); return new Promise(ok0 => {
@@ -1528,6 +1530,17 @@ function cargar(){
     return r;
   });
 }
+const COS_GRUPOS = [[["rev", "Revisión"], ["pub", "Publicaciones ML y TN"], ["marg", "Márgenes"]], [["cuanto", "Costo"], ["calc", "Calculadora"]],
+  [["insumos", "Insumos"], ["bolsas", "Bolsas y cajas"], ["canal", "Canales"]], [["cubrimos", "Este mes"], ["fijos", "Gastos fijos"]]];
+function cosPestanas(n){
+  document.querySelectorAll(".cos-tabs").forEach(t => t.remove());
+  const g = COS_GRUPOS.find(x => x.some(y => y[0] === n)); if (!g) return;
+  const sc = $("s-" + n); if (!sc) return;
+  const top = sc.querySelector(":scope > .top");
+  const d = document.createElement("div"); d.className = "cos-tabs";
+  d.innerHTML = g.map(y => `<button class="${y[0] === n ? "on" : ""}" onclick="ir('${y[0]}')">${y[1]}</button>`).join("");
+  if (top) top.insertAdjacentElement("afterend", d); else sc.insertAdjacentElement("afterbegin", d);   // Revisión dibuja su propia cabecera adentro
+}
 function ir(n){
   show(n);
   if (n === "home") home();
@@ -1553,12 +1566,14 @@ function home(){
   const fal = D.productos.filter(p => p.faltan && (p.stockFab + p.stockCaba) > 0).length, ir_ = insRev().length + (D.mo.falta ? 1 : 0), bo = D.bolsas.filter(b => !b.precio).length;
   const fjListo = FJH && !FJH.cargando, fj = fjListo && FJH.faltan ? FJH.faltan.length : 0, cam = D.cambios.length;
   const tl = (go, i, b, s, bad, y) => `<button class="tl" data-go="${go}" onclick="ir('${go}')"><span class="i">${i}</span><span class="x"><b>${b}</b><small>${s}</small></span>${bad ? `<span class="badge${y ? " y" : ""}">${bad}</span>` : ""}</button>`;
-  $("hmA").innerHTML = tl("rev","🔎","Revisión de precios","Cuánto deja cada producto en ferias, Tienda Nube y ML · cambiar precios") + tl("cuanto","💲","¿Cuánto sale?","Costo y precio de cada producto, de dónde sale cada número",fal) + tl("calc","🧮","Calculadora","«Si cobro…» / «Quiero que me quede…» en cada feria o canal") + tl("lpre","📄","Lista de precios para mandar","Comercios y distribuidores, desde CABA o Fábrica · PDF de 1 hoja") + tl("pub","🛒","Publicaciones ML y Tienda Nube","Precio de cada publicación, cuánto nos queda y cambiarlo desde acá") + tl("marg","%","Cambiar márgenes","Varios productos a la vez, se aplican juntos",cam,1);
-  $("hmB").innerHTML = tl("canal","🏪","Costos de cada canal","IVA, Ingresos Brutos, Mercado Pago, bolsa de cada feria") + tl("bolsas","🛍️","Bolsas y cajas","Precio y cuántos frascos entran",bo) + tl("insumos","🍓","Precios de insumos","Fruta, frascos, etiquetas, mano de obra",ir_);
-  $("hmC").innerHTML = tl("cubrimos","⚖️","¿Cubrimos los fijos?","Lo que dejó cada canal vs. los gastos fijos · punto de equilibrio") + tl("fijos","🧾","Gastos fijos","Referencia vs. lo cargado este mes",fj) + tl("productos","📦","Productos","Los que más dejan, más y menos vendidos, para revisar");
+  // 24/11 (Lucas aprobó mockup-costos-simple): de 12 botones a 6; lo que hace lo mismo queda junto, con pestañas adentro (COS_GRUPOS)
+  $("hmA").innerHTML = tl("rev","💲","Precios","Ferias, listas, Mercado Libre y Tienda Nube · márgenes",cam,1) + tl("cuanto","🧮","¿Cuánto sale?","Costo de cada producto y la calculadora",fal) + tl("lpre","📄","Lista de precios para mandar","Comercios y distribuidores · PDF y WhatsApp");
+  $("hmB").innerHTML = tl("insumos","🍓","Lo que usa el cálculo","Insumos, bolsas y cajas, costos de cada canal",(ir_ + bo) || 0);
+  $("hmC").innerHTML = tl("cubrimos","⚖️","¿Cubrimos los fijos?","Lo que dejó cada canal vs. los gastos fijos",fj) + tl("productos","📦","Productos","Los que más dejan, más y menos vendidos");
   const L = [[fal,"producto" + (fal === 1 ? "" : "s") + " con stock al que le falta un precio (el costo da menos)","cuanto"],[ir_,"insumo" + (ir_ === 1 ? "" : "s") + " con precio viejo o distinto a la última compra","insumos"],[bo,"bolsa" + (bo === 1 ? "" : "s") + " sin precio","bolsas"],[fj,"gasto" + (fj === 1 ? "" : "s") + " fijo" + (fj === 1 ? "" : "s") + " sin cargar este mes","fijos"],[cam,"cambio" + (cam === 1 ? "" : "s") + " de margen sin aplicar","lista"]].filter(x => x[0]);
   $("hmRev").innerHTML = `<div class="card-t"><span>Para revisar</span><small>los mismos avisos de los botones</small></div>` + (L.length ? L.map(x => `<button class="hm" onclick="ir('${x[2]}')"><span class="t"><b>${x[0]} ${x[1]}</b></span><span class="lnk">Ver ›</span></button>`).join("") : (fjListo ? '<div class="empty">Nada para revisar 👌</div>' : "")) + (fjListo ? "" : '<div class="hint">Buscando gastos fijos sin cargar…</div>');
   paHome();
+  cvPintar();
   if (!FJH){ FJH = { cargando: true, faltan: [] }; run("getFijosCos", mesHoy()).then(r => { FJH = r && r.status === "ok" ? r : { faltan: [] }; if (ACTUAL === "home") home(); }); }
 }
 
@@ -2181,6 +2196,48 @@ function inGuardar(n, btn){ const i = IN.L[n]; if (!i || btn.dataset.busy) retur
     t("Precio guardado · recalculando"); const foco = IN.foco, volver = IN.volver, grupo = IN.grupo, key = i.skus.join("|");
     cargar().then(x => { if (!x) return; IN.foco = foco; IN.volver = volver; IN.grupo = grupo; inPint(); const j = IN.L.findIndex(y => y.skus.join("|") === key); const c = $("in_" + (j < 0 ? 0 : j)); if (c && j >= 0) c.querySelector("[data-cambio]").hidden = false; }); }); }
 
+/* ================= 24/11 COSTEO VIVO · Cambios de costo (dentro de «Para revisar») =================
+   Cuando la última compra de un insumo salió más de 5 % distinta del precio de referencia: cuánto cambiaría el costo de cada producto
+   si se usa el precio nuevo. No cambia nada solo: «Usar como referencia» lo decide Lucas (y nunca toca precios de venta). */
+function cvCambios(){
+  const M = {};
+  (D.productos || []).forEach(p => (p.capas || []).forEach(c => {
+    if (!c.uc || !c.sku || !c.uc.ref) return;
+    const pct = (c.uc.precio - c.uc.ref) / c.uc.ref; if (Math.abs(pct) < 0.05) return;
+    const k = c.sku, m = M[k] || (M[k] = { sku: k, nom: c.nom, uc: c.uc, pct: pct, prods: [] });
+    const delta = c.monto * pct; m.prods.push({ n: p.nombre, antes: p.fab, ahora: p.fab + delta });
+  }));
+  return Object.keys(M).map(k => M[k]).sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+}
+function cvPintar(){
+  let box = $("hmCambios");
+  if (!box){ box = document.createElement("div"); box.id = "hmCambios"; box.className = "card"; $("hmRev").insertAdjacentElement("afterend", box);
+    box.addEventListener("click", e => { if (!e.target.closest("button")) box.scrollIntoView({ behavior: "smooth", block: "start" }); }); }   // desde Compras («Ver ›») llega acá
+  const L = cvCambios(); box.hidden = !L.length; if (!L.length) return;
+  const ins = k => (D.insumos || []).find(i => (i.skus || [i.sku]).indexOf(k) !== -1);
+  box.innerHTML = `<div class="card-t"><span>Cambios de costo</span><small>última compra distinta a la referencia</small></div>` + L.map((x, i) => {
+    const up = x.pct > 0, pr = x.prods.slice().sort((a, b) => Math.abs(b.ahora - b.antes) - Math.abs(a.ahora - a.antes));
+    return `<div class="cv"><div class="cv-t"><b>${esc(x.nom)} ${fm(x.uc.ref)} → ${fm(x.uc.precio)}</b><span class="cv-p${up ? "" : " dn"}">${up ? "▲ +" : "▼ "}${(x.pct * 100).toFixed(1).replace(".", ",")} %</span></div>`
+      + `<small>${esc(x.uc.prov || "")} ${esc(String(x.uc.fecha || "").slice(0, 5))} · ${pr.length} producto${pr.length === 1 ? "" : "s"}</small>`
+      + pr.slice(0, 6).map(y => `<div class="rr"><span>${esc(y.n)}</span><b>${fm(y.antes)} → ${fm(y.ahora)}</b></div>`).join("")
+      + (pr.length > 6 ? `<small>y ${pr.length - 6} más</small>` : "")
+      + (ins(x.sku) ? `<div class="cv-b"><button class="btn y sm" onclick="cvUsar(${i},this)">Usar ${fm(x.uc.precio)} como referencia</button><button class="lnk" onclick="cvVer(${i})">Ver el insumo ›</button></div>` : "") + `</div>`;
+  }).join("");
+  CV.L = L;
+}
+const CV = { L: [] };
+function cvUsar(i, btn){
+  const x = CV.L[i]; if (!x || btn.dataset.busy) return;
+  const it = (D.insumos || []).find(z => (z.skus || [z.sku]).indexOf(x.sku) !== -1); if (!it) return;
+  btn.dataset.busy = "1"; btn.textContent = "Guardando…";
+  run("guardarInsumoCos", { skus: it.skus || [x.sku], precio: Math.round(x.uc.precio * 100) / 100, nota: "desde Cambios de costo" }).then(r => {
+    delete btn.dataset.busy;
+    if (!r || r.status !== "ok"){ btn.textContent = "Usar como referencia"; t((r && r.msg) || "No se pudo", true); return; }
+    t("Referencia actualizada · recalculando"); cargar().then(ok => { if (ok) home(); });
+  });
+}
+function cvVer(i){ const x = CV.L[i]; if (!x) return; IN.volver = "home"; IN.foco = null; IN.grupo = "Todos"; IN.q = x.nom; $("inBus").value = x.nom; inPint(); show("insumos"); }
+
 /* ================= MES (fijos, cubrimos, productos) ================= */
 const MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 let MES = mesHoy();
@@ -2245,8 +2302,8 @@ function pdPint(){ pintMes(); const r = NUM, L = r.productos.filter(x => x.u > 0
 function arrancar(r){ if (!r) return;
   let cmA = null; try { cmA = JSON.parse(localStorage.getItem("cm_abrir") || "null"); if (cmA === "alertas") localStorage.removeItem("cm_abrir"); } catch (e) {}   // 18/11: desde «Para revisar» del menú
   if (cmA === "alertas" || GIABA_IR === "alertas"){ ir("alertas"); return; }
-  const dest = { rev: "rev", fijos: "fijos", cubrimos: "cubrimos", productos: "productos", calc: "calc", cuanto: "cuanto", lpre: "lpre", lpremay: "lpre" }[GIABA_IR];
-  ir(dest || "home"); }
+  const dest = { rev: "rev", fijos: "fijos", cubrimos: "cubrimos", productos: "productos", calc: "calc", cuanto: "cuanto", lpre: "lpre", lpremay: "lpre", cambios: "home" }[GIABA_IR];
+  ir(dest || "home"); if (GIABA_IR === "cambios") setTimeout(() => { const b = $("hmCambios"); if (b && !b.hidden) b.scrollIntoView({ behavior: "smooth", block: "start" }); }, 400); }
 /* 21/11 (Lucas: «Costos sigue tardando, al menos la primera vez»): se muestra al toque lo último que se vio (guardado en este celu)
    y se actualiza solo en segundo plano; si cambió algo, se repinta la pantalla donde estés. */
 const COS_K = "cos_ult_" + (AUTH && AUTH.nombre || "");

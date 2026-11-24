@@ -7,7 +7,7 @@
 <link rel="icon" href="../icono.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../icono-192.png">
 <style>html,body,button,a,input,select,label,[onclick],[data-sku]{touch-action:manipulation}</style>
-<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "caja";</script>
+<script>self.GIABA_GAS = "https://script.google.com/macros/s/AKfycbyDLSjq1q4g3iqG57B_of9Yj2RcAhXINWkm4sdhn1UhouMl7MeyuJwQNu5sOBpMH4atgQ/exec"; self.GIABA_APP_TAG = "caja"; self.GIABA_SUPA = {"url":"https://hreocusmmfsdhasbqchw.supabase.co","key":"sb_publishable_BSKM0wDa4mEwvrZuJ1F0oQ_-5Wp8k_b"};</script>
 <script src="gsr.js"></script>
 <script>
 /* 17/11/2026 · TODA LA APP LEE DIRECTO DE LA BASE, COMO FERIAS (zPantallas.gs · Lucas 21:30).
@@ -200,6 +200,32 @@
   }
   try { window.__apRtListaReset = function () { RTL = null; RTL_T = 0; rtLista(function () {}); }; } catch (e) {}
   var PUBLICAS = { getChacraPublico: 1, getReservaChacra: 1, getRetiroPublico: 1, reservarChacra: 1, cancelarReservaChacra: 1, retNuevoPublico: 1, cancelarRetiro: 1 };
+  var ENTRAR = { getNombresConAcceso: 1, validarAcceso: 1, apToken: 1, vfToken: 1 }, ENTRADO = {};
+  function porEntrar(n, args, cb) {
+    var u = window.GIABA_SUPA, h = { apikey: u.key, "Content-Type": "application/json" }; if (!/^sb_/.test(u.key)) h.Authorization = "Bearer " + u.key;
+    var cuerpo = n === "getNombresConAcceso" ? { nombres: true } : { nombre: String(args[0] || ""), pin: String(args[1] || "") };
+    var kE = cuerpo.nombre ? cuerpo.nombre.toLowerCase() + "|" + cuerpo.pin : "";
+    var dar = function (j) {
+      if (n === "getNombresConAcceso") return cb(j.nombres.map(function (x) { return x.n; }));
+      if (j.status !== "ok") return cb(j.status === "bloqueado" ? { status: "denegado", msg: j.msg } : { status: j.status });
+      var p = { status: "ok", nombre: j.nombre, token: j.token, vence: j.vence, url: j.url, key: j.key, fns: FNS || (lsG("ap_pase", null) || {}).fns || [], sinQuien: SINQ };
+      lsS("ap_pase", p);
+      if (n === "validarAcceso") return cb(j.acc);
+      return cb(p);
+    };
+    var e0 = kE && ENTRADO[kE]; if (e0 && Date.now() - e0.t < 10 * 60000) return dar(e0.j);
+    var listo = false, tmo = setTimeout(function () { if (!listo) { listo = true; cb(undefined); } }, 8000);
+    fetch(u.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ entrar: cuerpo }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (listo) return; listo = true; clearTimeout(tmo);
+        if (n === "getNombresConAcceso") return j && j.status === "ok" && j.nombres && j.nombres.length ? dar(j) : cb(undefined);
+        // PIN equivocado o nombre que la base no tiene: decide Google (por si la huella quedó vieja); bloqueado (5 mal en 15 min): no
+        if (!j || !/^(ok|bloqueado)$/.test(j.status) || (j.status === "ok" && !(j.token && j.acc))) return cb(undefined);   // «google» o cualquier rareza: Google como siempre
+        if (j.status === "ok") ENTRADO[kE] = { t: Date.now(), j: j };
+        dar(j);
+      }, function () { if (listo) return; listo = true; clearTimeout(tmo); cb(undefined); });
+  }
   function porPublica(n, args, cb) {
     var u = window.GIABA_SUPA || null;   // la URL y la clave pública de la base (las pone la página; sin eso, Google como siempre)
     if (!u || !u.url || !u.key) return cb(null);
@@ -269,6 +295,16 @@
         var args = Array.prototype.slice.call(arguments);
         porPublica(n, args, function (res) {
           if (res && res.status === "ok") { if (ok) ok(res.r, uo); return; }
+          var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
+          g[n].apply(g, args);
+        });
+      };
+      // 24/11 · entrar con el PIN desde la base (Lucas: «que los pins ya no estén en Google»): la lista de nombres, validar el PIN y el pase.
+      // Si la base no contesta o todavía no tiene la huella del PIN, Google como siempre (nunca deja a nadie afuera).
+      if (ENTRAR[n] && window.GIABA_SUPA && window.GIABA_SUPA.url) return function () {
+        var args = Array.prototype.slice.call(arguments);
+        porEntrar(n, args, function (res) {
+          if (res !== undefined) { if (ok) ok(res, uo); return; }
           var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
           g[n].apply(g, args);
         });

@@ -2094,6 +2094,19 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("cnArca").addEventListener("click", buscarCuit);
   el("cnCuit").addEventListener("input", function(){ const c = el("cnCuit").value.replace(/\D/g, ""); if (c.length === 11 && c !== CN.consultado) buscarCuit(); });
   el("cnBack").addEventListener("click", function(){ pintarSeguir(); show("cli"); });
+  // 24/11 (Lucas, Samsung: «no me lo toma», con video): si el dedo cae sobre el botón pero el celu no manda el «click», se guarda igual
+  // y avisa qué recibió el toque (para encontrar qué lo tapa).
+  (function(){
+    let pd = null, clickT = 0;
+    const desc = function(t){ if (!t) return "nada"; return (t.tagName || "?").toLowerCase() + (t.id ? "#" + t.id : "") + (t.className && typeof t.className === "string" ? "." + t.className.trim().split(/\s+/).join(".") : ""); };
+    const sobre = function(e, b){ const r = b.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; };
+    document.addEventListener("pointerdown", function(e){ if (el("s-clinew").hidden || !sobre(e, el("cnOk"))) { pd = null; return; } pd = { t: Date.now(), x: e.clientX, y: e.clientY, tg: desc(e.target) }; }, true);
+    document.addEventListener("click", function(e){ if (e.target && e.target.closest && e.target.closest("#cnOk")) clickT = Date.now(); }, true);
+    document.addEventListener("pointerup", function(e){
+      const p = pd; pd = null; if (!p || Date.now() - p.t > 1500 || Math.abs(e.clientX - p.x) > 24 || Math.abs(e.clientY - p.y) > 24) return;
+      setTimeout(function(){ if (Date.now() - clickT < 900) return; toast("El celu no mandó el toque (" + p.tg + "): lo mando igual", true); el("cnOk").click(); }, 450);
+    }, true);
+  })();
   let guardandoCli = false, guardandoCliT = 0;
   el("cnOk").addEventListener("click", function(){
     // 24/11 (Lucas, video: «no me deja tocar»): nunca se queda callado. Si hay un guardado en camino lo dice; si pasaron 25 s, se puede tocar de nuevo.

@@ -1667,7 +1667,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function abrirAvisos(){ AV.err = ""; AV.msg = ""; showScreen("avisos"); window.scrollTo(0, 0); avPintar(); avCargar(); }
   function avCargar(){
     avFetch({ accion: "prefs" }, function(r){ if (r && r.status === "ok"){ AV.prefs = r.prefs; AV.celus = r.celus; } else AV.err = "No se pudo traer · probá de nuevo"; avPintar(); });
-    if (avPuede()) navigator.serviceWorker.getRegistration("../").then(function(reg){ return reg && reg.pushManager.getSubscription(); }).then(function(sub){ AV.aca = !!sub && Notification.permission === "granted"; avPintar(); }).catch(function(){});
+    if (avPuede()) navigator.serviceWorker.getRegistration("../").then(function(reg){ return reg && reg.pushManager.getSubscription(); }).then(function(sub){ AV.aca = !!sub && Notification.permission === "granted"; avPintar();
+      // 24/11: si el celu ya estaba anotado, se vuelve a guardar en la base (si la primera vez no llegó, queda bien igual)
+      if (AV.aca) avFetch({ accion: "suscribir", sub: sub.toJSON(), ua: navigator.userAgent }, function(r){ if (r && r.status === "ok" && !AV.celus){ AV.celus = 1; avPintar(); } }); }).catch(function(){});
   }
   function avPintar(){
     const box = el("avIn"), n = psAuth().nombre || ""; let h = "";
@@ -1709,7 +1711,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       });
       return;
     }
-    if (a === "prueba"){ AV.ocup = true; AV.msg = ""; avPintar(); avFetch({ accion: "prueba" }, function(r){ AV.ocup = false; if (r && r.status === "ok" && r.mandados) AV.msg = "Mandado ✓: en unos segundos te llega el aviso."; else AV.err = "No llegó a salir" + (r && r.errores && r.errores.length ? " (" + r.errores[0] + ")" : "") + " · probá de nuevo"; avPintar(); }); return; }
+    if (a === "prueba"){ AV.ocup = true; AV.msg = ""; avPintar(); avFetch({ accion: "prueba" }, function(r){ AV.ocup = false; if (r && r.status === "ok" && r.mandados) AV.msg = "Mandado ✓: en unos segundos te llega el aviso."; else AV.err = r && r.status === "ok" && !r.celus ? "Este celu no había quedado guardado. Ya lo guardé: tocá «Mandarme uno de prueba» otra vez." : "No llegó a salir" + (r && r.errores && r.errores.length ? " (" + r.errores[0] + ")" : "") + " · probá de nuevo"; avPintar(); }); return; }
     if (a === "desactivar"){ navigator.serviceWorker.getRegistration("../").then(function(reg){ return reg && reg.pushManager.getSubscription(); }).then(function(sub){ if (!sub) return; avFetch({ accion: "baja", endpoint: sub.endpoint }, function(){}); return sub.unsubscribe(); }).then(function(){ AV.aca = false; AV.msg = ""; avCargar(); avPintar(); }).catch(function(){}); return; }
   });
   function psDeshacer(t, fn){

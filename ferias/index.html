@@ -175,6 +175,7 @@
   // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
   var RT_NO = {}, RT_NO_MS = 10 * 60000;
   try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  try { window.giabaPase = function (cb) { conPase(cb); }; } catch (e) {}   // 24/11: los avisos al celu usan el mismo pase
   // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
   // 22/11 (Lucas no pudo pagarle a Julieta: «GIABA ahora guarda en la base…»): con poca señal la lista no llegaba en 4 s, RTL quedaba vacío
   // y el guardado se iba a Google, que ya no guarda. Se recuerda la última lista en el celu: sin respuesta, se usa esa (la base sigue siendo la dueña).
@@ -253,7 +254,7 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
@@ -716,6 +717,7 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:24px;font-weight:800;line
 .sync{font-size:12px;font-weight:700}
 .sync.ok{color:var(--good)}
 .sync.wait{color:var(--ink-soft)}
+.sync.off{color:#ffb366}.sync.up{color:#8ab4ff}.sync.rev{color:#ff8a83;cursor:pointer}
 .sync-banner{background:var(--warn-soft);border:1.5px solid var(--warn);color:var(--warn);border-radius:12px;padding:8px 12px;font-size:13px;font-weight:700;line-height:1.35}
 .amount{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:clamp(36px,11vw,48px);text-align:right;padding:2px 4px 6px;border-bottom:2px solid var(--line)}
 .amount.zero{color:var(--ink-soft)}
@@ -4994,12 +4996,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const q = getQueue(); if (!q.length){ renderTotal(); return; }
     sending = true;
     const item = q[0];
+    try { renderTotal(); } catch(e){}
     sendOne(item, function(res){
       sending = false;
       if (res && res.status === 'ok'){
         removeFromQueue(item.id);
         if (lastEntry && lastEntry.id === item.id) lastEntry.synced = true;
-        try { const F = lsGet("cf_fallas", {}) || {}; if (F[item.id]){ delete F[item.id]; lsSet("cf_fallas", F); } (histItems || []).forEach(function(x){ if (x.id === item.id) x.pendiente = false; }); histRepintarEstado(); } catch(e){}
+        try { const F = lsGet("cf_fallas", {}) || {}; if (F[item.id]){ delete F[item.id]; lsSet("cf_fallas", F); } const RZ = lsGet("cf_rechazos", {}) || {}; if (RZ[item.id]){ delete RZ[item.id]; lsSet("cf_rechazos", RZ); } (histItems || []).forEach(function(x){ if (x.id === item.id) x.pendiente = false; }); histRepintarEstado(); } catch(e){}
         // 19/11 (Adri: cobros que no llegaron): cuando el cobro llegó de verdad, se dice claro
         if (item.tipo === "Cobro" && !res.duplicado) showToast("✓ Cargado: " + formatMoney(item.monto) + (item.medioPago ? " · " + item.medioPago : ""));
         if (res.facturable && !res.duplicado){ FACT_ST[item.id] = { fact: "Pendiente" }; if (!item.esperaMail) pedirFactura(item.id, item.mailFactura); }
@@ -5010,7 +5013,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         showToast("La caja de esa feria ya está cerrada", true);
         if (samePuesto(item)){ lsSet(cerradaKey(), true); refreshTotal(); }
         flushQueue();
-      } else { try { const F = lsGet("cf_fallas", {}) || {}; F[item.id] = (F[item.id] || 0) + 1; lsSet("cf_fallas", F); } catch(e){} renderTotal(); histRepintarEstado(); }
+      } else { try { const F = lsGet("cf_fallas", {}) || {}; F[item.id] = (F[item.id] || 0) + 1; lsSet("cf_fallas", F);
+          // 23/11: si contestó pero no lo aceptó (no es falta de señal), se cuenta aparte: a las 3 queda «para revisar»
+          if (res){ const R = lsGet("cf_rechazos", {}) || {}; R[item.id] = (R[item.id] || 0) + 1; lsSet("cf_rechazos", R); } } catch(e){} renderTotal(); histRepintarEstado(); }
     });
   }
   // 21/11 (Lucas, mockup v2): en «Ver cobros», a la izquierda de cada cobro: ✓ verde subido · ⏳ naranja todavía no subió · 🔄 rojo no subió (tocá para volver a subir)
@@ -5059,19 +5064,25 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (ajustes) txt += " · " + ajustes + " ajuste" + (ajustes===1?"":"s");
     el("totalK").textContent = "VENDIDO HOY" + ((srv || pend.length) ? " · " + txt : "");
     el("totalCount").textContent = "Ver cobros ›";
-    const allPend = getQueue().length;
-    const st = el("syncState"), banner = el("syncBanner");
+    // 23/11 (Lucas, mockup sin señal aprobado): solo cambia el cartelito chico de arriba a la derecha:
+    // ✓ todo subido · 📵 sin señal · N en el celu · ⬆ subiendo N… · ⚠ N para revisar (tocándolo se ven los cobros)
+    const q = getQueue(), allPend = q.length + lsGet("cf_anul_pend", []).length + lsGet("cf_cierre_pend", []).length;
+    const RZ = lsGet("cf_rechazos", {}) || {}, rev = q.filter(function(x){ return (RZ[x.id] || 0) >= 3; }).length;
+    const st = el("syncState"), banner = el("syncBanner"), sinRed = typeof navigator !== "undefined" && navigator.onLine === false;
+    if (PEND_MAL.cf_queue){ banner.hidden = false; banner.textContent = "⚠ El celu no deja guardar: no borres los datos de la app y avisale a Lucas."; }
+    else banner.hidden = true;
+    st.onclick = null; st.removeAttribute("role");
     if (allPend){
-      st.className = "sync wait"; st.textContent = "";
-      banner.hidden = false;
-      banner.textContent = "⚠ " + allPend + " sin subir. Quedan guardados en el celu (aunque cierres o recargues la app) y se suben solos cuando vuelve la señal."
-        + (PEND_MAL.cf_queue ? " ⚠ El celu no deja guardar: no borres los datos de la app y avisale a Lucas." : "");
+      if (sinRed){ st.className = "sync off"; st.textContent = "📵 sin señal · " + allPend + " en el celu"; }
+      else if (rev && !sending){ st.className = "sync rev"; st.textContent = "⚠ " + rev + " para revisar"; st.setAttribute("role", "button"); st.onclick = function(e){ e.stopPropagation(); try { el("totalCount").click(); } catch(x){} }; }
+      else if (sending){ st.className = "sync up"; st.textContent = "⬆ subiendo " + allPend + "…"; }
+      else { st.className = "sync off"; st.textContent = "📵 sin señal · " + allPend + " en el celu"; }
     } else {
-      banner.hidden = true;
       st.className = srv ? "sync ok" : "sync wait";
       st.textContent = srv ? "✓ todo subido" : "";
     }
   }
+  window.addEventListener("offline", function(){ try { renderTotal(); } catch(e){} });
 
   // ---- stock de la feria: qué llevás / qué volvió ----
   let LL = null, FS = null;

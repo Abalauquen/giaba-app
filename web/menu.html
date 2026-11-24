@@ -177,6 +177,7 @@
   // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
   var RT_NO = {}, RT_NO_MS = 10 * 60000;
   try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  try { window.giabaPase = function (cb) { conPase(cb); }; } catch (e) {}   // 24/11: los avisos al celu usan el mismo pase
   // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
   // 22/11 (Lucas no pudo pagarle a Julieta: «GIABA ahora guarda en la base…»): con poca señal la lista no llegaba en 4 s, RTL quedaba vacío
   // y el guardado se iba a Google, que ya no guarda. Se recuerda la última lista en el celu: sin respuesta, se usa esa (la base sigue siendo la dueña).
@@ -255,7 +256,7 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };
@@ -599,6 +600,45 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line
 .lns .ln.lg{display:block;font:800 12px 'Manrope',sans-serif;letter-spacing:.06em;color:var(--paper-soft);padding:8px 0 2px;border-bottom:none}
 .lns.mas{box-shadow:inset 0 -14px 10px -10px rgba(0,0,0,.18)}
 .lns-h{font-size:12px;color:var(--paper-soft);margin-top:4px}
+/* 23/11 Personas y permisos (solo Lucas) */
+#screen-personas{gap:12px}
+.ps-per{display:flex;align-items:center;gap:12px;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;cursor:pointer;color:var(--ink);text-align:left;width:100%;font:inherit}
+.ps-per .av{width:40px;height:40px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-weight:800;flex:none}
+.ps-per .tx{flex:1;min-width:0}.ps-per .tx b{display:block;font-size:16px}
+.ps-per .tx span{display:block;color:var(--ink-soft);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ps-per .tx span.pl{color:#e8a0a8}
+.ps-per.baja{opacity:.5}
+.ps-chip{font-size:11.5px;font-weight:800;border-radius:999px;padding:2px 8px;background:rgba(232,160,168,.16);color:#e8a0a8;margin-left:6px}
+.ps-card{background:var(--surface);border:1.5px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.ps-f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink-soft)}
+.ps-in{min-height:50px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:600 16px 'Manrope',sans-serif;padding:0 12px;width:100%}
+.ps-in:disabled{opacity:.6}
+.ps-row{display:flex;gap:8px}.ps-row .ps-in{flex:1;letter-spacing:.3em}
+.ps-bt{min-height:52px;border-radius:14px;border:none;background:var(--accent);color:var(--accent-ink);font:800 16px 'Manrope',sans-serif;cursor:pointer;width:100%;padding:0 14px}
+.ps-bt:disabled{opacity:.5}
+.ps-bt.ol{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.ps-bt.rd{background:transparent;color:#ff8a83;border:1.5px solid rgba(255,138,131,.35)}
+.ps-bt.ch{width:auto;min-height:50px;background:var(--line);color:var(--ink);font-size:14px}
+.ps-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ps-seg button,.ps-cp button{min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:700 14px 'Manrope',sans-serif;cursor:pointer}
+.ps-seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.ps-cp{display:flex;flex-wrap:wrap;gap:6px}.ps-cp button{border-radius:999px;padding:0 12px;min-height:38px}
+.ps-gr{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin-top:6px}
+.ps-ap{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.ps-ap .tx{flex:1;min-width:0}.ps-ap .tx b{display:block;font-size:15px}
+.ps-sw{width:46px;height:28px;border-radius:999px;background:var(--bg);border:1.5px solid var(--line);position:relative;flex:none}
+.ps-sw::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:var(--ink-soft);transition:.15s}
+.ps-ap.on .ps-sw{background:var(--accent);border-color:var(--accent)}.ps-ap.on .ps-sw::after{left:21px;background:var(--accent-ink)}
+.ps-subs{margin:2px 0 6px 10px;display:flex;flex-direction:column}
+.ps-sb{display:flex;align-items:center;gap:10px;padding:7px 4px;cursor:pointer;font-size:14px}
+.ps-sb .ck{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--line);background:var(--bg);display:grid;place-items:center;font-weight:900;font-size:13px;flex:none}
+.ps-sb.on .ck{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.ps-sb.fijo{opacity:.65;cursor:default}
+.ps-pl{font-size:11px;font-weight:800;color:#e8a0a8;background:rgba(232,160,168,.16);border-radius:999px;padding:1px 7px}
+.ps-warn{background:rgba(232,160,168,.14);color:#e8a0a8;border-radius:12px;padding:10px 12px;font-size:14px}
+.ps-ok{background:rgba(127,212,138,.14);color:#7fd48a;border-radius:12px;padding:10px 12px;font-size:14px}
+.ps-msg{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:12px;font-size:15px;white-space:pre-line}
+.ps-err{color:#ff8a83;font-size:14px;font-weight:700;min-height:18px}
 </style>
 <!-- GIABA v3 · estilo común de TODAS las pantallas (aprobado 22/10). Se incluye en cada Index*.html; cambiar acá cambia toda la app. -->
 <script>
@@ -1211,6 +1251,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <button class="vertodos" id="pendVer" hidden>📋 Ver pendientes <em id="pendVerN"></em></button>
   <button class="vertodos" id="prvVer" hidden>📝 Para revisar <em id="prvVerN"></em></button>
 </div>
+<div id="screen-personas" class="screen" hidden>
+  <div class="topbar"><button class="back" id="psBack" aria-label="Atrás"></button></div>
+  <h1 id="psTit">Personas</h1>
+  <div id="psIn" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+<div id="screen-avisos" class="screen" hidden>
+  <div class="topbar"><button class="back" id="avBack" aria-label="Atrás"></button></div>
+  <h1>🔔 Avisos</h1>
+  <div id="avIn" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
 <div class="sheet" id="sheet" hidden><div class="in"><div class="hd" id="sheetT"></div><div id="sheetIn"></div><button class="btn-cerrar" id="sheetX">Cerrar</button></div></div>
 
 <script>
@@ -1303,7 +1353,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     });
   }
 
-  const screens = ["quien","pin","menu"];
+  const screens = ["quien","pin","menu","personas","avisos"];
   function showScreen(name){ screens.forEach(function(s){ el("screen-"+s).hidden = (s!==name); }); }
 
   function lsGet(k,f){ try{ const v=localStorage.getItem(k); return v===null?f:JSON.parse(v);}catch(e){return f;} }
@@ -1469,11 +1519,206 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const box = document.createElement("div"); box.style.cssText = "display:flex;flex-direction:column;gap:10px";
     const f = lsGet("giaba_fondo_" + nombre, "");
     box.innerHTML = '<span class="lbl3">Color de fondo · queda guardado para vos</span><div class="sw">' + FONDOS.map(function(x){ return '<button data-fb="' + x[0] + '" class="' + (f === x[0] ? "on" : "") + '"><i style="background:' + x[2] + '"></i>' + x[1] + '</button>'; }).join("") + '</div>'
+      + '<a class="menu-card" id="abrirAvisos" role="button"><span class="emo">🔔</span><span class="menu-text"><b>Avisos</b><span>Cuáles te llegan al celu · horas de silencio</span></span>' + ICON_CHEV + '</a>'
+      + (nombre === "Lucas" ? '<a class="menu-card" id="abrirPersonas" role="button"><span class="emo">👥</span><span class="menu-text"><b>Personas</b><span>Crear usuarios · PIN · qué pantallas ve</span></span>' + ICON_CHEV + '</a>' : '')
       + '<a class="menu-card" id="cambiarUsr" role="button"><span class="menu-text"><b>Cambiar de usuario</b></span>' + ICON_CHEV + '</a>';
     abrirHoja(nombre, null); el("sheetIn").appendChild(box);
     Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(b){ b.addEventListener("click", function(){ lsSet("giaba_fondo_" + nombre, b.dataset.fb); aplicarFondo(nombre); Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(x){ x.classList.toggle("on", x === b); }); }); });
     box.querySelector("#cambiarUsr").addEventListener("click", function(){ cerrarHoja(); el("menuBackLink").click(); });
+    const bp = box.querySelector("#abrirPersonas"); if (bp) bp.addEventListener("click", function(){ cerrarHoja(); abrirPersonas(); });
+    box.querySelector("#abrirAvisos").addEventListener("click", function(){ cerrarHoja(); abrirAvisos(); });
   });
+
+  // ---- 23/11 Personas y permisos (solo Lucas): crear usuarios, PIN, zona, contacto, qué pantallas ve y qué puede en cada una ----
+  const PS = { lista: null, cat: null, link: "", vista: "lista", ed: null, orig: "", listo: null, ocupado: false, err: "" };
+  function psEsc(t){ return String(t == null ? "" : t).replace(/[&<>"]/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]; }); }
+  function psAuth(){ return lsGet("giaba_auth", null) || {}; }
+  function psCat(){ const o = {}; (PS.cat || []).forEach(function(g){ g[1].forEach(function(a){ o[a[0]] = a; }); }); return o; }
+  function psPlata(p){ const C = psCat(); return Object.keys(p.apps || {}).filter(function(k){ return C[k] && (p.apps[k] || []).some(function(id){ const it = C[k][2].filter(function(x){ return x[0] === id; })[0]; return it && it[2]; }); }); }
+  function psZona(z){ return z === "todas" ? "Sur y CABA" : z === "sur" ? "Sur" : "CABA"; }
+  function psPin(){ return String(1000 + Math.floor(Math.random() * 9000)); }
+  function abrirPersonas(){ PS.vista = "lista"; PS.err = ""; showScreen("personas"); window.scrollTo(0, 0); psPintar(); psCargar(); }
+  function psCargar(){
+    const au = psAuth();
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.status !== "ok"){ PS.err = r && r.status === "denegado" ? "Esto lo ve solo Lucas." : "No se pudo traer la lista · probá de nuevo"; psPintar(); return; }
+      PS.lista = r.personas; PS.cat = r.catalogo; PS.link = r.link || ""; PS.err = ""; psPintar();
+    }).withFailureHandler(function(){ PS.err = "Sin conexión · probá de nuevo"; psPintar(); }).getPersonas(au.nombre, au.pin);
+  }
+  function psResumen(p){ const C = psCat(); if (p.baja) return "Dada de baja el " + p.baja; if (p.adm) return "Todo"; const k = Object.keys(p.apps || {}); return k.map(function(x){ return C[x] ? C[x][1] : x; }).join(" · ") || "Sin pantallas"; }
+  function psPintar(){
+    const box = el("psIn"); let h = "";
+    el("psTit").textContent = PS.vista === "ed" ? (PS.orig || "Nueva persona") : PS.vista === "listo" ? "Listo ✓" : "Personas";
+    if (PS.vista === "lista"){
+      if (!PS.lista){ box.innerHTML = PS.err ? '<div class="ps-err">' + psEsc(PS.err) + '</div><button class="ps-bt ol" data-ps="recargar">Probar de nuevo</button>' : '<div class="lbl3">Cargando…</div>'; return; }
+      const fila = function(p, i){ const cp = psPlata(p); return '<button class="ps-per' + (p.baja ? " baja" : "") + '" data-pi="' + i + '"><span class="av">' + psEsc(p.n.charAt(0)) + '</span><span class="tx"><b>' + psEsc(p.n) + (p.adm ? '<span class="ps-chip">administra</span>' : "") + '</b><span>' + psZona(p.z) + ' · ' + psEsc(psResumen(p)) + '</span>' + (!p.adm && !p.baja && cp.length ? '<span class="pl">💲 en ' + psEsc(cp.map(function(k){ return psCat()[k][1]; }).join(", ")) + '</span>' : "") + (!p.conPin && !p.baja ? '<span class="pl">Sin PIN: todavía no puede entrar</span>' : "") + '</span>' + ICON_CHEV + '</button>'; };
+      h = '<button class="ps-bt" data-ps="nueva">＋ Nueva persona</button>';
+      PS.lista.forEach(function(p, i){ if (!p.baja) h += fila(p, i); });
+      if (PS.lista.some(function(p){ return p.baja; })){ h += '<div class="ps-gr">Dadas de baja</div>'; PS.lista.forEach(function(p, i){ if (p.baja) h += fila(p, i); }); }
+    } else if (PS.vista === "ed"){
+      const p = PS.ed, nueva = !PS.orig, C = psCat(), cp = psPlata(p);
+      h = '<div class="ps-card">'
+        + '<label class="ps-f">Nombre (con el que entra)<input class="ps-in" id="psN" value="' + psEsc(p.n) + '" placeholder="Ej: Camila" maxlength="40"' + (nueva ? "" : " disabled") + '></label>'
+        + (nueva ? "" : '<span class="lbl3">El nombre no se cambia: con ese nombre están sus cobros, horas y sueldos.</span>')
+        + '<label class="ps-f">PIN de 4 números<span class="ps-row"><input class="ps-in" id="psP" value="' + psEsc(p.pin) + '" inputmode="numeric" maxlength="4" placeholder="' + (nueva ? "" : "no cambia") + '"><button class="ps-bt ch" data-ps="genpin">🎲 Inventar</button></span></label>'
+        + (nueva ? "" : '<span class="lbl3">El PIN actual no se muestra. Para cambiarlo, escribí uno nuevo o tocá 🎲.</span>')
+        + '<label class="ps-f">Teléfono (WhatsApp)<input class="ps-in" id="psT" value="' + psEsc(p.tel) + '" inputmode="tel" placeholder="Ej: 11 5555-1234"></label>'
+        + '<label class="ps-f">Email<input class="ps-in" id="psM" value="' + psEsc(p.mail) + '" inputmode="email" placeholder="opcional"></label>'
+        + '<label class="ps-f">CUIT<input class="ps-in" id="psC" value="' + psEsc(p.cuit) + '" inputmode="numeric" placeholder="opcional"></label>'
+        + (p.adm ? "" : '<span class="ps-f">Zona</span><div class="ps-seg">' + ["sur","caba","todas"].map(function(z){ return '<button class="' + (p.z === z ? "on" : "") + '" data-pz="' + z + '">' + (z === "sur" ? "Sur" : z === "caba" ? "CABA" : "Las dos") + '</button>'; }).join("") + '</div>')
+        + (nueva ? '<span class="ps-f">Copiar permisos de</span><div class="ps-cp">' + PS.lista.filter(function(x){ return !x.adm && !x.baja; }).map(function(x){ return '<button data-pc="' + psEsc(x.n) + '">' + psEsc(x.n) + '</button>'; }).join("") + '</div>' : "")
+        + '</div>';
+      if (p.adm) h += '<div class="ps-card"><div class="ps-ok">' + psEsc(p.n) + ' administra: ve todas las pantallas y toda la plata. Acá solo se cambian su PIN y su contacto.</div></div>';
+      else {
+        h += '<div class="ps-card"><span class="lbl3">Qué pantallas ve y qué puede hacer en cada una · 💲 = ve plata</span>';
+        PS.cat.forEach(function(g){
+          h += '<div class="ps-gr">' + psEsc(g[0]) + '</div>';
+          g[1].forEach(function(a){
+            const on = !!p.apps[a[0]];
+            h += '<div class="ps-ap' + (on ? " on" : "") + '" data-pa="' + a[0] + '"><span class="tx"><b>' + psEsc(a[1]) + '</b></span><span class="ps-sw"></span></div>';
+            if (on && a[2].length > 1) h += '<div class="ps-subs">' + a[2].map(function(it, i){ const t = p.apps[a[0]].indexOf(it[0]) !== -1 || i === 0; return '<div class="ps-sb' + (t ? " on" : "") + (i === 0 ? " fijo" : "") + '" data-ps2="' + a[0] + '|' + it[0] + '"><span class="ck">' + (t ? "✓" : "") + '</span><span style="flex:1">' + psEsc(it[1]) + '</span>' + (it[2] ? '<span class="ps-pl">💲</span>' : "") + '</div>'; }).join("") + '</div>';
+          });
+        });
+        const nn = psEsc(p.n || "Esta persona");
+        h += cp.length ? '<div class="ps-warn">' + nn + ' ve plata en: ' + psEsc(cp.map(function(k){ return C[k][1]; }).join(", ")) + '.</div>' : '<div class="ps-ok">' + nn + ' no ve plata en ningún lado.</div>';
+        h += '</div>';
+      }
+      h += '<div class="ps-err" id="psErr">' + psEsc(PS.err) + '</div>'
+        + '<button class="ps-bt" data-ps="guardar"' + (PS.ocupado ? " disabled" : "") + '>' + (PS.ocupado ? "Guardando…" : nueva ? "Crear persona" : "Guardar cambios") + '</button>'
+        + (!nueva && !p.adm ? (p.baja ? '<button class="ps-bt ol" data-ps="alta"' + (PS.ocupado ? " disabled" : "") + '>Volver a dar de alta</button>' : '<button class="ps-bt rd" data-ps="baja"' + (PS.ocupado ? " disabled" : "") + '>Dar de baja</button>') : "");
+    } else if (PS.vista === "listo"){
+      const L = PS.listo, msg = "Hola " + L.n + "! Ya podés entrar a GIABA desde " + PS.link + "\nUsuario: " + L.n + "\nPIN: " + L.pin;
+      h = '<div class="ps-card"><div class="ps-ok">' + psEsc(L.n) + (L.nueva ? " ya puede entrar." : ": PIN cambiado. El viejo ya no anda.") + '</div>'
+        + '<span class="lbl3">Pasale esto:</span><div class="ps-msg">' + psEsc(msg) + '</div>'
+        + (L.tel ? '<a class="ps-bt" style="display:grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/' + psWa(L.tel) + '?text=' + encodeURIComponent(msg) + '">💬 Mandar por WhatsApp</a>' : '<span class="lbl3">Si le cargás el teléfono, acá aparece «Mandar por WhatsApp» con el mensaje armado.</span>')
+        + '</div><button class="ps-bt ol" data-ps="volver">Volver a Personas</button>';
+    }
+    box.innerHTML = h;
+  }
+  // teléfono → número de WhatsApp (Argentina: 549 + área + número, sin el 0 ni el 15)
+  function psWa(t){ let d = String(t || "").replace(/\D/g, ""); if (d.indexOf("549") === 0) return d; if (d.indexOf("54") === 0) d = d.slice(2); if (d.charAt(0) === "0") d = d.slice(1); d = d.replace(/^(\d{2,4})15(\d{6,8})$/, "$1$2"); return "549" + d; }
+  function psLeerCampos(){ const p = PS.ed; if (!p) return; [["psN","n"],["psP","pin"],["psT","tel"],["psM","mail"],["psC","cuit"]].forEach(function(x){ const i = el(x[0]); if (i && !i.disabled) p[x[1]] = x[1] === "pin" ? i.value.replace(/\D/g, "").slice(0, 4) : i.value; }); }
+  el("psBack").addEventListener("click", function(){ if (PS.vista !== "lista"){ PS.vista = "lista"; PS.err = ""; psPintar(); window.scrollTo(0, 0); return; } showScreen("menu"); });
+  el("psIn").addEventListener("input", function(e){ if (e.target.id === "psP") e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); psLeerCampos(); });
+  el("psIn").addEventListener("click", function(e){
+    const t = e.target.closest("[data-ps],[data-pi],[data-pz],[data-pc],[data-pa],[data-ps2]"); if (!t) return;
+    psLeerCampos();
+    if (t.dataset.pi != null){ const p = PS.lista[+t.dataset.pi]; PS.orig = p.n; PS.ed = JSON.parse(JSON.stringify({ n: p.n, pin: "", tel: p.tel, mail: p.mail, cuit: p.cuit, z: p.z || "caba", apps: p.apps || {}, adm: p.adm, baja: p.baja })); PS.vista = "ed"; PS.err = ""; psPintar(); window.scrollTo(0, 0); return; }
+    if (t.dataset.pz){ PS.ed.z = t.dataset.pz; psPintar(); return; }
+    if (t.dataset.pc){ const src = PS.lista.filter(function(x){ return x.n === t.dataset.pc; })[0]; if (src){ PS.ed.apps = JSON.parse(JSON.stringify(src.apps || {})); PS.ed.z = src.z; } psPintar(); avisoMenu("Copiado de " + t.dataset.pc + ": ajustá lo que quieras"); return; }
+    if (t.dataset.pa){ const k = t.dataset.pa; if (PS.ed.apps[k]) delete PS.ed.apps[k]; else PS.ed.apps[k] = ["usar"]; psPintar(); return; }
+    if (t.dataset.ps2){ const kk = t.dataset.ps2.split("|"), l = PS.ed.apps[kk[0]] || []; if (kk[1] === "usar") return; PS.ed.apps[kk[0]] = l.indexOf(kk[1]) !== -1 ? l.filter(function(x){ return x !== kk[1]; }) : l.concat([kk[1]]); psPintar(); return; }
+    const a = t.dataset.ps, au = psAuth();
+    if (a === "recargar"){ PS.err = ""; psPintar(); psCargar(); return; }
+    if (a === "volver"){ PS.vista = "lista"; psPintar(); window.scrollTo(0, 0); return; }
+    if (a === "nueva"){ PS.orig = ""; PS.ed = { n: "", pin: psPin(), tel: "", mail: "", cuit: "", z: "caba", apps: { cobros: ["usar"] } }; PS.vista = "ed"; PS.err = ""; psPintar(); window.scrollTo(0, 0); return; }
+    if (a === "genpin"){ PS.ed.pin = psPin(); psPintar(); return; }
+    if (PS.ocupado) return;
+    if (a === "guardar"){
+      const p = PS.ed, nueva = !PS.orig;
+      if (nueva && !String(p.n).trim()){ PS.err = "Poné el nombre"; psPintar(); return; }
+      if ((nueva || p.pin) && !/^\d{4}$/.test(p.pin)){ PS.err = "El PIN tiene que ser de 4 números"; psPintar(); return; }
+      PS.ocupado = true; PS.err = ""; psPintar();
+      google.script.run.withSuccessHandler(function(r){
+        PS.ocupado = false;
+        if (!r || r.status !== "ok"){ PS.err = (r && r.msg) || "No se pudo guardar · probá de nuevo"; psPintar(); return; }
+        const pinNuevo = p.pin; PS.lista = null; psCargar();
+        if (pinNuevo){ PS.listo = { n: r.n, pin: pinNuevo, tel: p.tel, nueva: nueva }; PS.vista = "listo"; } else { PS.vista = "lista"; avisoMenu("Cambios guardados ✓"); }
+        psPintar(); window.scrollTo(0, 0);
+      }).withFailureHandler(function(){ PS.ocupado = false; PS.err = "Sin conexión · no se guardó"; psPintar(); })
+        .personasGuardar(au.nombre, au.pin, { orig: PS.orig, n: p.n, pin: p.pin, z: p.z, apps: p.apps, tel: p.tel, mail: p.mail, cuit: p.cuit });
+      return;
+    }
+    if (a === "baja" || a === "alta"){
+      const quien = PS.orig, baja = a === "baja";
+      PS.ocupado = true; PS.err = ""; psPintar();
+      google.script.run.withSuccessHandler(function(r){
+        PS.ocupado = false;
+        if (!r || r.status !== "ok"){ PS.err = (r && r.msg) || "No se pudo · probá de nuevo"; psPintar(); return; }
+        PS.lista = null; PS.vista = "lista"; psPintar(); psCargar();
+        psDeshacer(baja ? quien + " dada de baja · lo que cargó queda" : quien + " de vuelta", function(){ google.script.run.withSuccessHandler(function(){ PS.lista = null; psPintar(); psCargar(); }).personasBaja(au.nombre, au.pin, quien, !baja); });
+      }).withFailureHandler(function(){ PS.ocupado = false; PS.err = "Sin conexión · no se hizo"; psPintar(); }).personasBaja(au.nombre, au.pin, quien, baja);
+    }
+  });
+  // ---- 24/11 Avisos al celu (mockup aprobado 23/11): activar en este celu, cuáles llegan, horas de silencio, uno de prueba ----
+  const AVT = [["feria","🎪","Feria sin cerrar","30 min después de la hora de cierre (y 1 h después)",["Lucas","Adriana"]],
+    ["pedidos","📦","Pedidos para armar · 12:50","Un resumen con todo lo que hay para armar (sin ML Full)",["Lucas","Adriana","Francisco"]],
+    ["retiro","🤝","Retiro pactado","Cuando se pacta, y ese día a las 8:00",["Lucas","Adriana","Francisco"]],
+    ["visita","🌿","Visita a la chacra","El día anterior a las 8:00",["Lucas","Adriana","Francisco"]],
+    ["venc","📅","Vencimientos","3 días antes y el mismo día, a las 9:00",["Lucas","Adriana"]],
+    ["dia","☀️","Resumen de la mañana","8:00, solo si hay algo",null],
+    ["revisar","⚠","Algo para revisar","Cobros de ferias que no se pudieron subir",["Lucas"]],
+    ["autoriza","🔐","Piden autorización","Una vendedora pide entrar a otra feria",["Lucas"]],
+    ["mife","🧺","Tu feria está lista","Cuando te dejan lista la feria",[]],
+    ["mipago","✅","Te pagaron","Cuando se registra tu pago",[]]];
+  const AV = { prefs: null, celus: 0, aca: false, err: "", ocup: false, msg: "" };
+  function avPuede(){ return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && location.protocol === "https:"; }
+  function avIos(){ return /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window.navigator.standalone || matchMedia("(display-mode: standalone)").matches); }
+  function avFetch(body, cb){
+    if (!window.giabaPase){ cb(null); return; }
+    window.giabaPase(function(p){
+      if (!p){ cb(null); return; }
+      const h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      body.token = p.token;
+      fetch(p.url + "/functions/v1/giaba-push", { method: "POST", headers: h, body: JSON.stringify(body) }).then(function(r){ return r.json(); }).then(cb, function(){ cb(null); });
+    });
+  }
+  function avTipos(n){ const vend = ["Lucas","Adriana","Francisco"].indexOf(n) === -1; return AVT.filter(function(t){ return t[4] === null || (vend ? t[4].length === 0 : t[4].indexOf(n) !== -1); }); }
+  function abrirAvisos(){ AV.err = ""; AV.msg = ""; showScreen("avisos"); window.scrollTo(0, 0); avPintar(); avCargar(); }
+  function avCargar(){
+    avFetch({ accion: "prefs" }, function(r){ if (r && r.status === "ok"){ AV.prefs = r.prefs; AV.celus = r.celus; } else AV.err = "No se pudo traer · probá de nuevo"; avPintar(); });
+    if (avPuede()) navigator.serviceWorker.getRegistration("../").then(function(reg){ return reg && reg.pushManager.getSubscription(); }).then(function(sub){ AV.aca = !!sub && Notification.permission === "granted"; avPintar(); }).catch(function(){});
+  }
+  function avPintar(){
+    const box = el("avIn"), n = psAuth().nombre || ""; let h = "";
+    if (!avPuede()) h += '<div class="ps-card"><div class="ps-warn">' + (avIos() ? "En iPhone los avisos llegan solo con la app agregada a la pantalla de inicio: tocá Compartir → «Agregar a inicio», y abrila desde ese ícono." : location.protocol !== "https:" ? "Para recibir avisos, abrí la app desde abalauquen.github.io/giaba-app (este link viejo no los puede mostrar)." : "Este navegador no puede recibir avisos. Probá con Chrome.") + '</div></div>';
+    else if (Notification.permission === "denied") h += '<div class="ps-card"><div class="ps-warn">Los avisos están bloqueados para esta app en el celu. Entrá a la configuración del navegador → Notificaciones → permitir para abalauquen.github.io, y volvé acá.</div></div>';
+    else if (!AV.aca) h += '<div class="ps-card"><b style="font-size:17px">Activar los avisos en este celu</b><span class="lbl3">El celu va a preguntar «¿Permitir notificaciones?»: tocá <b>Permitir</b>.</span><button class="ps-bt" data-av="activar"' + (AV.ocup ? " disabled" : "") + '>' + (AV.ocup ? "Activando…" : "🔔 Activar avisos") + '</button></div>';
+    else h += '<div class="ps-card"><div class="ps-ok">✓ Este celu recibe tus avisos' + (AV.celus > 1 ? " (y " + (AV.celus - 1) + " celu" + (AV.celus > 2 ? "s" : "") + " más)" : "") + '.</div><button class="ps-bt" data-av="prueba"' + (AV.ocup ? " disabled" : "") + '>Mandarme uno de prueba</button><button class="ps-bt ol" data-av="desactivar">Apagar en este celu</button></div>';
+    if (AV.msg) h += '<div class="ps-ok">' + psEsc(AV.msg) + '</div>';
+    if (AV.err) h += '<div class="ps-err">' + psEsc(AV.err) + '</div>';
+    if (AV.prefs){
+      const off = AV.prefs.off || [];
+      h += '<div class="ps-card"><span class="lbl3">Cuáles te llegan</span>' + avTipos(n).map(function(t){ const on = off.indexOf(t[0]) === -1; return '<div class="ps-ap' + (on ? " on" : "") + '" data-avt="' + t[0] + '"><span class="tx"><b>' + t[1] + " " + psEsc(t[2]) + '</b><span class="lbl3">' + psEsc(t[3]) + '</span></span><span class="ps-sw"></span></div>'; }).join("") + '</div>';
+      h += '<div class="ps-card"><span class="lbl3">Horas de silencio · en ese rato no suena nada</span><div class="ps-row" style="align-items:center"><input class="ps-in" id="avDe" type="time" value="' + psEsc(AV.prefs.silDesde) + '" style="letter-spacing:0"><span class="lbl3">a</span><input class="ps-in" id="avHa" type="time" value="' + psEsc(AV.prefs.silHasta) + '" style="letter-spacing:0"></div></div>';
+    } else if (!AV.err) h += '<div class="lbl3">Cargando…</div>';
+    box.innerHTML = h;
+  }
+  function avGuardar(){ avFetch({ accion: "prefs", prefs: AV.prefs }, function(r){ if (!r || r.status !== "ok"){ AV.err = "No se guardó · probá de nuevo"; avPintar(); } else avisoMenu("Guardado ✓"); }); }
+  function b64u(s){ const p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), o = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; }
+  el("avBack").addEventListener("click", function(){ showScreen("menu"); });
+  el("avIn").addEventListener("change", function(e){ if (!AV.prefs) return; if (e.target.id === "avDe") AV.prefs.silDesde = e.target.value; if (e.target.id === "avHa") AV.prefs.silHasta = e.target.value; if (e.target.id === "avDe" || e.target.id === "avHa") avGuardar(); });
+  el("avIn").addEventListener("click", function(e){
+    const t = e.target.closest("[data-av],[data-avt]"); if (!t) return;
+    if (t.dataset.avt){ const k = t.dataset.avt, off = AV.prefs.off || []; AV.prefs.off = off.indexOf(k) !== -1 ? off.filter(function(x){ return x !== k; }) : off.concat([k]); avPintar(); avGuardar(); return; }
+    const a = t.dataset.av; if (AV.ocup) return;
+    if (a === "activar"){
+      AV.ocup = true; AV.err = ""; avPintar();
+      const mal = function(m){ AV.ocup = false; AV.err = m; avPintar(); };
+      Notification.requestPermission().then(function(pm){
+        if (pm !== "granted") return mal("No se dio el permiso. Si te equivocaste, tocá de nuevo «Activar avisos».");
+        avFetch({ accion: "clave" }, function(k){
+          if (!k || !k.clave) return mal("No se pudo conectar · probá de nuevo");
+          navigator.serviceWorker.register("../sw.js", { scope: "../" }).then(function(){ return navigator.serviceWorker.ready; })
+            .then(function(reg){ return reg.pushManager.getSubscription().then(function(s0){ return s0 || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(k.clave) }); }); })
+            .then(function(sub){ avFetch({ accion: "suscribir", sub: sub.toJSON(), ua: navigator.userAgent }, function(r){
+              if (!r || r.status !== "ok") return mal("No se pudo guardar este celu · probá de nuevo");
+              AV.ocup = false; AV.aca = true; AV.msg = "Listo: este celu ya recibe avisos. Probá «Mandarme uno de prueba»."; avCargar(); avPintar(); }); })
+            .catch(function(){ mal("El celu no dejó activar los avisos · probá de nuevo"); });
+        });
+      });
+      return;
+    }
+    if (a === "prueba"){ AV.ocup = true; AV.msg = ""; avPintar(); avFetch({ accion: "prueba" }, function(r){ AV.ocup = false; if (r && r.status === "ok" && r.mandados) AV.msg = "Mandado ✓: en unos segundos te llega el aviso."; else AV.err = "No llegó a salir" + (r && r.errores && r.errores.length ? " (" + r.errores[0] + ")" : "") + " · probá de nuevo"; avPintar(); }); return; }
+    if (a === "desactivar"){ navigator.serviceWorker.getRegistration("../").then(function(reg){ return reg && reg.pushManager.getSubscription(); }).then(function(sub){ if (!sub) return; avFetch({ accion: "baja", endpoint: sub.endpoint }, function(){}); return sub.unsubscribe(); }).then(function(){ AV.aca = false; AV.msg = ""; avCargar(); avPintar(); }).catch(function(){}); return; }
+  });
+  function psDeshacer(t, fn){
+    let a = el("psUndo"); if (!a){ a = document.createElement("div"); a.id = "psUndo"; a.style.cssText = "position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:16px;padding:12px 14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:60;max-width:560px;margin:0 auto"; document.body.appendChild(a); }
+    a.innerHTML = '<span></span><button style="border:0;background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 12px;font:800 14px Manrope,sans-serif;cursor:pointer">Deshacer</button>';
+    a.firstChild.textContent = t; a.hidden = false;
+    a.lastChild.onclick = function(){ a.hidden = true; fn(); };
+    clearTimeout(a._x); a._x = setTimeout(function(){ a.hidden = true; }, 6000);
+  }
 
   // ---- menú: tarjetas como links reales (lo único confiable en el sandbox) ----
   function irAlDestino(nombre, apps){

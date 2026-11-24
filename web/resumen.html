@@ -177,6 +177,7 @@
   // 19/11 · GIABA sin Google (supabase/functions/giaba-run): la misma función de la app, corrida en la base con los datos de la base
   var RT_NO = {}, RT_NO_MS = 10 * 60000;
   try { window.__apRtReset = function () { RT_NO = {}; }; } catch (e) {}   // para las pruebas y por si se prende en el día
+  try { window.giabaPase = function (cb) { conPase(cb); }; } catch (e) {}   // 24/11: los avisos al celu usan el mismo pase
   // la lista de lo que se arma / guarda en la base (una vez cada 10 minutos)
   // 22/11 (Lucas no pudo pagarle a Julieta: «GIABA ahora guarda en la base…»): con poca señal la lista no llegaba en 4 s, RTL quedaba vacío
   // y el guardado se iba a Google, que ya no guarda. Se recuerda la última lista en el celu: sin respuesta, se usa esa (la base sigue siendo la dueña).
@@ -255,7 +256,7 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
-  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
+  var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
       if (k === "withSuccessHandler") return function (f) { return envolver(tt.withSuccessHandler(f), f, fail, uo); };

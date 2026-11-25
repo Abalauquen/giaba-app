@@ -1042,6 +1042,13 @@ input[type=date].txt{color-scheme:dark;display:block;-webkit-appearance:none;app
 /* − número + */
 .stp{display:grid;grid-template-columns:52px minmax(64px,1fr) 52px;gap:6px;align-items:center}
 .pk12{min-width:56px;height:44px;border-radius:12px;border:0;background:#2f9e44;color:#fff;font-weight:800;font-size:16px}
+/* 25/11 (Lucas, mockup «Pedido a Roberto»): mangas de a 1 y de a 5 · diet por packs de 12 · se guarda solo */
+.stp.s5{grid-template-columns:48px 48px minmax(56px,1fr) 48px 48px}.stp.s5 button,.stp.pk button{font-size:17px}
+.stp.pk{grid-template-columns:72px minmax(56px,1fr) 72px}
+.stp button.y5{border-color:var(--accent);color:var(--accent)}
+.bzr{background:#3a3214;border:1px solid #6b5a14;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.bzr b{color:var(--accent)}.bzr .r{display:flex;gap:8px}.bzr .r .btn{flex:1}
+.itsv{font-size:14px;font-weight:700;color:var(--good);min-height:18px}
 .stp button{height:52px;border-radius:14px;border:2px solid var(--line-2);background:var(--bg);font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center}
 .stp input{height:52px;border-radius:14px;border:2px solid var(--accent);background:var(--inp);color:var(--ink);font-size:20px;font-weight:800;text-align:center;font-family:inherit;width:100%;min-width:0}
 /* hoja de acciones */
@@ -1064,6 +1071,9 @@ input[type=date].txt{color-scheme:dark;display:block;-webkit-appearance:none;app
 .ped{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:16px;background:var(--surface);border-left:8px solid var(--warn)}
 .ped .row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
 .ped .nm{font-size:17px;font-weight:800}
+button.ped{border:0;border-left:8px solid var(--warn);color:inherit;font-family:inherit;text-align:left;width:100%;cursor:pointer}
+.ped .ver{font-size:14px;color:var(--accent);font-weight:800}
+.pdtx{white-space:pre-wrap;background:var(--surface);border-radius:14px;padding:12px;font-size:15px;line-height:1.45;max-height:52vh;overflow:auto;user-select:text}
 .pl{display:flex;gap:8px;align-items:baseline;font-size:15px;line-height:1.4;color:var(--ink-mid);font-weight:600}
 .pl .sz{flex-shrink:0;font-size:13px;font-weight:800;color:var(--ink-soft);letter-spacing:.05em;min-width:64px}
 .pl .ok{color:var(--good)}
@@ -1223,6 +1233,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="cols">
     <div class="stack">
       <div class="card bigsum" id="saldoBox"><span>Saldo</span><b>—</b><span class="hint">Cargando…</span></div>
+      <div id="bzRob"></div>
       <div class="stack" id="peds"></div>
     </div>
     <div class="card" style="gap:0">
@@ -1238,6 +1249,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="narrow">
     <div class="info" id="itEd" hidden></div>
     <h1 id="itH1"></h1>
+    <div class="itsv" id="itSv"></div>
     <div class="fl" id="itPedBox"><span class="lbl">¿De qué pedido? <small>· opcional · trae lo que falta entregar</small></span><div class="chips" id="itPed"></div></div>
     <div class="fl"><span class="lbl" id="itListLbl">Lo que cargaste</span><div class="list" id="itList"></div></div>
     <div class="card" style="gap:12px">
@@ -1247,10 +1259,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       <div id="itOpts" class="fl"></div>
       <div class="det" id="itDet" hidden></div>
     </div>
-    <div class="fl"><span class="lbl">Nota <small>· opcional</small></span><input class="txt" id="itNota" placeholder="Nota (opcional)"></div>
+    <div class="fl"><span class="lbl">Nota <small>· opcional</small></span><input class="txt" id="itNota" placeholder="Nota (opcional)" oninput="if(IT&&IT.modo==='pedido')robBzGuardar()"></div>
     <div class="card" id="itTotBox" style="gap:6px"><div class="rr tt" style="border:0;padding:0"><span>Total</span><b id="itTot"></b></div></div>
     <div class="hint" id="itHint"></div>
-    <div class="sticky"><button class="btn off" id="itOk" onclick="itGuardar()">Guardar</button></div>
+    <div class="sticky"><button class="btn" id="itLater" onclick="robLuego()" hidden style="flex:0 0 auto;width:auto;padding:0 16px">Seguir después</button><button class="btn off" id="itOk" onclick="itGuardar()">Guardar</button></div>
   </div>
 </div>
 
@@ -1388,19 +1400,39 @@ function home(){
   if(!D)return;
   const s=D.saldo;
   $("saldoBox").innerHTML=`<span>${s>0.5?"Le debemos":s<-0.5?"A favor nuestro":"Saldo"}</span><b class="${s>0.5?"neg":s<-0.5?"pos":""}">${fm(Math.abs(s))}</b><span class="hint">${s>0.5?"lo que entregó menos insumos y pagos":s<-0.5?"le dimos más de lo que entregó":"están a mano"}</span>`;
-  const PEDS=D.pedidos||[];
-  $("peds").innerHTML=PEDS.length?`<div class="grp">Pedidos abiertos</div>`+PEDS.map(c=>`<div class="ped"><div class="row"><span class="nm">Pedido ${esc(c.id)} · ${esc(String(c.fecha||"").slice(0,5))}</span><span class="st w">${c.items.filter(i=>i.listo).length}/${c.items.length} entregados</span></div>`+
-    porTam(c.items,"p").map(g=>`<div class="pl"><span class="sz">${g.z.pl}</span><span>${g.xs.map(x=>(x.listo?'<span class="ok">✓ </span>':"")+esc(x.p.sabor||x.p.nombre)+" ×"+fq(x.cant)).join(" · ")}</span></div>`).join("")+`</div>`).join(""):"";
+  const PEDS=D.pedidos||[];robBzPint();
+  $("peds").innerHTML=PEDS.length?`<div class="grp">Pedidos abiertos</div>`+PEDS.map((c,ci)=>`<button type="button" class="ped" onclick="verPed(${ci})"><div class="row"><span class="nm">Pedido ${esc(c.id)} · ${esc(String(c.fecha||"").slice(0,5))}</span><span class="st w">${c.items.filter(i=>i.listo).length}/${c.items.length} entregados</span></div>`+
+    porTam(c.items,"p").map(g=>`<div class="pl"><span class="sz">${g.z.pl}</span><span>${g.xs.map(x=>(x.listo?'<span class="ok">✓ </span>':"")+esc(x.p.sabor||x.p.nombre)+" ×"+fq(x.cant)).join(" · ")}</span></div>`).join("")+`<span class="ver">Ver y mandar a Roberto ›</span></button>`).join(""):"";
   MOVS=agrupar(D.movs||[]);
   $("movs").innerHTML=MOVS.length?MOVS.map((m,i)=>{const imp=m.imp;return `<button class="hm${m.anulado?" x":""}" onclick="hoja(${i})"><span class="t"><b>${esc(ctaN(detTxt(m)))}</b><span>${esc(String(m.f).slice(0,5))} · ${esc(m.tipo)}${m.cuenta?" · "+esc(ctaN(m.cuenta)):""}${m.anulado?" · anulado":""}</span></span><span class="m"><b class="${imp>0?"neg":"pos"}">${imp>0?"+ ":""}${fm(imp)}</b></span></button>`;}).join(""):'<div class="empty">Todavía no hay movimientos. Empezá ajustando el saldo con el del Excel.</div>';
 }
 let PD=null;
 function cargar(){PD=run("getRoberto").then(r=>{
   if(!r||r.status!=="ok"){if(r&&r.status==="denegado")show("noauth");else{t((r&&r.msg)||"Sin señal");if(!D)$("movs").innerHTML='<div class="empty">No se pudo cargar. Volvé a entrar.</div>';}return D;}
-  D=r;D.ultPrecio=D.ultPrecio||{};armarCatalogo();home();return D;});return PD;}
+  D=r;D.ultPrecio=D.ultPrecio||{};armarCatalogo();home();robBzCargar();return D;});return PD;}
 // los botones de arriba se pueden tocar antes de que llegue la planilla: esperan y abren
 function conD(fn){if(D){fn();return;}t("Cargando de la planilla…");(PD||cargar()).then(d=>{if(d)fn();});}
 function show(s){document.querySelectorAll(".screen").forEach(x=>x.hidden=x.id!=="s-"+s);window.scrollTo(0,0);}
+/* 25/11 (Lucas): tocar un pedido abierto → verlo entero y mandárselo a Roberto por WhatsApp (o copiarlo) */
+function pedTexto(c){
+  const it=(c.items||[]).filter(i=>!i.listo),D1=it.filter(i=>/^DIE-/.test(i.sku||"")),M1=it.filter(i=>!/^DIE-/.test(i.sku||""));
+  const nom=i=>String(i.nombre||i.sku).replace(/^Diet\s+/i,"").replace(/^Manga repostera\s+/i,"");
+  const pk=n=>{n=Number(n)||0;const p=Math.floor(n/12),r=n%12;return p&&!r?p+" pack"+(p>1?"s":"")+" ("+n+")":p?p+" pack"+(p>1?"s":"")+" + "+r+" ("+n+")":String(n);};
+  let tx="Hola Silvia, ¿cómo estás?\n\nTe paso pedido:\n";   // 25/11 (Lucas): los pedidos los toma Silvia
+  if(D1.length)tx+="\n*Diet*\n"+D1.map(i=>"• "+nom(i)+": "+pk(i.cant)).join("\n")+"\n";
+  if(M1.length)tx+="\n*Mangas*\n"+M1.map(i=>"• "+nom(i)+": "+fq(i.cant)).join("\n")+"\n";
+  return tx+"\nAvisame qué insumos necesitás que llevemos.\n¡Muchas gracias!";
+}
+function verPed(ci){
+  const c=(D.pedidos||[])[ci];if(!c)return;const tx=pedTexto(c);
+  const ov=document.createElement("div");ov.className="sheet-ov";
+  ov.innerHTML=`<div class="sheet"><h2>Pedido ${esc(c.id)} · ${esc(String(c.fecha||"").slice(0,5))}</h2><div class="pdtx">${esc(tx)}</div>
+    <a class="btn y" style="text-decoration:none;text-align:center" href="https://wa.me/?text=${encodeURIComponent(tx)}" target="_blank" rel="noopener">📲 Mandar por WhatsApp</a>
+    <button class="btn" data-a="cp">📋 Copiar el texto</button><button class="btn" data-a="no">✕ Cerrar</button></div>`;
+  ov.addEventListener("click",e=>{const a=e.target.closest("[data-a]");if(e.target===ov||(a&&a.dataset.a==="no")){ov.remove();return;}
+    if(a&&a.dataset.a==="cp"){(navigator.clipboard?navigator.clipboard.writeText(tx):Promise.reject()).then(()=>t("Copiado ✓"),()=>{const r=document.createRange();r.selectNodeContents(ov.querySelector(".pdtx"));const sl=getSelection();sl.removeAllRanges();sl.addRange(r);t("Seleccionado: copialo");});}});
+  document.body.appendChild(ov);
+}
 function volverHome(rec){show("home");home();if(rec)cargar();}
 function hoja(i){
   const m=MOVS[i];if(!m||m.anulado){t("Ya está anulado");return;}
@@ -1421,7 +1453,7 @@ function abrirItems(modo){conD(()=>{
   IT={modo,items:[],cat:modo==="insumos"?"Fruta":"Mangas",sel:null,ped:null,q:"",edit:null,cant:0,precio:0,uid:null};
   /* 21/11 (Lucas, mockup «Pedido a Roberto»): un solo pedido; lo que piden los envíos abiertos ya viene adentro y no se puede bajar de ahí */
   if(modo==="pedido")Object.keys(D.envio||{}).forEach(sku=>{const L=D.envio[sku],n=L.reduce((a,x)=>a+(Number(x.cant)||0),0);if(!n)return;const it=nuevoIt(entDe({sku},"p"),n);it.min=n;it.para=L;IT.items.push(it);});
-  $("itStep").textContent=TIT[modo][0];$("itH1").textContent=TIT[modo][1];$("itBus").value="";$("itNota").value="";$("itEd").hidden=true;
+  $("itStep").textContent=TIT[modo][0];$("itH1").textContent=TIT[modo][1];$("itSv").textContent="";$("itBus").value="";$("itNota").value="";$("itEd").hidden=true;
   itPint();show("items");});
 }
 function catalogo(){const C=IT.modo==="insumos"?MPI:P;return Object.keys(C).map(k=>C[k]);}
@@ -1462,7 +1494,7 @@ function itPint(){
   // detalle
   $("itDet").hidden=!IT.sel;
   if(IT.sel){const u=IT.sel.u==="kg"?"kg":IT.sel.u,ult=IT.sel.precio;
-    $("itDet").innerHTML=`<div class="card-t"><span>${esc(IT.sel.full||IT.sel.nombre)}</span></div><div class="row2f"><div class="fl"><span class="lbl">Cantidad (${esc(u)})</span><div class="stp"><button onclick="itStep(-1)">−</button><input id="itCant" inputmode="decimal" value="${IT.cant?fq(IT.cant):""}" oninput="IT.cant=pm(this.value)"><button onclick="itStep(1)">+</button></div><span class="note">− número + <span class="nv">nuevo</span> · también se escribe</span></div>`+
+    $("itDet").innerHTML=`<div class="card-t"><span>${esc(IT.sel.full||IT.sel.nombre)}</span></div><div class="row2f"><div class="fl"><span class="lbl">Cantidad (${esc(u)})</span>${robStp(m,IT.sel)}<span class="note" id="itPkTx">${m==="pedido"&&IT.sel.cat==="Diet"?pkTxt(IT.cant):"− número + <span class=\"nv\">nuevo</span> · también se escribe"}</span></div>`+
       (conPrecio?`<div class="fl"><span class="lbl">Precio por ${esc(u)}</span><input class="txt num ed" id="itPrecio" inputmode="decimal" data-plata="1" value="${IT.precio?fm(IT.precio):""}" placeholder="$ 0,00" oninput="IT.precio=pm(this.value)"><span class="hint">${ult?(m==="insumos"?"Último precio de compra: ":"La última vez: ")+fm(ult)+"/"+esc(u):"Sin precio anterior: escribilo"}</span></div>`:"")+
       `</div><button class="btn ol" onclick="itAdd()">+ Sumar a la lista</button>`;}
   // total y avisos
@@ -1472,14 +1504,17 @@ function itPint(){
   $("itHint").innerHTML=sinP.length?`<div class="wrb">⚠ Falta el precio de: <b>${sinP.map(x=>esc((ALL()[x.k]||x).full||x.nombre)).join(", ")}</b>. Tocalo en la lista para cargarlo.</div>`:base;
   const ok=IT.items.length&&!sinP.length;$("itOk").className="btn "+(ok?"y":"off");
   if(!itGuardar.on)$("itOk").textContent=IT.edit?"Guardar cambios":m==="pedido"?"Crear pedido":"Guardar";
+  $("itLater").hidden=!(m==="pedido"&&!IT.edit);if(m!=="pedido")$("itSv").textContent="";
+  if(m==="pedido"&&!IT.edit){const sig=JSON.stringify(robBzData());if(IT.bzSig!==undefined&&IT.bzSig!==sig)robBzGuardar();IT.bzSig=sig;}
 }
 function itPintPed(){
-  const fab=sku=>{const p=(D.productos||[]).find(y=>y.sku===sku);return p?Number(p.fab)||0:0;};
+  const fab=sku=>{const p=(D.productos||[]).find(y=>y.sku===sku);return p?Math.max(0,Number(p.fab)||0):0;};
+  const caba=sku=>{const p=(D.productos||[]).find(y=>y.sku===sku);return p?Math.max(0,Number(p.caba)||0):0;};
   $("itListLbl").textContent="Qué le pedís · "+IT.items.reduce((a,x)=>a+x.cant,0)+" u";
   $("itList").innerHTML=IT.items.length?IT.items.map((x,i)=>{const p=ALL()[x.k]||{nombre:x.nombre},diet=p.cat==="Diet";
     const env=(x.para||[]).map(e=>`<span style="color:var(--blue,#8fb8ff)">${e.cant} son para el envío a ${esc(e.destino||"")} (${esc(e.id)})</span>`).join(" · ");
-    return `<div class="it" style="flex-wrap:wrap"><span class="t"><b>${esc(p.full||p.nombre)}</b><span>hay ${fab(x.sku)} en Fábrica${env?" · "+env:""}</span></span>
-      <span style="display:flex;gap:6px;align-items:center;margin-left:auto"><span class="stp" style="grid-template-columns:44px 56px 44px"><button onclick="itPedQ(${i},-1)">−</button><input inputmode="numeric" value="${x.cant}" onchange="itPedSet(${i},this.value)"><button onclick="itPedQ(${i},1)">+</button></span>${diet?`<button class="pk12" onclick="itPedQ(${i},12)">+12</button>`:""}</span></div>`;}).join(""):'<div class="empty">Todavía nada. Elegí abajo.</div>';
+    return `<div class="it" style="flex-wrap:wrap"><span class="t"><b>${esc(p.full||p.nombre)}</b><span>hay ${fab(x.sku)} en Fábrica · ${caba(x.sku)} en CABA${diet?" · "+esc(pkTxt(x.cant)):""}${env?" · "+env:""}</span></span>
+      <span style="display:flex;gap:6px;align-items:center;margin-left:auto">${diet?`<span class="stp" style="grid-template-columns:64px 56px 64px"><button style="font-size:15px" onclick="itPedQ(${i},-PK)">− pack</button><input inputmode="numeric" value="${x.cant}" onchange="itPedSet(${i},this.value)"><button class="y5" style="font-size:15px" onclick="itPedQ(${i},PK)">+ pack</button></span>`:`<span class="stp" style="grid-template-columns:44px 40px 52px 40px 44px"><button style="font-size:15px" onclick="itPedQ(${i},-5)">−5</button><button style="font-size:15px" onclick="itPedQ(${i},-1)">−1</button><input inputmode="numeric" value="${x.cant}" onchange="itPedSet(${i},this.value)"><button style="font-size:15px" onclick="itPedQ(${i},1)">+1</button><button class="y5" style="font-size:15px" onclick="itPedQ(${i},5)">+5</button></span>`}</span></div>`;}).join(""):'<div class="empty">Todavía nada. Elegí abajo.</div>';
   itMatsPint();
 }
 function itPedQ(i,d){const x=IT.items[i];if(!x)return;const v=Math.max(x.min||0,(x.cant||0)+d);if(v<=0&&!x.min){IT.items.splice(i,1);}else x.cant=v;if(d<0&&x.min&&x.cant===x.min&&(x.cant||0)+d<x.min)t("No baja de "+x.min+": son para el envío");itPint();}
@@ -1499,7 +1534,38 @@ function itMatsPint(){
   box.innerHTML=h;box.hidden=false;
 }
 function itSel(k){IT.sel=ALL()[k];IT.cant=0;IT.precio=IT.sel.precio||0;itPint();$("itDet").scrollIntoView({block:"center",behavior:"smooth"});}
-function itStep(d){IT.cant=Math.max(0,(IT.cant||0)+d);$("itCant").value=IT.cant?fq(IT.cant):"";}
+function itStep(d){IT.cant=Math.max(0,(IT.cant||0)+d);$("itCant").value=IT.cant?fq(IT.cant):"";if($("itPkTx")&&IT.modo==="pedido"&&IT.sel&&IT.sel.cat==="Diet")$("itPkTx").textContent=pkTxt(IT.cant);}
+const PK=12;   // 25/11 (Lucas): el diet va en packs de 12
+function pkTxt(n){n=Number(n)||0;if(!n)return "cada toque suma un pack de "+PK;const p=Math.floor(n/PK),r=n%PK;return n+" u. = "+(p?p+" pack"+(p>1?"s":""):"")+(r?(p?" + ":"")+r+" sueltos":"");}
+function robStp(m,sel){
+  const inp=`<input id="itCant" inputmode="decimal" value="${IT.cant?fq(IT.cant):""}" oninput="IT.cant=pm(this.value);itStep(0)">`;
+  if(m==="pedido"&&sel.cat==="Diet")return `<div class="stp pk"><button onclick="itStep(-${PK})">− pack</button>${inp}<button class="y5" onclick="itStep(${PK})">+ pack</button></div>`;
+  if(m==="pedido")return `<div class="stp s5"><button onclick="itStep(-5)">−5</button><button onclick="itStep(-1)">−1</button>${inp}<button onclick="itStep(1)">+1</button><button class="y5" onclick="itStep(5)">+5</button></div>`;
+  return `<div class="stp"><button onclick="itStep(-1)">−</button>${inp}<button onclick="itStep(1)">+</button></div>`;
+}
+/* borrador del pedido: se guarda solo (en la base, para seguir desde cualquier celu) */
+let BZR=null;
+function robBzData(){return{items:IT.items.map(x=>({sku:x.sku,k:x.k,cant:x.cant})),nota:$("itNota").value};}
+function robBzGuardar(){
+  if(!IT||IT.modo!=="pedido"||IT.edit)return;
+  clearTimeout(robBzGuardar.tm);
+  robBzGuardar.tm=setTimeout(()=>{const d=robBzData(),n=d.items.reduce((a,x)=>a+x.cant,0);
+    run("borradorGuardar","roberto",IT.bz||"",d.items.length+" productos · "+n+" u",JSON.stringify(d)).then(r=>{
+      if(r&&r.status==="ok"){IT.bz=r.id;const h=new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});if($("itSv"))$("itSv").textContent="✓ Guardado "+h+" · podés salir y seguir después";}
+      else if($("itSv"))$("itSv").textContent="";});},900);
+}
+function robBzCargar(){run("borradoresListar","roberto").then(r=>{BZR=r&&r.status==="ok"?(r.items||[]).filter(b=>b.usuario===A.nombre)[0]||null:BZR;robBzPint();});}
+function robBzPint(){const box=$("bzRob");if(!box)return;
+  if(!BZR){box.innerHTML="";return;}
+  box.innerHTML=`<div class="bzr"><b>📝 Tenés un pedido sin terminar</b><span class="hint">${esc(BZR.titulo||"")} · guardado ${esc(BZR.cuando||"")}</span><div class="r"><button class="btn y" onclick="robBzSeguir()">Seguir</button><button class="btn" onclick="robBzDescartar()">Empezar de nuevo</button></div></div>`;}
+function robBzSeguir(){const b=BZR;if(!b)return;abrirItems("pedido");
+  setTimeout(()=>{const d=b.data||{};(d.items||[]).forEach(x=>{const ya=IT.items.find(y=>y.sku===x.sku);if(ya){ya.cant=Math.max(ya.min||0,x.cant);}else{const e=ALL()[x.k]||entDe({sku:x.sku},"p");if(e)IT.items.push(nuevoIt(e,x.cant));}});
+    $("itNota").value=d.nota||"";IT.bz=b.id;itPint();},0);}
+function robBzDescartar(){const b=BZR;BZR=null;robBzPint();if(b)run("borradorBorrar",b.id);t("Listo, empezás de cero");}
+function robLuego(){robBzGuardar();clearTimeout(robBzGuardar.tm);const d=robBzData();
+  if(!d.items.length){volverHome(false);return;}
+  run("borradorGuardar","roberto",IT.bz||"",d.items.length+" productos · "+d.items.reduce((a,x)=>a+x.cant,0)+" u",JSON.stringify(d)).then(r=>{
+    t(r&&r.status==="ok"?"Queda guardado para seguir después ✓":"No se pudo guardar (¿sin señal?)");volverHome(false);robBzCargar();});}
 function itAdd(){const c=IT.cant;if(!IT.sel||c<=0){t("Poné la cantidad");return;}
   if(IT.modo==="pedido"){const ya=IT.items.find(x=>x.k===IT.sel.k);if(ya){ya.cant+=c;IT.sel=null;t("Sumado ✓");itPint();return;}}
   IT.items.push(nuevoIt(IT.sel,c,IT.modo==="pedido"?0:IT.precio));IT.sel=null;t("Sumado a la lista ✓");itPint();}
@@ -1512,7 +1578,7 @@ function itGuardar(){
   const txt=$("itOk").textContent;itGuardar.on=true;$("itOk").textContent="Guardando…";
   const pr=IT.edit?run("editarRoberto",IT.edit,{items,nota}):IT.modo==="pedido"?run("pedirARoberto",{items,nota}):run("registrarRoberto",{uid:IT.uid,tipo:IT.modo,items,nota,pedidoId:IT.ped});
   pr.then(r=>{itGuardar.on=false;$("itOk").textContent=txt;
-    if(r&&r.status==="ok"){t(IT.edit?"Corregido ✓":IT.modo==="pedido"?"Pedido "+r.id+" creado ✓":"Guardado ✓");volverHome(true);}else t((r&&r.msg)||"No se pudo");});
+    if(r&&r.status==="ok"){if(IT.modo==="pedido"&&!IT.edit){clearTimeout(robBzGuardar.tm);const bz=IT.bz||(BZR&&BZR.id);if(bz)run("borradorBorrar",bz);BZR=null;}t(IT.edit?"Corregido ✓":IT.modo==="pedido"?"Pedido "+r.id+" creado ✓":"Guardado ✓");volverHome(true);}else t((r&&r.msg)||"No se pudo");});
 }
 
 /* ================= PAGO / AJUSTE ================= */

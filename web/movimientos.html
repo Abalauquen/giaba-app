@@ -1165,6 +1165,18 @@ a.back,a.btn{text-decoration:none}
 .stp button.pressed{background:var(--accent)!important;border-color:var(--accent)!important;color:var(--accent-ink)!important}
 /* 08/11 (cada pedido en su lugar): 🕒 pedidos pendientes */
 .ln{background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px;border-left:6px solid var(--good)}
+/* 25/11: una línea por producto en el envío (lo pedido arriba; armado / hay en stock / a elaborar abajo) */
+.pi{background:var(--surface);border-radius:12px;padding:10px 12px}
+.pi .ph1{display:flex;align-items:baseline;gap:10px}.pi .ph1 .n{flex:1;min-width:0;font-weight:700;font-size:16px}
+.pi .ph1 .n small{display:block;font-size:14px;color:var(--ink-mid);font-weight:600}
+.pi .tq{font-weight:800;font-size:20px;white-space:nowrap}.pi .tq small{font-size:13px;color:var(--ink-soft);font-weight:600;margin-left:4px}
+.pi .pk{font-size:14px;color:var(--ink-soft);margin-top:-2px}
+.pi .pb{display:flex;height:7px;border-radius:4px;background:var(--line);overflow:hidden;margin:8px 0}
+.pi .pb i{background:var(--good)}.pi .pb u{background:var(--accent)}.pi .pb em{background:var(--line-2)}
+.pi .pcs{display:flex;flex-wrap:wrap;gap:8px}
+.pch{border:0;border-radius:999px;padding:8px 12px;font-weight:600;font-size:15px;font-family:inherit;color:var(--ink);background:var(--s2);min-height:40px;display:inline-flex;align-items:center;gap:4px}
+.pch.g{background:var(--good-soft);color:var(--good)}.pch.a{background:var(--accent-soft);color:var(--accent)}.pch.o{color:var(--ink-mid)}
+button.pch{cursor:pointer}
 .ln.w{border-left-color:var(--accent)}
 .ln .n{flex:1;min-width:0;font-weight:700;font-size:16px;display:flex;flex-wrap:wrap;align-items:center;gap:0 6px}
 .ln .n small{flex-basis:100%;font-size:15px;color:var(--ink-mid);font-weight:600}
@@ -2191,9 +2203,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const p = prodSku(i.sku), gl = p ? lab(p) || "Otros" : "Otros", nm = (p ? dot(p.sabor) + " " : "") + esc(nomSku(i.sku, i.nombre));
       let h = "";
       if (gl !== g){ g = gl; h = '<div class="rgrp">' + esc(gl) + '</div>'; }
-      if (i.armado > 0) h += '<button type="button" class="ln" data-desarm="' + esc(i.sku) + '"><span class="n">' + nm + (i.env ? '<small>ya mandados ' + fmt(i.env) + '</small>' : '') + '</span><span class="q">' + fmt(i.armado) + '</span><span class="st g">✓ armado</span></button>';
-      if (i.porArmar > 0) h += '<button type="button" class="ln w" data-arm="' + esc(i.sku) + '"><span class="n">' + nm + '<small>hay en ' + esc(pd.origen) + ' · tocá cuando lo armes</small></span><span class="q">' + fmt(i.porArmar) + '</span><span class="st">armar</span></button>';
-      if (i.falta > 0) h += '<div class="ln w"><span class="n">' + nm + '<small>' + (pd.origen === "Fábrica" ? "a elaborar" : "falta en CABA") + '</small></span><span class="q">' + fmt(i.falta) + '</span><span class="st">' + (pd.origen === "Fábrica" ? "en comanda" : "falta") + '</span></div>';
+      // 25/11 (Lucas, mockup «una línea por producto»): el número grande es lo que se pidió; abajo, armado / hay en stock / a elaborar
+      const pk = /-(454|300|830|210)$/.test(i.sku) && i.cant >= 12 && i.cant % 12 === 0 ? i.cant / 12 : 0;
+      const pc = function(n){ return i.cant ? Math.max(0, n) / i.cant * 100 : 0; };
+      h += '<div class="pi"><div class="ph1"><span class="n">' + nm + (i.env ? '<small>ya mandados ' + fmt(i.env) + '</small>' : '') + '</span><span class="tq">' + fmt(i.cant) + '<small>pediste</small></span></div>'
+        + (pk ? '<div class="pk">= ' + pk + ' pack' + (pk > 1 ? 's' : '') + ' de 12</div>' : '')
+        + '<div class="pb"><i style="width:' + pc(i.armado) + '%"></i><u style="width:' + pc(i.porArmar) + '%"></u><em style="width:' + pc(i.falta) + '%"></em></div><div class="pcs">'
+        + (i.armado > 0 ? '<button type="button" class="pch g" data-desarm="' + esc(i.sku) + '"><b>' + fmt(i.armado) + '</b> <span class="st g">✓ armado</span></button>' : '')
+        + (i.porArmar > 0 ? '<button type="button" class="pch a" data-arm="' + esc(i.sku) + '"><b>' + fmt(i.porArmar) + '</b> hay en stock · <span class="st">armar</span></button>' : '')
+        + (i.falta > 0 ? '<span class="pch o"><b>' + fmt(i.falta) + '</b> ' + (pd.origen === "Fábrica" ? "a elaborar" : "faltan en " + esc(pd.origen)) + '</span>' : '')
+        + '</div></div>';
       return h;
     }).join("");
     const ex = pd.extras || [];

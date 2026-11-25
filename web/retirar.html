@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -1152,6 +1152,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <div class="scr" id="s-home" hidden>
   <div class="top"><a class="back" id="homeBack">Menú</a><span class="who" id="who"></span></div>
   <h2 class="ttl">📦 Pedidos para retirar</h2>
+  <button class="btn ol" id="goTodos" hidden>📋 Todos los pedidos · en qué paso está cada uno</button>
   <div class="tabs" id="tabs">
     <button class="tab on" id="tabHoy" data-tab="hoy">Hoy<small id="nHoy">…</small></button>
     <button class="tab" id="tabProx" data-tab="prox">Próximos<small id="nProx">…</small></button>
@@ -1212,6 +1213,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 </div>
 
 <!-- 7 SIN PERMISO -->
+<!-- 25/11 (repaso aprobado): todos los pedidos en una sola lista, con el paso de cada uno (por ahora solo para mirar) -->
+<div class="scr" id="s-todos" hidden>
+  <div class="top"><button class="back" id="todosBack">Pedidos para retirar</button><span class="who" id="whoT"></span></div>
+  <h2 class="ttl">📋 Todos los pedidos</h2>
+  <div class="chips" id="ptF"></div>
+  <div id="ptBox" class="stack"><div class="empty">Cargando…</div></div>
+</div>
+
 <div class="scr" id="s-noauth" hidden>
   <div class="top"><a class="back" id="naBack">Menú</a></div>
   <div class="narrow">
@@ -1276,7 +1285,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function agrupado(items, fila){ let gl = "", h = ""; items.slice().sort(function(a,b){ return prod(a).ord - prod(b).ord; }).forEach(function(it){ const p = prod(it); if (p.gl !== gl){ gl = p.gl; h += '<div class="grp">'+esc(gl)+'</div>'; } h += fila(it, p); }); return h; }
 
   /* pantallas */
-  const SC = ["noauth","home","det","cg","disp","link","mailq"];
+  const SC = ["noauth","home","det","cg","disp","link","mailq","todos"];
   function ir(n){ SC.forEach(function(s){ $("s-"+s).hidden = s !== n; }); window.scrollTo(0,0); }
   document.querySelectorAll("[data-home]").forEach(function(b){ b.addEventListener("click", function(){ if (b.dataset.home) TAB = b.dataset.home; S.conf = null; S.aviso = null; ir("home"); pint(); cargar(); }); });
 
@@ -1326,6 +1335,29 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       teoCargar();
     });
   }
+  // ---- 25/11 · 📋 Todos los pedidos (getPedidosTodos) ----
+  const PT_VE = ["Lucas","Adriana","Francisco","Luis"]; let PT = null, PTF = "abiertos";
+  const ptVe = () => !!A && PT_VE.indexOf(A.nombre) !== -1;
+  const PT_FIL = [["abiertos","Sin terminar"],["1","Para armar"],["2","Listos"],["3","En camino"],["cobrar","Falta cobrar"],["todos","Todos"]];
+  function ptAbrir(){ ir("todos"); if (!PT) ptPintar(); run("getPedidosTodos").then(function(r){ PT = r && r.status === "ok" ? r : { error: (r && r.status === "denegado") ? "No tenés permiso para esto" : "No se pudo cargar. Probá de nuevo." }; ptPintar(); }); }
+  function ptPintar(){
+    const box = $("ptBox");
+    if (!PT){ box.innerHTML = '<div class="empty">Cargando…</div>'; return; }
+    if (PT.error){ box.innerHTML = '<div class="wrb">' + esc(PT.error) + '</div>'; return; }
+    const L = PT.pedidos || [], cuenta = { abiertos: L.filter(function(x){ return x.paso < 4; }).length, "1": PT.n[1], "2": PT.n[2], "3": PT.n[3], cobrar: PT.n.cobrar, todos: L.length };
+    $("ptF").innerHTML = PT_FIL.filter(function(f){ return f[0] !== "cobrar" || PT.plata; }).map(function(f){ return '<button class="chip' + (PTF === f[0] ? ' on' : '') + '" data-ptf="' + f[0] + '">' + f[1] + ' <small>' + (cuenta[f[0]] || 0) + '</small></button>'; }).join("");
+    const V = L.filter(function(x){ return PTF === "todos" ? true : PTF === "abiertos" ? x.paso < 4 : PTF === "cobrar" ? x.falta > 500 : String(x.paso) === PTF; });
+    const col = { 1: "w", 2: "b", 3: "", 4: "g" };
+    box.innerHTML = V.length ? '<div class="rl">' + V.map(function(x){
+      const pasos = [1,2,3,4].map(function(i){ return '<i style="flex:1;height:6px;border-radius:9px;background:' + (i <= x.paso ? 'var(--good)' : 'var(--line-2)') + '"></i>'; }).join("");
+      return '<div class="r' + (x.paso === 4 ? ' ok' : x.paso === 1 ? ' w' : '') + '"><div class="l1"><b>' + esc(x.id) + ' · ' + esc(x.cliente) + '</b><span class="tag ' + (col[x.paso] || '') + '">' + esc(x.pasoTxt) + '</span></div>'
+        + '<small>' + esc(x.canal) + ' · ' + esc(x.dep) + (x.entrega ? ' · ' + esc(x.entrega) : '') + ' · ' + esc(String(x.fecha || '').slice(0, 5)) + '</small>'
+        + (x.items ? '<small>🫙 ' + esc(x.items) + '</small>' : '')
+        + (PT.plata && x.total ? '<small>' + fm(x.total) + (x.falta > 500 ? ' · <span class="cw">falta cobrar ' + fm(x.falta) + '</span>' : '') + '</small>' : '')
+        + '<div style="display:flex;gap:4px">' + pasos + '</div><small class="hint">armar · listo · en camino o retira · terminado</small></div>';
+    }).join("") + '</div>' : '<div class="empty">No hay pedidos acá 🎉</div>';
+    box.insertAdjacentHTML("beforeend", '<div class="hint">Por ahora es para mirar: cada pedido se sigue marcando donde se marca hoy (Mayoristas, Ventas online, Comandas y Para retirar).</div>');
+  }
   function cargar(){
     if (teoVe() && !TEO) teoCargar();
     return Promise.all([run("getRetirosV3"), ADMF ? run("getRetirosAdmin") : run("getMiMail")]).then(function(rs){
@@ -1340,6 +1372,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (!D && !X){ if (a && a.status === "denegado") ir("noauth"); else t("Sin señal"); return; }
       CARGO = true; pint();
       if (GIABA_IR === "cargar" && ADMF){ GIABA_IR = ""; abrirCargar(""); }
+      if (GIABA_IR === "todos" && ptVe()){ GIABA_IR = ""; ptAbrir(); }
     });
   }
 
@@ -1426,7 +1459,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!A) return;
     const adm = ADMF, ds = deps();
     $("goCargar").hidden = !adm;
-    $("tabSin").hidden = !adm; $("tabTeo").hidden = !teoVe();
+    $("tabSin").hidden = !adm; $("tabTeo").hidden = !teoVe(); $("goTodos").hidden = !ptVe();
     const nTabs = 2 + (adm ? 1 : 0) + (teoVe() ? 1 : 0);
     $("tabs").classList.toggle("dos", nTabs === 2); $("tabs").classList.toggle("cuatro", nTabs === 4);
     if (!adm && TAB === "sin") TAB = "hoy";
@@ -1509,6 +1542,9 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if ((b = g("#hDep [data-d]"))){ DEP = b.dataset.d; pint(); return; }
     if ((b = g("[data-ya]"))){ ya(b); return; }
     if ((b = g("[data-teoret]"))){ teoRetirado(b); return; }
+    if ((b = g("[data-ptf]"))){ PTF = b.dataset.ptf; ptPintar(); return; }
+    if ((b = g("#goTodos"))){ ptAbrir(); return; }
+    if ((b = g("#todosBack"))){ ir("home"); return; }
     if ((b = g("[data-teoref]"))){ TEO = null; pint(); teoCargar(); return; }
     if ((b = g("[data-ent]"))){ entMarcar(b); return; }
     if ((b = g("[data-remito]"))){ remito(b.dataset.remito, b); return; }

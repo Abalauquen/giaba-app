@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -459,6 +459,7 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line
 .menu-list{display:flex;flex-direction:column;gap:10px}
 .menu-card{min-height:62px;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:0 16px;display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink)}
 .menu-card:active{border-color:var(--accent)}
+.nm-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.nm-tabs button{min-height:48px;border-radius:14px;border:2px solid var(--line);background:var(--surface);color:var(--ink);font:800 16px system-ui,sans-serif}.nm-tabs button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .menu-icon{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .menu-text{display:flex;flex-direction:column;gap:2px;flex:1}
 .menu-text b{font-family:'Manrope',sans-serif;font-size:17px}
@@ -1300,7 +1301,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 </div>
 <div id="screen-semana" class="screen" hidden>
   <div class="topbar"><button class="back" id="smBack" aria-label="Atrás"></button></div>
-  <h1 id="smTit">☀️ Tu semana</h1>
+  <h1 id="smTit">📊 Números</h1>
+  <div class="nm-tabs" id="nmTabs"><button data-nm="hoy">Hoy</button><button data-nm="sem" class="on">Semana</button><button data-nm="mes">Mes</button></div>
   <div id="smIn" style="display:flex;flex-direction:column;gap:10px"></div>
 </div>
 <div id="screen-avisos" class="screen" hidden>
@@ -1329,7 +1331,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20L12 4l8 16"/><path d="M9 20l3-6 3 6"/></svg>' },
     local:      { label:"Local Dulcería",   desc:"Cobros del local (se cierra solo)",  query:"local",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v10h16V10"/><path d="M2 10l3-6h14l3 6z"/><path d="M9 20v-6h6v6"/></svg>' },
-    caja:       { label:"Contabilidad",     desc:"Caja · Facturación · Sin facturar · IVA · Reportes",            query:"contabilidad",
+    caja:       { label:"Contabilidad",     desc:"Facturas · Sin facturar · IVA · impuestos · cierres",            query:"contabilidad",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="18" height="8" rx="1.5"/><path d="M5 12l1-5h12l1 5"/><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M7 16h2M11 16h2M15 16h2"/></svg>' },
     costos:     { label:"Costos y precios", desc:"Cuánto sale · Publicaciones ML/TN · ¿Cubrimos los fijos? · Productos", query:"costos",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>' },
@@ -1344,14 +1346,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>' },
     compras:    { label:"Compras / gastos",          desc:"+ Nueva compra · + Nuevo gasto · Para pedir · A pagar", query:"compras",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L22 7H6"/></svg>' },
-    stock:      { label:"Cuánto hay",       desc:"Fábrica · CABA · Full · alertas y conteos",      query:"stock",
+    stock:      { label:"Stock",       desc:"Fábrica · CABA · Full · alertas y conteos",      query:"stock",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>' },
     comandas:   { label:"Comandas",         desc:"Pedidos para armar y a elaborar",    query:"comandas",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M7 5H5v16h14V5h-2"/><path d="M9 12l2 2 4-4"/><path d="M9 17h6"/></svg>' },
-    produccion: { label:"Elaboración y envasado", desc:"Cargar lo producido e incidentes", query:"produccion",
+    produccion: { label:"Producción", desc:"Elaborar, envasar, etiquetar · plan de elaboración", query:"produccion",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8"/><path d="M9 3v3l-3 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9l-3-4V3"/><path d="M6 13h12"/></svg>' },
-    movimientos:{ label:"Movimientos masivos de stock", desc:"Envíos Fábrica ↔ CABA y bultos", query:"movimientos",
+    movimientos:{ label:"Envíos", desc:"Mandar y recibir: Fábrica ↔ CABA y bultos", query:"movimientos",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h12v9H2z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>' },
+    numeros:    { label:"Números", desc:"Hoy · Semana · Mes · resúmenes y patrimonio", query:"menu&s=semana", icon:"" },
+    cajaapp:    { label:"Caja",             desc:"Saldos, movimientos, A pagar y cuentas corrientes", query:"caja", icon:"" },
     chacra:     { label:"Chacra",           desc:"Visitas guiadas y compras",          query:"chacra",
                   icon:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.8.2 5 2.6 5 5.8"/></svg>' },
     mant:       { label:"Mantenimiento",    desc:"Vehículos, trámites y fábrica",      query:"mant", icon:"" },
@@ -1365,14 +1369,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   const GRUPOS = [
     { key: "g_ventas", label: "Ventas", desc: "Ferias · Local · Mayoristas · Minoristas · Pedidos para retirar · Incidentes", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"],
       icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2l-2 4v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6l-2-4z"/><path d="M4 6h16"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' },
-    { key: "g_stock", label: "Stock", desc: "Cuánto hay · Movimientos masivos · Conteos", apps: ["stock","movimientos"],
+    { key: "g_stock", label: "Stock y producción", desc: "Stock · Envíos · Producción · Comandas · Roberto", apps: ["stock","movimientos","produccion","comandas","roberto"],
       icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8"/><path d="M7 17h10"/></svg>' },
-    { key: "g_prod", label: "Producción", desc: "Elaboración · Comandas · Fichaje · Roberto", apps: ["produccion","comandas","horas","roberto"],
-      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8"/><path d="M9 3v3l-3 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9l-3-4V3"/><path d="M6 13h12"/></svg>' }
+    { key: "g_plata", label: "Plata", desc: "Caja · Contabilidad · Costos · Compras", apps: ["cajaapp","caja","costos","compras"],
+      icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8"/><path d="M9 3v3l-3 4v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9l-3-4V3"/><path d="M6 13h12"/></svg>' },
+    { key: "g_equipo", label: "Equipo y lugar", desc: "Empleados · Chacra · Mantenimiento", apps: ["horas","chacra","mant"], icon: "" },
   ];
   // 28/10 (Lucas: "me gustan mucho los logos"): dibujitos de color en vez de los íconos de línea
   const EMO = { cobros:"🎪", local:"🏪", mayoristas:"📦", revendedores:"🤝", minoristas:"🛍️", retirar:"📦", produccion:"🍯", comandas:"📋", horas:"⏱️", roberto:"👨‍🌾",
-    stock:"📦", movimientos:"🚛", compras:"🧾", caja:"💵", costos:"💲", chacra:"🏡", mant:"🛠️", incidentes:"⚠️", g_ventas:"🛒", g_stock:"📦", g_prod:"🍯" };
+    stock:"📦", movimientos:"🚛", compras:"🧾", caja:"📒", cajaapp:"💰", numeros:"📊", costos:"💲", chacra:"🏡", mant:"🛠️", incidentes:"⚠️", g_ventas:"🛒", g_stock:"📦", g_plata:"💰", g_equipo:"👥" };
   Object.keys(APPS).forEach(function(k){ if (EMO[k]) APPS[k].icon = '<span class="emo">' + EMO[k] + '</span>'; });
   GRUPOS.forEach(function(g){ if (EMO[g.key]) g.icon = '<span class="emo">' + EMO[g.key] + '</span>'; });
   // opciones de adentro de cada app: se abren como Ventas y entran directo a esa pantalla
@@ -1381,12 +1386,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     mayoristas: [["+ Nueva venta","#goNueva"],["Mandar la lista de precios","@costos&s=lpremay"]],
     revendedores: [["Comisiones y deudas","#goCom"],["Alta y comisión de cada una","#goLst"]],
     minoristas: [["+ Nueva venta","#goNueva"],["Importar ventas TN / ML","#goImportar"]],
-    retirar:    [["➕ Cargar un retiro","#goCargar"],["Próximos","#tabProx"],["Sin día (a coordinar)","#tabSin"]],
+    retirar:    [["📋 Todos los pedidos (en qué paso está cada uno)","#goTodos"],["➕ Cargar un retiro","#goCargar"],["Próximos","#tabProx"],["Sin día (a coordinar)","#tabSin"]],
     produccion: [["Elaboración","[data-area=\"Elaboración\"]"],["Envasado","[data-area=\"Envasado\"]"],["Partidas","#partBtn"]],
     comandas:   [["Qué hay que elaborar","#goElab"],["Materia prima a pedir","#goMP"]],
     roberto:    [["Le pagué","#goPago"]],
     compras:    [["+ Nueva compra","#goNueva"],["+ Nuevo gasto","#goGasto"],["Cuentas corrientes (a pagar)","#goCC"]],
-    caja:       [["Caja (saldos, pagos, a pagar)","@caja"],["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
+    caja:       [["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
     costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
     stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
   };
@@ -1569,7 +1574,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const f = lsGet("giaba_fondo_" + nombre, "");
     box.innerHTML = '<span class="lbl3">Color de fondo · queda guardado para vos</span><div class="sw">' + FONDOS.map(function(x){ return '<button data-fb="' + x[0] + '" class="' + (f === x[0] ? "on" : "") + '"><i style="background:' + x[2] + '"></i>' + x[1] + '</button>'; }).join("") + '</div>'
       + '<a class="menu-card" id="abrirAvisos" role="button"><span class="emo">🔔</span><span class="menu-text"><b>Avisos</b><span>Cuáles te llegan al celu · horas de silencio</span></span>' + ICON_CHEV + '</a>'
-      + (nombre === "Lucas" ? '<a class="menu-card" id="abrirSemana" role="button"><span class="emo">☀️</span><span class="menu-text"><b>Tu semana</b><span>Ventas por canal, lo que se termina, cobros y gastos</span></span>' + ICON_CHEV + '</a>' : '')
+      + (NM_VEN.indexOf(nombre) !== -1 ? '<a class="menu-card" id="abrirSemana" role="button"><span class="emo">📊</span><span class="menu-text"><b>Números</b><span>Hoy · Semana · Mes · resúmenes</span></span>' + ICON_CHEV + '</a>' : '')
       + (nombre === "Lucas" ? '<a class="menu-card" id="abrirPersonas" role="button"><span class="emo">👥</span><span class="menu-text"><b>Personas</b><span>Crear usuarios · PIN · qué pantallas ve</span></span>' + ICON_CHEV + '</a>' : '')
       + '<a class="menu-card" id="cambiarUsr" role="button"><span class="menu-text"><b>Cambiar de usuario</b></span>' + ICON_CHEV + '</a>';
     abrirHoja(nombre, null); el("sheetIn").appendChild(box);
@@ -1741,18 +1746,38 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function avGuardar(){ avFetch({ accion: "prefs", prefs: AV.prefs }, function(r){ if (!r || r.status !== "ok"){ AV.err = "No se guardó · probá de nuevo"; avPintar(); } else avisoMenu("Guardado ✓"); }); }
   function b64u(s){ const p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), o = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; }
   el("avBack").addEventListener("click", function(){ showScreen("menu"); });
-  // ---- 24/11 · ☀️ Tu semana (resumen del lunes; por ahora solo Lucas) ----
-  const SM = { d: null, err: "" };
+  // ---- 24/11 · ☀️ Tu semana → 25/11 📊 Números (repaso aprobado): Hoy · Semana · Mes; los resúmenes que ya existen, juntos ----
+  const NM_VEN = ["Lucas","Adriana"];
+  const SM = { d: null, err: "", tab: "sem" };
+  function nmIr(appQ, sel, extra){ const sep = GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&"; if (sel) lsSet("giaba_ir", { app: appQ, sel: sel, t: Date.now() }); else { try { localStorage.removeItem("giaba_ir"); } catch (e) {} } location.href = GIABA_BASE_URL + sep + "app=" + appQ + (extra || ""); }
+  function nmBoton(emo, t, d, appQ, sel, extra){ return '<a class="menu-card" role="button" data-nmapp="' + appQ + '" data-nmsel="' + (sel || "") + '" data-nmx="' + (extra || "") + '"><span class="emo">' + emo + '</span><span class="menu-text"><b>' + t + '</b><span>' + d + '</span></span>' + ICON_CHEV + '</a>'; }
+  function nmPintarOtro(){
+    const box = el("smIn"); el("smTit").textContent = "📊 Números";
+    if (SM.tab === "hoy") box.innerHTML = '<div class="sm-hint">Lo del día, para revisar y cerrar.</div>'
+      + nmBoton("🧾", "Cierre del día", "MP Fábrica contra lo registrado en la app", "contabilidad", "#goCdia")
+      + nmBoton("🎪", "Resumen de ferias", "Cada feria, cada vendedora, con filtros", "ferias", "#homeMis")
+      + nmBoton("🍳", "Resumen de producción", "Lo elaborado y envasado", "resumen", "", "&t=prod")
+      + nmBoton("🚚", "Resumen de envíos", "Lo que salió y llegó entre depósitos", "resumen", "", "&t=mov")
+      + '<div class="sm-hint">El Resumen diario te sigue llegando por mail a las 7.</div>';
+    else box.innerHTML = '<div class="sm-hint">El mes completo.</div>'
+      + nmBoton("📅", "Cierre de mes", "Lo que falta facturar del mes", "contabilidad", "#goCmes")
+      + nmBoton("🧮", "¿Cuánto da a pagar?", "IVA + Ingresos Brutos · monotributo", "contabilidad", "#goImp")
+      + nmBoton("📈", "Patrimonio neto", "Plata + stock + nos deben − debemos", "contabilidad", "#goPat")
+      + nmBoton("👤", "Retiros de socios", "Lo que sacó cada uno vs. su sueldo", "contabilidad", "#goRet")
+      + nmBoton("⚖️", "Gastos fijos y equilibrio", "¿Cubrimos los fijos?", "costos", "", "&s=cubrimos");
+  }
   const smPesos = n => "$ " + Math.round(Number(n) || 0).toLocaleString("es-AR");
-  function abrirSemana(){ SM.err = ""; showScreen("semana"); window.scrollTo(0, 0); smPintar();
+  function abrirSemana(){ SM.err = ""; showScreen("semana"); window.scrollTo(0, 0); nmTabs(); if (SM.tab !== "sem"){ nmPintarOtro(); return; } smPintar();
     const au = psAuth();
     google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok"){ SM.err = r && r.status === "denegado" ? "Esto lo ve solo Lucas, por ahora." : "No se pudo traer · probá de nuevo"; smPintar(); return; } SM.d = r; SM.err = ""; smPintar(); })
       .withFailureHandler(function(){ SM.err = "Sin conexión · probá de nuevo"; smPintar(); }).getMiSemana(au.nombre, au.pin); }
+  function nmTabs(){ Array.prototype.forEach.call(el("nmTabs").children, function(b){ b.classList.toggle("on", b.dataset.nm === SM.tab); }); }
   function smPintar(){
+    if (SM.tab !== "sem") return;
     const box = el("smIn"), D = SM.d; let h = "";
     if (SM.err) h += '<div class="ps-card"><div class="ps-warn">' + psEsc(SM.err) + '</div></div>';
     if (!D){ box.innerHTML = h || '<div class="ps-card"><div class="sm-hint">Cargando…</div></div>'; return; }
-    el("smTit").textContent = "☀️ Tu semana · " + D.semana;
+    el("smTit").textContent = "📊 Números · semana del " + D.semana;
     const flecha = p => p === null || p === undefined ? "" : ' <small style="color:' + (p >= 0 ? "var(--good,#8fd19e)" : "var(--terra,#ff8a83)") + '">' + (p >= 0 ? "▲ " : "▼ ") + Math.abs(p) + ' %</small>';
     const fila = (a, b) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-mid);min-width:0">' + a + '</span><b style="text-align:right;white-space:nowrap">' + b + '</b></div>';
     h += '<div class="ps-card"><div class="sm-hint">Vendiste en la semana</div><div style="font-size:30px;font-weight:800">' + smPesos(D.total) + flecha(D.pct) + '</div>'
@@ -1768,6 +1793,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     box.innerHTML = h;
   }
   el("smBack").addEventListener("click", function(){ showScreen("menu"); });
+  el("nmTabs").addEventListener("click", function(e){ const b = e.target.closest("[data-nm]"); if (!b) return; SM.tab = b.dataset.nm; nmTabs(); if (SM.tab === "sem"){ if (SM.d) smPintar(); else abrirSemana(); } else nmPintarOtro(); });
+  el("smIn").addEventListener("click", function(e){ const b = e.target.closest("[data-nmapp]"); if (!b) return; nmIr(b.dataset.nmapp, b.dataset.nmsel, b.dataset.nmx); });
   el("avIn").addEventListener("change", function(e){ if (!AV.prefs) return; if (e.target.id === "avDe") AV.prefs.silDesde = e.target.value; if (e.target.id === "avHa") AV.prefs.silHasta = e.target.value; if (e.target.id === "avDe" || e.target.id === "avHa") avGuardar(); });
   el("avIn").addEventListener("click", function(e){
     const t = e.target.closest("[data-av],[data-avt]"); if (!t) return;
@@ -1815,13 +1842,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     pintarFecha(); aplicarFondo(nombre);
     FIRMA_PEND = ""; const list = el("menuList"); list.innerHTML = ""; list.classList.toggle("uno", apps.length === 1);
     const ALIAS = { retiros:"caja", ventas:"cobros", ferias:"cobros", retirosadmin:"retirar" };
-    const ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","mant","incidentes"];
+    if (apps.indexOf("caja") !== -1 || apps.indexOf("retiros") !== -1) apps = apps.concat(["cajaapp"]);
+    if (NM_VEN.indexOf(nombre) !== -1) apps = apps.concat(["numeros"]);   // 25/11: 📊 Números (Lucas y Adriana)   // 25/11: Caja y Contabilidad, dos botones (el mismo permiso)
+    const ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_stock","stock","movimientos","produccion","comandas","roberto","g_plata","cajaapp","caja","costos","compras","g_equipo","horas","chacra","mant","numeros","incidentes"];   // 25/11 (repaso aprobado): Ventas · Stock y producción · Plata · Equipo y lugar
     // v3 Mi sueldo (02/11): quien ficha y no es Lucas ni Adriana ve «Mi fichaje y sueldo» (abre directo su sueldo)
     const SOCIO_M = ["Lucas","Adriana"].indexOf(nombre) !== -1;
     // 04/11: para la revendedora es «🏪 Ventas mayoristas» (sus clientes y comisiones); para Lucas y Adriana, «🤝 Revendedoras»
     APPS.revendedores.label = SOCIO_M ? "Revendedoras" : "Ventas mayoristas"; APPS.revendedores.desc = SOCIO_M ? "Aprobar pedidos · comisiones y deudas" : "Tus clientes, pedidos y comisiones";
     APPS.revendedores.icon = '<span class="emo">' + (SOCIO_M ? "🤝" : "🏪") + '</span>';
-    APPS.horas.label = SOCIO_M ? "Fichaje y sueldos" : "Mi fichaje y sueldo"; APPS.horas.desc = SOCIO_M ? "Horas trabajadas · sueldos de empleados" : "Mis horas · 💵 Mi sueldo";
+    APPS.horas.label = SOCIO_M ? "Empleados" : "Mi fichaje y sueldo"; APPS.horas.desc = SOCIO_M ? "Fichaje, horas y sueldos" : "Mis horas · 💵 Mi sueldo";
     if (!SOCIO_M && apps.indexOf("fichar") !== -1 && apps.indexOf("horas") === -1) apps = apps.concat(["horas"]);
     apps = apps.map(function(k){ return ALIAS[k] || k; }).filter(function(k, i, arr){ return arr.indexOf(k) === i && APPS[k]; });
     if (apps.indexOf("minoristas") !== -1 && apps.indexOf("mayoristas") === -1) apps.push("mayoristas"); // quien ve minoristas, ve también mayoristas
@@ -1850,7 +1879,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const head = document.createElement("div");
       head.className = "menu-card"; head.setAttribute("role", "button"); head.dataset.app = key;
       head.innerHTML = '<span class="menu-icon'+(a.red?' red':'')+'">'+a.icon+'</span><span class="menu-text"><b>'+a.label+'</b><span>'+a.desc+'</span></span>'
-        + (["caja"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '<span class="badge" id="cajaBadge" hidden></span>')
+        + (["cajaapp"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '<span class="badge" id="cajaBadge" hidden></span>')
         + '<span class="chev">'+ICON_CHEV+'</span>';
       head.addEventListener("click", function(){ if (box.parentNode === list) return abrirHoja(a.label, sub); box.classList.toggle("open"); abiertos[gk] = box.classList.contains("open"); });
       const sub = document.createElement("div"); sub.className = "sub";
@@ -1874,10 +1903,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       card.href = buildUrl(key);
       card.dataset.app = key;
       card.innerHTML = '<span class="menu-icon'+(a.red?' red':'')+'">'+a.icon+'</span><span class="menu-text"><b>'+a.label+'</b><span>'+a.desc+'</span></span>'
-        + (["incidentes","movimientos","caja"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '')
+        + (["incidentes","movimientos","cajaapp"].indexOf(key) === -1 ? '<span class="badge" data-b="'+key+'" hidden></span>' : '')
         + (key === "incidentes" ? '<span class="badge" data-inc hidden></span>' : '')
         + (key === "movimientos" ? '<span class="badge y" id="movBadge" hidden></span>' : '')
-        + (key === "caja" ? '<span class="badge" id="cajaBadge" hidden></span>' : '') + ICON_CHEV;
+        + (key === "cajaapp" ? '<span class="badge" id="cajaBadge" hidden></span>' : '') + ICON_CHEV;
       return card;
     }
     items.forEach(function(it){
@@ -1900,7 +1929,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov();
     actualizarBadgeCaja(nombre); PEND_T = Date.now();
     prvContar(nombre);
-    try { if (new URLSearchParams(location.search).get("s") === "semana" && nombre === "Lucas" && !SM_IDO){ SM_IDO = true; abrirSemana(); } } catch (eS) {}   // 24/11: el aviso del lunes abre «Tu semana»
+    try { if (new URLSearchParams(location.search).get("s") === "semana" && NM_VEN.indexOf(nombre) !== -1 && !SM_IDO){ SM_IDO = true; abrirSemana(); } } catch (eS) {}   // 24/11: el aviso del lunes abre «Tu semana»
     if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();   // 02/11: barra de la compu con esta persona
     pedirMail(nombre);
   }

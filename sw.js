@@ -1,5 +1,5 @@
 /* GIABA instalable · service worker: guarda la app en el celu (abre al instante, y sin señal abre la guardada). */
-var VERSION = "giaba-63c9831";
+var VERSION = "giaba-2ce657c";   // los avisos: 25/11
 var ARCHIVOS = ["./", "./index.html", "./ferias/index.html", "./ferias/gsr.js", "./manifest.webmanifest", "./icono.svg", "./icono-192.png", "./icono-512.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(ARCHIVOS); }).then(function () { return self.skipWaiting(); }));
@@ -23,8 +23,10 @@ self.addEventListener("fetch", function (e) {
 // 24/11 · Avisos al celu (mockup aprobado 23/11): el lugar arriba, el título y el texto; al tocar abre la pantalla que corresponde.
 self.addEventListener("push", function (e) {
   var d = {}; try { d = e.data ? e.data.json() : {}; } catch (x) { d = { t: "GIABA", b: e.data ? e.data.text() : "" }; }
-  var titulo = (d.l ? d.l + " · " : "") + (d.t || "GIABA");
-  var op = { body: d.b || "", icon: "icono-aviso.png", badge: "badge-aviso.png", tag: d.g || undefined, renotify: !!d.g, data: { u: d.u || "./web/menu.html" }, lang: "es-AR" };
+  // 25/11 (Lucas: «los textos quedaban medio cortados»): el título va corto; si con el lugar no entra en una línea, el lugar pasa al texto
+  var t = d.t || "GIABA", l = d.l || "", junto = l && (l.length + t.length) <= 34;
+  var titulo = junto ? l + " · " + t : t;
+  var op = { body: (l && !junto ? l + " · " : "") + (d.b || ""), icon: "icono-aviso.png", badge: "badge-aviso.png", tag: d.g || undefined, renotify: !!d.g, data: { u: d.u || "./web/menu.html" }, lang: "es-AR" };
   if (d.ac && d.ac.length) op.actions = d.ac.slice(0, 2).map(function (a, i) { return { action: "a" + i, title: String(a.t || a) }; });
   if (d.ac && d.ac.length) op.data.acc = d.ac.map(function (a) { return a.u || ""; });
   e.waitUntil(self.registration.showNotification(titulo, op));

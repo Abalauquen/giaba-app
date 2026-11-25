@@ -3797,7 +3797,22 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!gs()) return;
     google.script.run.withSuccessHandler(function(data){
       if (data && data.vendedores && data.vendedores.length){ CONFIG = data; lsSet("cf_config", CONFIG); }
+      lpPrefetch();
     }).getConfig();
+  }
+  // 25/11 (Lucas: «que quede arreglado de fondo»): la lista de productos del Local (y la de CABA para cobrar después del cierre)
+  // se baja sola al celu cada vez que hay señal (como mucho cada 3 h), así sin señal se puede elegir qué se vendió igual.
+  function lpPrefetch(){
+    const a = auth(); if (!gs() || !a || !a.pin) return;
+    ["Fábrica", "CABA"].forEach(function(dep){
+      const k = dep === "CABA" ? "lp_prods_caba" : "lp_prods", t = Number(lsGet(k + "_t", 0)) || 0;
+      if (lsGet(k, null) && Date.now() - t < 3 * 3600e3) return;
+      google.script.run.withSuccessHandler(function(r){
+        if (!(r && r.status === "ok" && r.productos && r.productos.length)) return;
+        lsSet(k, r.productos); lsSet(k + "_t", Date.now());
+        if (LP.dep === dep && !LP.prods){ LP.prods = r.productos; LP.sinLista = false; }
+      }).withFailureHandler(function(){}).getProductosLocal(dep, a.nombre || "", a.pin || "");
+    });
   }
 
   // ---- preparar una feria para otro día (Adriana la arma el día anterior) ----
@@ -5745,7 +5760,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function lpTraer(){
     if (!gs()){ LP.sinLista = !LP.prods; pintarLp(); return; }
     google.script.run.withSuccessHandler(function(r){
-      if (r && r.status === 'ok'){ LP.prods = r.productos; LP.sinLista = false; lsSet(lpCacheKey(), r.productos); }
+      if (r && r.status === 'ok'){ LP.prods = r.productos; LP.sinLista = false; lsSet(lpCacheKey(), r.productos); lsSet(lpCacheKey() + "_t", Date.now()); }
       else LP.sinLista = !LP.prods;
       pintarLp();
     }).withFailureHandler(function(){ if (!LP.prods && !LP.reint){ LP.reint = true; setTimeout(lpTraer, 1200); return; }   // 25/11 (Fran): si tardó, se prueba una vez más antes de decir «sin señal»
@@ -5829,7 +5844,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // ---- cobro después del cierre (caja y stock ya cerrados; lo puede cargar la vendedora) ----
   const PO = { medio: null, guardando: false };
   function abrirPost(){
-    LP.post = { volver: "cerrada" }; LP.items = []; LP.sabor = null; LP.dep = session.feria === "Feria El Bolsón" ? "Fábrica" : "CABA";
+    LP.post = { volver: "cerrada" }; LP.items = []; LP.sabor = null; LP.dep = session.feria === "Feria El Bolsón" ? "Fábrica" : "CABA"; LP.prods = lsGet(lpCacheKey(), null);
     LP.prods = lsGet(lpCacheKey(), null);
     PO.medio = null; el("poMonto").value = ""; el("poFeria").textContent = session.feria + (session.ubicacion ? " · " + session.ubicacion : "");
     showScreen("post"); pintarPo();

@@ -5748,7 +5748,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (r && r.status === 'ok'){ LP.prods = r.productos; LP.sinLista = false; lsSet(lpCacheKey(), r.productos); }
       else LP.sinLista = !LP.prods;
       pintarLp();
-    }).withFailureHandler(function(){ LP.sinLista = !LP.prods; pintarLp(); }).getProductosLocal(LP.dep, (auth() || {}).nombre || "", (auth() || {}).pin || "");   // 30/10 (e93): con PIN; precios solo a Lucas / Adriana
+    }).withFailureHandler(function(){ if (!LP.prods && !LP.reint){ LP.reint = true; setTimeout(lpTraer, 1200); return; }   // 25/11 (Fran): si tardó, se prueba una vez más antes de decir «sin señal»
+      LP.sinLista = !LP.prods; pintarLp(); }).getProductosLocal(LP.dep, (auth() || {}).nombre || "", (auth() || {}).pin || "");   // 30/10 (e93): con PIN; precios solo a Lucas / Adriana
   }
   el("lpSel").addEventListener("click", function(){ LP.edit = null; el("lpEy").textContent = "Este cobro"; el("lpOk").textContent = "Listo"; showScreen("lprod"); pintarLp(); lpTraer(); });
   // Lucas / Adriana: cargar o corregir los productos de un cobro ya guardado

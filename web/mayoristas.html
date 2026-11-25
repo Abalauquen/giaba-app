@@ -2987,6 +2987,21 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       box.innerHTML = r.items.map(function(x){ return '⚠ Reclamo <b>' + esc(x.id) + '</b> · ' + esc(x.quePaso) + ' · ' + (x.estado === "Abierto" ? '<b style="color:var(--terra-ink)">abierto</b>' : 'resuelto'); }).join("<br>");
     }).withFailureHandler(function(){}).reclamosDeVenta(A.nombre, A.pin, ref);
   }
+  // 24/11: ✉️ recordatorios de pago automáticos (zCobrosVenc.gs)
+  document.addEventListener("click", function(ev){
+    const b = ev.target.closest ? ev.target.closest("[data-cobno]") : null; if (!b) return;
+    const no = b.dataset.v === "1"; b.disabled = true;
+    run("cobNoMandar", b.dataset.cobno, no).then(function(r){
+      if (r && r.status === "ok"){ ((PEDS && PEDS.pedidos) || []).forEach(function(p){ if (p.clienteId === b.dataset.cobno && p.cobRec) p.cobRec.no = no; }); toast(no ? "Listo: a este cliente no se le mandan recordatorios" : "Listo: se le vuelven a mandar"); if (DP) abrirDetalle(DP.id); }
+      else { b.disabled = false; toast("No se pudo", true); }
+    });
+  });
+  function cobRecHtml(p){
+    const r = p.cobRec; if (!r) return "";
+    const est = r.no ? "no se le mandan" : r.sinMail ? "sin mail cargado: no se le puede mandar" : [r.m1 ? "1º " + dm(r.m1) : "", r.m2 ? "2º " + dm(r.m2) : "", r.fin ? "ya se mandaron los dos" : r.proximo ? "próximo " + dm(r.proximo) : ""].filter(Boolean).join(" · ");
+    return '<div class="v3-r"><span>✉️ Recordatorio de pago</span><b style="white-space:normal;text-align:right">' + esc(est) + '</b></div>'
+      + (ADMIN ? '<button class="v3-btn sm" style="min-height:40px;font-size:14px" data-cobno="' + esc(p.clienteId) + '" data-v="' + (r.no ? "0" : "1") + '">' + (r.no ? "Volver a mandarle recordatorios" : "No mandarle recordatorios a este cliente") + '</button>' : '');
+  }
   function abrirDetalle(id){
     DP = PEDS.pedidos.filter(function(p){ return p.id === id; })[0]; if (!DP) return;
     const p = DP, an = p.estado === "Anulado";
@@ -3031,7 +3046,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const stT = {};
     el("dtItems").innerHTML = p.items.map(function(it){ return grpH(stT, it.sku) + '<div class="v3-r" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>' + esc(it.n || it.nombre) + '<br><small>' + esc(it.cant) + ' u. × ' + fm(it.precio) + (p.factura === "C" || p.factura === "Sin factura" ? '' : ' + IVA') + '</small></span><b>' + fm(it.cant * it.precio) + '</b></div>'; }).join("");
     el("dtCobro").innerHTML = (p.ivaMonto ? '<div class="v3-r"><span>IVA</span><b>' + fm(p.ivaMonto) + '</b></div>' : '') + '<div class="v3-r"><span>Total</span><b>' + fm(p.total) + '</b></div><div class="v3-r"><span>Cobrado</span><b style="color:var(--good)">' + fm(p.cobrado) + '</b></div>'
-      + (falta > 0.5 ? '<div class="v3-r"><span>Falta</span><b style="color:var(--warn)">' + fm(falta) + (p.vence ? ' · vence ' + dm(p.vence) : '') + '</b></div>' : '') + (p.medio ? '<div class="v3-r"><span>Medio</span><b>' + esc(p.medio) + '</b></div>' : '');
+      + (falta > 0.5 ? '<div class="v3-r"><span>Falta</span><b style="color:var(--warn)">' + fm(falta) + (p.vence ? ' · vence ' + dm(p.vence) : '') + '</b></div>' : '') + (p.medio ? '<div class="v3-r"><span>Medio</span><b>' + esc(p.medio) + '</b></div>' : '')
+      + cobRecHtml(p);
     // este cliente
     const s = statsCli(p.clienteId);
     el("dtCliCard").innerHTML = '<div class="v3-ct">Este cliente</div>' + (s.cada ? '<div class="v3-r"><span>Pide cada</span><b>~' + s.cada + ' días</b></div>' : '')

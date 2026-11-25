@@ -843,16 +843,16 @@ html,body{background:var(--bg)}
   var APPS = {
     cobros: { label: "Ferias", q: "ferias" }, local: { label: "Local Dulcería", q: "local" },
     mayoristas: { label: "Mayoristas", q: "mayoristas" }, revendedores: { label: "Revendedoras", q: "revendedores" }, minoristas: { label: "Minoristas", q: "minoristas" },
-    retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Elaboración y envasado", q: "produccion" },
-    comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Fichaje y sueldos", q: "horas" },
-    roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Cuánto hay", q: "stock" },
-    movimientos: { label: "Movimientos masivos de stock", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
-    caja: { label: "Contabilidad", q: "contabilidad" }, costos: { label: "Costos y precios", q: "costos" },
+    retirar: { label: "Pedidos para retirar", q: "retirar" }, produccion: { label: "Producción", q: "produccion" },
+    comandas: { label: "Comandas", q: "comandas" }, horas: { label: "Empleados", q: "horas" },
+    roberto: { label: "Roberto", q: "roberto" }, stock: { label: "Stock", q: "stock" },
+    movimientos: { label: "Envíos", q: "movimientos" }, compras: { label: "Compras / gastos", q: "compras" },
+    cajaapp: { label: "Caja", q: "caja" }, caja: { label: "Contabilidad", q: "contabilidad" }, numeros: { label: "Números", q: "menu&s=semana" }, costos: { label: "Costos y precios", q: "costos" },
     chacra: { label: "Chacra", q: "chacra" }, mant: { label: "Mantenimiento", q: "mant" }, incidentes: { label: "Incidentes", q: "incidentes" }
   };
-  var CORTO = { cobros: "Ferias", local: "Local", produccion: "Elaboración", horas: "Fichaje", movimientos: "Movimientos", stock: "Cuánto hay", caja: "Contabilidad", costos: "Costos" };
-  var GRUPOS = [{ key: "g_ventas", label: "Ventas", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"] }, { key: "g_stock", label: "Stock", apps: ["stock","movimientos"] }, { key: "g_prod", label: "Producción", apps: ["produccion","comandas","horas","roberto"] }];
-  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", caja: "💵", costos: "💲", chacra: "🏡", mant: "🛠️", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_prod: "🍯" };
+  var CORTO = { cobros: "Ferias", local: "Local", produccion: "Producción", horas: "Empleados", movimientos: "Envíos", stock: "Stock", cajaapp: "Caja", caja: "Contabilidad", costos: "Costos", numeros: "Números" };
+  var GRUPOS = [{ key: "g_ventas", label: "Ventas", apps: ["cobros","local","mayoristas","revendedores","minoristas","retirar"] }, { key: "g_stock", label: "Producción y stock", apps: ["produccion","stock","movimientos","comandas","roberto"] }, { key: "g_plata", label: "Plata", apps: ["cajaapp","caja","costos","compras"] }, { key: "g_equipo", label: "Empleados y chacra", apps: ["horas","chacra","mant"] }];   // 25/11: los mismos grupos y nombres del Inicio
+  var EMO = { cobros: "🎪", local: "🏪", mayoristas: "📦", revendedores: "🤝", minoristas: "🛍️", retirar: "📦", produccion: "🍯", comandas: "📋", horas: "⏱️", roberto: "👨‍🌾", stock: "📦", movimientos: "🚛", compras: "🧾", cajaapp: "💰", caja: "📒", numeros: "📊", costos: "💲", chacra: "🏡", mant: "🛠️", incidentes: "⚠️", g_ventas: "🛒", g_stock: "📦", g_plata: "💰", g_equipo: "👥" };
   // atajos: [texto, a qué botón entra (giaba_ir) o «@app» para otra pantalla]
   var SUBS = {
     cobros:     [["Mi feria de hoy (en curso o arrancar)","#homeSeguir,#homeArrancar"],["Dejar lista la de mañana","#homePrep"],["Resumen de ferias","#homeMis"],["Calendario de ferias","#homeCal"]],
@@ -864,11 +864,11 @@ html,body{background:var(--bg)}
     comandas:   [["Qué hay que elaborar","#goElab"],["Materia prima a pedir","#goMP"]],
     roberto:    [["Le pagué","#goPago"]],
     compras:    [["+ Nueva compra","#goNueva"],["+ Nuevo gasto","#goGasto"],["Cuentas corrientes (a pagar)","#goCC"]],
-    caja:       [["Caja (saldos, pagos, a pagar)","@caja"],["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
+    caja:       [["Facturación","#goFact"],["Sin facturar","#goSF"],["Patrimonio neto","#goPat"]],
     costos:     [["¿Cuánto sale?","[data-go=cuanto]"],["Calculadora","[data-go=calc]"],["Lista de precios para mandar","[data-go=lpre]"],["¿Cubrimos los fijos?","[data-go=cubrimos]"]],
     stock:      [["Productos","#goProds"],["Contar stock","#goContar"],["Salida sin venta","#goSalida"],["Hacer pedido de insumo","#goAP"]]
   };
-  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_prod","produccion","comandas","horas","roberto","g_stock","stock","movimientos","compras","caja","costos","chacra","mant","incidentes"];
+  var ORDEN = ["g_ventas","cobros","local","mayoristas","revendedores","minoristas","retirar","g_stock","produccion","stock","movimientos","comandas","roberto","g_plata","cajaapp","caja","costos","compras","g_equipo","horas","chacra","mant","numeros","incidentes"];
   var ALIAS = { retiros: "caja", ventas: "cobros", ferias: "cobros", retirosadmin: "retirar" };
   var SV_HB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
   var SV_DN = '<svg class="gn-cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
@@ -881,7 +881,10 @@ html,body{background:var(--bg)}
     P = String(a.nombre);
     var socio = P === "Lucas" || P === "Adriana";   // 04/11: la revendedora ve «🏪 Ventas mayoristas»; Lucas y Adriana, «🤝 Revendedoras»
     APPS.revendedores.label = socio ? "Revendedoras" : "Ventas mayoristas"; EMO.revendedores = socio ? "🤝" : "🏪";
+    APPS.horas.label = socio ? "Empleados" : "Mi fichaje y sueldo"; CORTO.horas = socio ? "Empleados" : "Mi sueldo";
     var apps = a.apps.map(function(k){ return ALIAS[k] || k; });
+    if (apps.indexOf("caja") !== -1) apps.push("cajaapp");   // 25/11: Caja y Contabilidad, dos botones (como el Inicio)
+    if (socio) apps.push("numeros");
     apps = apps.filter(function(k, i, arr){ return arr.indexOf(k) === i && APPS[k]; });
     if (apps.indexOf("minoristas") !== -1 && apps.indexOf("mayoristas") === -1) apps.push("mayoristas");   // como el Inicio
     apps.sort(function(x, y){ return ORDEN.indexOf(x) - ORDEN.indexOf(y); });

@@ -671,6 +671,7 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line
 .ps-sb.on .ck{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .ps-sb.fijo{opacity:.65;cursor:default}
 .ps-pl{font-size:11px;font-weight:800;color:#e8a0a8;background:rgba(232,160,168,.16);border-radius:999px;padding:1px 7px}
+.sm-hint{color:var(--ink-mid,#a9a49e);font-size:14px;font-weight:600}
 .ps-warn{background:rgba(232,160,168,.14);color:#e8a0a8;border-radius:12px;padding:10px 12px;font-size:14px}
 .ps-ok{background:rgba(127,212,138,.14);color:#7fd48a;border-radius:12px;padding:10px 12px;font-size:14px}
 .ps-msg{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:12px;font-size:15px;white-space:pre-line}
@@ -1297,6 +1298,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <h1 id="psTit">Personas</h1>
   <div id="psIn" style="display:flex;flex-direction:column;gap:10px"></div>
 </div>
+<div id="screen-semana" class="screen" hidden>
+  <div class="topbar"><button class="back" id="smBack" aria-label="Atrás"></button></div>
+  <h1 id="smTit">☀️ Tu semana</h1>
+  <div id="smIn" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
 <div id="screen-avisos" class="screen" hidden>
   <div class="topbar"><button class="back" id="avBack" aria-label="Atrás"></button></div>
   <h1>🔔 Avisos</h1>
@@ -1395,7 +1401,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     });
   }
 
-  const screens = ["quien","pin","menu","personas","avisos"];
+  const screens = ["quien","pin","menu","personas","avisos","semana"];
+  var SM_IDO = false;
   function showScreen(name){ screens.forEach(function(s){ el("screen-"+s).hidden = (s!==name); }); }
 
   function lsGet(k,f){ try{ const v=localStorage.getItem(k); return v===null?f:JSON.parse(v);}catch(e){return f;} }
@@ -1562,12 +1569,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const f = lsGet("giaba_fondo_" + nombre, "");
     box.innerHTML = '<span class="lbl3">Color de fondo · queda guardado para vos</span><div class="sw">' + FONDOS.map(function(x){ return '<button data-fb="' + x[0] + '" class="' + (f === x[0] ? "on" : "") + '"><i style="background:' + x[2] + '"></i>' + x[1] + '</button>'; }).join("") + '</div>'
       + '<a class="menu-card" id="abrirAvisos" role="button"><span class="emo">🔔</span><span class="menu-text"><b>Avisos</b><span>Cuáles te llegan al celu · horas de silencio</span></span>' + ICON_CHEV + '</a>'
+      + (nombre === "Lucas" ? '<a class="menu-card" id="abrirSemana" role="button"><span class="emo">☀️</span><span class="menu-text"><b>Tu semana</b><span>Ventas por canal, lo que se termina, cobros y gastos</span></span>' + ICON_CHEV + '</a>' : '')
       + (nombre === "Lucas" ? '<a class="menu-card" id="abrirPersonas" role="button"><span class="emo">👥</span><span class="menu-text"><b>Personas</b><span>Crear usuarios · PIN · qué pantallas ve</span></span>' + ICON_CHEV + '</a>' : '')
       + '<a class="menu-card" id="cambiarUsr" role="button"><span class="menu-text"><b>Cambiar de usuario</b></span>' + ICON_CHEV + '</a>';
     abrirHoja(nombre, null); el("sheetIn").appendChild(box);
     Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(b){ b.addEventListener("click", function(){ lsSet("giaba_fondo_" + nombre, b.dataset.fb); aplicarFondo(nombre); Array.prototype.forEach.call(box.querySelectorAll("[data-fb]"), function(x){ x.classList.toggle("on", x === b); }); }); });
     box.querySelector("#cambiarUsr").addEventListener("click", function(){ cerrarHoja(); el("menuBackLink").click(); });
     const bp = box.querySelector("#abrirPersonas"); if (bp) bp.addEventListener("click", function(){ cerrarHoja(); abrirPersonas(); });
+    const bs = box.querySelector("#abrirSemana"); if (bs) bs.addEventListener("click", function(){ cerrarHoja(); abrirSemana(); });
     box.querySelector("#abrirAvisos").addEventListener("click", function(){ cerrarHoja(); abrirAvisos(); });
   });
 
@@ -1731,6 +1740,33 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function avGuardar(){ avFetch({ accion: "prefs", prefs: AV.prefs }, function(r){ if (!r || r.status !== "ok"){ AV.err = "No se guardó · probá de nuevo"; avPintar(); } else avisoMenu("Guardado ✓"); }); }
   function b64u(s){ const p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")), o = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; }
   el("avBack").addEventListener("click", function(){ showScreen("menu"); });
+  // ---- 24/11 · ☀️ Tu semana (resumen del lunes; por ahora solo Lucas) ----
+  const SM = { d: null, err: "" };
+  const smPesos = n => "$ " + Math.round(Number(n) || 0).toLocaleString("es-AR");
+  function abrirSemana(){ SM.err = ""; showScreen("semana"); window.scrollTo(0, 0); smPintar();
+    const au = psAuth();
+    google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok"){ SM.err = r && r.status === "denegado" ? "Esto lo ve solo Lucas, por ahora." : "No se pudo traer · probá de nuevo"; smPintar(); return; } SM.d = r; SM.err = ""; smPintar(); })
+      .withFailureHandler(function(){ SM.err = "Sin conexión · probá de nuevo"; smPintar(); }).getMiSemana(au.nombre, au.pin); }
+  function smPintar(){
+    const box = el("smIn"), D = SM.d; let h = "";
+    if (SM.err) h += '<div class="ps-card"><div class="ps-warn">' + psEsc(SM.err) + '</div></div>';
+    if (!D){ box.innerHTML = h || '<div class="ps-card"><div class="sm-hint">Cargando…</div></div>'; return; }
+    el("smTit").textContent = "☀️ Tu semana · " + D.semana;
+    const flecha = p => p === null || p === undefined ? "" : ' <small style="color:' + (p >= 0 ? "var(--good,#8fd19e)" : "var(--terra,#ff8a83)") + '">' + (p >= 0 ? "▲ " : "▼ ") + Math.abs(p) + ' %</small>';
+    const fila = (a, b) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)"><span style="color:var(--ink-mid);min-width:0">' + a + '</span><b style="text-align:right;white-space:nowrap">' + b + '</b></div>';
+    h += '<div class="ps-card"><div class="sm-hint">Vendiste en la semana</div><div style="font-size:30px;font-weight:800">' + smPesos(D.total) + flecha(D.pct) + '</div>'
+      + D.canales.map(function(c){ return fila(psEsc(c.canal), smPesos(c.total) + flecha(c.pct)); }).join("") + '<div class="sm-hint" style="margin-top:6px">Comparado con la semana anterior (' + smPesos(D.totalAntes) + ').</div></div>';
+    if (D.top.length) h += '<div class="ps-card"><div class="sm-hint">Lo más vendido (mayoristas y online)</div>' + D.top.map(function(x){ return fila(psEsc(x.n) + ' · ' + x.u + ' u', smPesos(x.p)); }).join("") + '</div>';
+    const mir = [];
+    D.seTermina.forEach(function(x){ mir.push(fila("⚠ Se termina en CABA: " + psEsc(x), "")); });
+    D.negativos.forEach(function(x){ mir.push(fila("⛔ Stock negativo: " + psEsc(x), "")); });
+    if (D.vencidos.n) mir.push(fila("💰 Cobros vencidos de mayoristas (" + D.vencidos.n + ")", smPesos(D.vencidos.total)));
+    D.vencidos.lista.forEach(function(v){ mir.push(fila("&nbsp;&nbsp;· " + psEsc(v.cliente) + " · venció " + psEsc(String(v.vence).slice(0, 5)), smPesos(v.falta))); });
+    D.gastosRaros.forEach(function(g){ mir.push(fila("🧾 Gasto fuera de lo normal: " + psEsc(g.cat), smPesos(g.monto) + (g.pct !== null ? ' <small style="color:var(--terra,#ff8a83)">+' + g.pct + ' %</small>' : ' <small>nuevo</small>'))); });
+    h += '<div class="ps-card"><div class="sm-hint">Para mirar</div>' + (mir.length ? mir.join("") : '<div class="sm-hint">Nada raro esta semana ✓</div>') + '</div>';
+    box.innerHTML = h;
+  }
+  el("smBack").addEventListener("click", function(){ showScreen("menu"); });
   el("avIn").addEventListener("change", function(e){ if (!AV.prefs) return; if (e.target.id === "avDe") AV.prefs.silDesde = e.target.value; if (e.target.id === "avHa") AV.prefs.silHasta = e.target.value; if (e.target.id === "avDe" || e.target.id === "avHa") avGuardar(); });
   el("avIn").addEventListener("click", function(e){
     const t = e.target.closest("[data-av],[data-avt]"); if (!t) return;
@@ -1863,6 +1899,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov();
     actualizarBadgeCaja(nombre); PEND_T = Date.now();
     prvContar(nombre);
+    try { if (new URLSearchParams(location.search).get("s") === "semana" && nombre === "Lucas" && !SM_IDO){ SM_IDO = true; abrirSemana(); } } catch (eS) {}   // 24/11: el aviso del lunes abre «Tu semana»
     if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();   // 02/11: barra de la compu con esta persona
     pedirMail(nombre);
   }

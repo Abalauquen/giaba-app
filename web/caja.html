@@ -2467,7 +2467,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // 08/11 (pagos unificados): proveedores, vendedoras y Roberto se pagan con la pantalla común (PagoComun.html, la misma de Contabilidad, Compras y Ferias);
   // lo demás (impuestos, servicios, tarjetas…) se paga de a una como siempre, o varias juntas con la misma pantalla
   const AP_TABS = ["Todos","Proveedores","Vendedoras y empleados","Roberto","Impuestos","Servicios","Tarjetas","Otros"];
-  let AP_TAB = "Todos", AP_ABIERTO = {}, AP_HUB = null;   // AP_HUB: null = sin pedir · "pend" · el hub de cuentas corrientes (false si no vino)
+  let AP_TAB = "Todos", AP_ABIERTO = {}, AP_HUB = null, AP_TEO_CTA = "";   // AP_HUB: null = sin pedir · "pend" · el hub de cuentas corrientes (false si no vino)
   function apTab(x){
     const c = String(x.concepto || ""), cat = String(x.categoria || "");
     if (/roberto/i.test(c) || cat === "Roberto") return "Roberto";
@@ -2500,10 +2500,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       if (v && (!g.vence || v < g.vence)) g.vence = v;
     });
     (H ? H.vendedoras.lista : []).forEach(function(v){
+      if (!(v.saldo > 0.5)) return;   // 24/11: sin deuda no aparece (Sofía salía con «Ferias sin pagar» y $ 0)
       const k = "Vendedoras y empleados|" + v.nombre, g = G[k] = G[k] || { tab: "Vendedoras y empleados", ente: v.nombre, total: 0, items: [], vence: null };
       g.total += v.saldo; g.vend = { vendedora: v.nombre, falta: v.saldo, n: v.ferias.length }; tot += v.saldo; totTab["Vendedoras y empleados"] += v.saldo; totTab.Todos += v.saldo;
     });
     if (H && H.roberto && H.roberto.saldo > 0.5){ const rs = H.roberto.saldo; G["Roberto|__rob"] = { tab: "Roberto", ente: "Roberto (a façon)", total: rs, items: [], vence: null, rob: rs }; tot += rs; totTab.Roberto += rs; totTab.Todos += rs; }
+    // 24/11: La Teodora todos los meses — alquiler (nos deben) − lo vendido (les debemos), se cierra cuando pagan la diferencia
+    const TEO = H && H.teodora && (H.teodora.meses.length || H.teodora.deudas) ? H.teodora : null;
+    if (TEO){ const kt = "Proveedores|La Teodora"; if (!G[kt]) G[kt] = { tab: "Proveedores", ente: "La Teodora", total: 0, items: [], vence: null }; G[kt].teo = TEO; }
     el("apTotal").textContent = fm(tot);
     el("apTabs").innerHTML = AP_TABS.filter(function(t){ return t === "Todos" || totTab[t] > 0; }).map(function(t){ return '<button type="button" class="chip' + (t === AP_TAB ? " on" : "") + '" data-t="' + esc(t) + '">' + esc(t) + (t !== "Todos" ? ' · ' + fm(totTab[t]) : '') + '</button>'; }).join("");
     Array.prototype.forEach.call(el("apTabs").children, function(c){ c.addEventListener("click", function(){ AP_TAB = c.dataset.t; pintarAPagar(); }); });
@@ -2530,6 +2534,16 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
           }).join("") + (g.vend ? '<div class="dl" style="cursor:default"><span class="t"><b>Ferias sin pagar (' + g.vend.n + ')</b><span>varias juntas, todo o una parte</span></span><span class="m">' + fm(g.vend.falta) + '</span><button type="button" class="btn ol sm" style="width:auto" data-pv="' + esc(g.vend.vendedora) + '">Pagarle ›</button></div>' : '');
           if (n > 1) h += '<button type="button" class="btn sm" data-pj="' + esc(k) + '">💸 Pagar varias juntas ›</button>';
         }
+        if (g.teo){ const T = g.teo, s0 = T.saldo;
+          h += '<div class="teo" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;padding:10px 12px;border-radius:12px;background:var(--s2,rgba(255,255,255,.06))">'
+            + '<div class="rr"><span>Alquiler ' + (T.meses.length ? esc(T.meses.map(function(m){ return m.nombre.split(" ")[0]; }).join(", ")) : "(ya compensado)") + ' · nos deben</span><b style="color:var(--good)">+ ' + fm(T.alquiler) + '</b></div>'
+            + '<div class="rr"><span>Lo que vendimos de ellos · les debemos</span><b style="color:var(--terra,#ff8a83)">− ' + fm(T.debemos) + '</b></div>'
+            + '<div class="rr" style="border-top:1px solid var(--line);padding-top:6px"><b>' + (s0 >= 0 ? "Nos deben" : "Les debemos") + '</b><b style="font-size:18px">' + fm(Math.abs(s0)) + '</b></div>'
+            + (s0 > 0.5 ? '<button type="button" class="btn y sm" data-teo="cobro">💵 Me dieron ' + fm(s0) + ' en efectivo</button>'
+              : s0 < -0.5 ? '<div class="chips" id="teoCta">' + ["Efectivo · Lucas", "MP Lucas", "MP Abalauquen"].map(function(c, i){ return '<button type="button" class="chip' + ((AP_TEO_CTA || "MP Lucas") === c ? " on" : "") + '" data-teocta="' + esc(c) + '">' + esc(ctaN(c)) + '</button>'; }).join("") + '</div><button type="button" class="btn y sm" data-teo="pago">Les pagué ' + fm(-s0) + ' ›</button>'
+              : '<button type="button" class="btn y sm" data-teo="cero">✓ Compensar (queda en cero)</button>')
+            + '<span class="hint">Se compensa el alquiler con lo vendido. Cerralo cuando te paguen (o les pagues) la diferencia, cuando sea.</span></div>';
+        }
         h += '<div class="f"><b>' + fm(g.total) + '</b>'
           + (g.rob ? '<button type="button" class="btn y sm" data-rob="1">Pagar ›</button>'
             : prov ? '<button type="button" class="btn y sm" data-pp="' + esc(prov) + '">Pagar ›</button>'
@@ -2540,6 +2554,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     el("apList").innerHTML = h || '<div class="card"><div class="empty">Nada pendiente 🎉</div></div>';
     Array.prototype.forEach.call(el("apList").querySelectorAll("[data-pv]"), function(d){ d.addEventListener("click", function(ev){ ev.stopPropagation(); PagoComun.abrirVendedora(Object.assign({ nombre: d.dataset.pv }, AP_PG)); }); });
     Array.prototype.forEach.call(el("apList").querySelectorAll("[data-pp]"), function(d){ d.addEventListener("click", function(){ PagoComun.abrirProveedor(Object.assign({ nombre: d.dataset.pp }, AP_PG)); }); });
+    Array.prototype.forEach.call(el("apList").querySelectorAll("[data-teocta]"), function(d){ d.addEventListener("click", function(){ AP_TEO_CTA = d.dataset.teocta; pintarAPagar(); }); });
+    Array.prototype.forEach.call(el("apList").querySelectorAll("[data-teo]"), function(d){ d.addEventListener("click", function(){
+      if (!TEO || d.disabled) return;
+      if (d.dataset.ok !== "1"){ d.dataset.ok = "1"; d.textContent = "¿Seguro? Tocá de nuevo"; return; }
+      d.disabled = true; d.textContent = "Guardando…";
+      run("teodoraCompensar", { saldo: TEO.saldo, cuenta: TEO.saldo < -0.5 ? (AP_TEO_CTA || "MP Lucas") : "Efectivo · Lucas", uid: "TEO-" + Date.now() }).then(function(r){
+        if (r && r.status === "ok"){ toast(r.msg || "Listo"); apVolver(); } else { d.disabled = false; d.dataset.ok = ""; toast((r && r.msg) || "No se pudo. Probá de nuevo.", true); pintarAPagar(); } }); }); });
     Array.prototype.forEach.call(el("apList").querySelectorAll("[data-rob]"), function(d){ d.addEventListener("click", function(){ PagoComun.abrirRoberto(AP_PG); }); });
     Array.prototype.forEach.call(el("apList").querySelectorAll("[data-pj]"), function(d){ d.addEventListener("click", function(){
       const g = G[d.dataset.pj]; if (!g) return;

@@ -1172,6 +1172,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <div id="dtForm" class="narrow" style="gap:12px">
       <div class="fl"><span class="lbl">¿Quién lo retiró?</span><div class="seg4" id="dtQuien"></div></div>
       <div class="fl"><span class="lbl">Nombre de quien retira <small>· opcional</small></span><input class="txt" id="dtNom" placeholder="ej. Marta (la hija)"></div>
+      <div class="fl" id="dtPago" hidden></div>
       <div class="sticky"><button class="btn y" id="dtOk">✓ Ya retiró</button></div>
     </div>
     <div class="okb" id="dtYa" hidden></div>
@@ -1429,6 +1430,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
   /* ---------- acciones de las tarjetas (un solo «Ya retiró») ---------- */
   function ya(b){
+    if (b.dataset.ya === "may" && D){ const rq = D.retiros.filter(function(r){ return r.id === b.dataset.id; })[0]; if (rq && !rq.pagado){ abrir(rq.id); return; } }   // 24/11: falta cobrar → se pregunta si pagó
     if (b.dataset.seg !== "1"){ b.dataset.seg = "1"; b.textContent = "¿Seguro? Tocá de nuevo"; return; }
     if (ocupado) return; ocupado = 1; b.disabled = true; b.textContent = "Guardando…";
     const k = b.dataset.ya, id = b.dataset.id, rm = k === "may" && D ? D.retiros.filter(function(r){ return r.id === id; })[0] : null;
@@ -1482,7 +1484,23 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   $("goCargar").addEventListener("click", function(){ abrirCargar(""); });
 
   /* ---------- un pedido mayorista ---------- */
-  function abrir(id){ R = (D && D.retiros || []).filter(function(r){ return r.id === id; })[0]; if (!R) return; RQ = "El cliente"; $("dtNom").value = ""; pintDet(); ir("det"); }
+  // 24/11 (Lucas, mockup aprobado 21:15): si falta cobrar, al retirar se pregunta si pagó, cómo y cuánto; el cobro entra solo a Mayoristas
+  let PG = { pago: null, medio: "Efectivo", monto: "" }, marcando = false;
+  function abrir(id){ R = (D && D.retiros || []).filter(function(r){ return r.id === id; })[0]; if (!R) return; RQ = "El cliente"; $("dtNom").value = ""; PG = { pago: null, medio: "Efectivo", monto: String(Math.round(R.falta || 0)) }; pintDet(); ir("det"); }
+  function pagoListo(){ return !R || R.pagado || PG.pago === false || (PG.pago === true && (parseInt(String(PG.monto).replace(/\D/g, ""), 10) || 0) > 0); }
+  function pintPago(){
+    const box = $("dtPago"), r = R; if (!box || !r) return;
+    box.hidden = !!(r.pagado || r.entregado); if (box.hidden) return;
+    let h = '<span class="lbl">¿Pagó al retirar?</span><div class="seg4"><button class="' + (PG.pago === true ? "on" : "") + '" data-pg="1">Sí, pagó</button><button class="' + (PG.pago === false ? "on" : "") + '" data-pg="0">No, lo paga después</button></div>';
+    if (PG.pago === true) h += '<span class="lbl">¿Cómo?</span><div class="seg4">' + ["Efectivo", "Transferencia"].map(function(m){ return '<button class="' + (PG.medio === m ? "on" : "") + '" data-pm="' + m + '">' + m + '</button>'; }).join("") + '</div>'
+      + '<span class="lbl">¿Cuánto? <small>· si pagó una parte, cambialo</small></span><input class="txt" id="dtPgM" inputmode="numeric" value="' + esc(PG.monto ? (parseInt(PG.monto, 10) || 0).toLocaleString("es-AR") : "") + '">';
+    if (PG.pago === false) h += '<span class="hint">Queda en Mayoristas como «falta cobrar».</span>';
+    box.innerHTML = h;
+    box.querySelectorAll("[data-pg]").forEach(function(x){ x.addEventListener("click", function(){ PG.pago = x.dataset.pg === "1"; pintPago(); pintOk(); }); });
+    box.querySelectorAll("[data-pm]").forEach(function(x){ x.addEventListener("click", function(){ PG.medio = x.dataset.pm; pintPago(); }); });
+    const m = $("dtPgM"); if (m) m.addEventListener("input", function(){ const d = this.value.replace(/\D/g, ""); PG.monto = d; this.value = d ? (parseInt(d, 10) || 0).toLocaleString("es-AR") : ""; pintOk(); });
+  }
+  function pintOk(){ const bt = $("dtOk"); if (bt && !marcando) bt.className = "btn " + (pagoListo() ? "y" : "off"); }
   function pagoTag(r){ return r.pagado ? '<span class="st g">PAGADO</span>' : '<span class="st r">FALTA COBRAR'+(r.falta ? " "+fm(r.falta) : "")+'</span>'; }   // 06/11: el total a cobrar lo ven todos (sin precios por producto)
   function pintDet(){
     const r = R, b = Number(r.bultos) || 0;
@@ -1496,6 +1514,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     $("dtForm").hidden = !!r.entregado; $("dtYa").hidden = !r.entregado; $("dtYa").textContent = "✓ Ya retirado · " + retTxt(r);
     $("dtQuien").innerHTML = ["El cliente","Luis","Transporte","Otro"].map(function(q){ return '<button class="'+(q===RQ?"on":"")+'" data-q="'+q+'">'+q+'</button>'; }).join("");
     $("dtQuien").querySelectorAll("button").forEach(function(x){ x.addEventListener("click", function(){ RQ = x.dataset.q; pintDet(); }); });
+    if (!r.pagado && !r.entregado) $("dtOjo").innerHTML = "<b>Ojo:</b> falta cobrar <b>" + fm(r.falta || 0) + "</b>. Abajo marcá si pagó al retirar.";
+    pintPago(); pintOk();
   }
   // 06/11 (Lucas): imprimir el remito del pedido mayorista (por si no lo mandaron o no lo imprimieron). Si ya tenía número, sale el mismo.
   let remitando = false;
@@ -1518,12 +1538,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     });
   }
   $("dtRemito").addEventListener("click", function(){ if (R) remito(R.id, $("dtRemito")); });
-  let marcando = false;
   $("dtOk").addEventListener("click", function(){
-    if (marcando || !R) return; marcando = true; const bt = $("dtOk"); bt.textContent = "Guardando…";
-    run("marcarRetirado", R.id, { quien: RQ, nombre: $("dtNom").value.trim() }).then(function(r){
+    if (marcando || !R) return;
+    if (!pagoListo()){ t(PG.pago === true ? "Poné cuánto pagó" : "Marcá si pagó al retirar"); return; }
+    marcando = true; const bt = $("dtOk"); bt.textContent = "Guardando…";
+    const cobro = !R.pagado && PG.pago === true ? { monto: parseInt(String(PG.monto).replace(/\D/g, ""), 10) || 0, medio: PG.medio, uid: "RET-" + R.id + "-" + Date.now() } : null;
+    run("marcarRetirado", R.id, { quien: RQ, nombre: $("dtNom").value.trim(), cobro: cobro }).then(function(r){
       marcando = false; bt.textContent = "✓ Ya retiró";
-      if (r && r.status === "ok"){ $("dtNom").value = ""; t(r.ya ? "Ya estaba retirado" : (R.comanda ? "Retirado ✓ · la comanda pasa a Entregada" : "Retirado ✓")); ir("home"); cargar(); }
+      if (r && r.status === "ok"){ $("dtNom").value = ""; t(r.ya ? "Ya estaba retirado" : (r.cobrado ? "Retirado ✓ · cobro de " + fm(cobro.monto) + " cargado" : R.comanda ? "Retirado ✓ · la comanda pasa a Entregada" : "Retirado ✓")); ir("home"); cargar(); }
       else if (r && r.status === "denegado") ir("noauth");
       else t("No se pudo guardar. Probá de nuevo.");
     });

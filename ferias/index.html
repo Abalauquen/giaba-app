@@ -1275,6 +1275,17 @@ body.v3f .graf2>[hidden]{display:none!important}
   body.v3f .graf2{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
   body.v3f #homeProxList,body.v3f #homeAviso{max-width:640px}
 }
+
+/* 24/11 (Lucas 21:13–21:24): calculadora en el cierre — switch, siempre arranca apagada; + y − en amarillo, Borrar y C en rojo */
+.ci-calc-sw{align-self:flex-end;display:flex;align-items:center;gap:10px;background:none;border:0;color:var(--ink);font:800 15px 'Manrope',sans-serif;cursor:pointer;padding:2px 0}
+.ci-calc-sw .sw{width:48px;height:28px;border-radius:99px;background:var(--line-2,#545456);position:relative;flex:none;transition:background .15s}
+.ci-calc-sw .sw i{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#ddd;transition:left .15s}
+.ci-calc-sw[aria-pressed="true"] .sw{background:var(--accent)}
+.ci-calc-sw[aria-pressed="true"] .sw i{left:24px;background:#111}
+.ci-expr{text-align:right;color:var(--ink-soft);font:700 15px 'IBM Plex Mono',monospace;min-height:20px;word-break:break-all}
+.keypad.calc{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+.keypad.calc .key.op{background:var(--accent)!important;border-color:var(--accent)!important;color:var(--accent-ink,#1a1305)!important;font-size:26px;font-weight:800}
+.keypad.calc .key.del,.keypad.calc .key.clr{background:#e9443b!important;border-color:#e9443b!important;color:#fff!important}
 </style>
 <style>
 /* 28/10 (Lucas 15:28): Canastos de feria (degustación + insumos + muestras) — igual al mockup aprobado */
@@ -2945,6 +2956,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <h1 id="ciTit">Contá el efectivo</h1>
   <div class="esp3" data-p="1" id="ciEspBox"><span class="k">TIENE QUE HABER</span><b id="ciEspV">Cargando…</b><span id="ciEspT"></span></div>
   <div class="card" id="ciEfBox" data-p="1" style="gap:12px">
+    <button type="button" id="ciCalcSw" class="ci-calc-sw" aria-pressed="false">🧮 Usar calculadora<span class="sw"><i></i></span></button>
+    <div id="ciExpr" class="ci-expr" hidden></div>
     <div class="amount zero" id="ciAmt">$ 0</div>
     <div class="keypad" id="ciKeypad"></div>
     <input type="hidden" id="ciEfecH">
@@ -7652,8 +7665,45 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("ciRet").addEventListener("input", function(){ const d = this.value.replace(/\D/g, ""); this.value = d ? formatMoneyIn(parseInt(d, 10)) : ""; const c = ciLeerEfec();
     el("ciRetInfo").textContent = d && c !== null ? "Queda de cambio en la billetera: " + formatMoney(c - parseInt(d, 10)) : "Lo que no retirás queda como cambio en la billetera de la feria."; });
   let CI_AMT = "0", CI_TOC = false;
-  function ciTecla(k){ CI_TOC = true; CI_AMT = applyKey(CI_AMT, k); el("ciEfec").value = String(parseInt(CI_AMT, 10) || 0); ciPintarAmt(); ciPintarDif(); }
-  function ciPintarAmt(){ const n = parseInt(CI_AMT, 10) || 0, a = el("ciAmt"); a.textContent = formatMoney(n); a.classList.toggle("zero", !CI_TOC); }
+  // 24/11: calculadora (switch; siempre arranca apagada). Con la calculadora: 10.000 + 100.000 + 6.000 − 500 … y el total va al cierre
+  let CI_CALC = false, CI_CTA_L = [], CI_OP = 1;
+  function ciCalcTot(){ return CI_CTA_L.reduce(function(a, b){ return a + b; }, 0) + CI_OP * (parseInt(CI_AMT, 10) || 0); }
+  function ciCalcTxt(){ const n = parseInt(CI_AMT, 10) || 0, f = function(x){ return Math.abs(x).toLocaleString("es-AR"); };
+    let t = CI_CTA_L.map(function(x, i){ return (i ? (x < 0 ? " − " : " + ") : (x < 0 ? "− " : "")) + f(x); }).join("");
+    if (n || (CI_CTA_L.length && CI_OP)) t += (CI_CTA_L.length ? (CI_OP < 0 ? " − " : " + ") : (CI_OP < 0 ? "− " : "")) + (n ? f(n) : "");
+    return t; }
+  function ciTecla(k){
+    CI_TOC = true;
+    if (CI_CALC){
+      if (k === "+" || k === "−"){ const n = parseInt(CI_AMT, 10) || 0; if (n){ CI_CTA_L.push(CI_OP * n); CI_AMT = "0"; } CI_OP = k === "+" ? 1 : -1; }
+      else if (k === "C"){ CI_CTA_L = []; CI_AMT = "0"; CI_OP = 1; }
+      else if (k === "DEL" && CI_AMT === "0" && CI_CTA_L.length){ const u = CI_CTA_L.pop(); CI_OP = u < 0 ? -1 : 1; CI_AMT = applyKey(String(Math.abs(u)), "DEL"); }
+      else CI_AMT = applyKey(CI_AMT, k);
+      const t = Math.max(0, ciCalcTot()); el("ciEfec").value = String(t); el("ciExpr").textContent = ciCalcTxt();
+    } else { CI_AMT = applyKey(CI_AMT, k); el("ciEfec").value = String(parseInt(CI_AMT, 10) || 0); }
+    ciPintarAmt(); ciPintarDif();
+  }
+  function ciArmarTeclado(){
+    const kp = el("ciKeypad");
+    if (!CI_CALC){ kp.classList.remove("calc"); buildKeypad(kp, ciTecla); return; }
+    kp.classList.add("calc"); kp.innerHTML = "";
+    ["7","8","9","−","4","5","6","+","1","2","3","DEL","000","0","C"].forEach(function(k){
+      const b = document.createElement("div");
+      b.className = "key" + (k === "DEL" ? " del" : k === "C" ? " clr" : (k === "+" || k === "−") ? " op" : "");
+      b.textContent = k === "DEL" ? "⌫" : k; if (k === "DEL") b.setAttribute("aria-label", "Borrar");
+      tap(b, function(){ ciTecla(k); }); kp.appendChild(b);
+    });
+  }
+  function ciCalcPoner(on){
+    const tot = CI_CALC ? Math.max(0, ciCalcTot()) : (parseInt(CI_AMT, 10) || 0);
+    CI_CALC = !!on; CI_CTA_L = []; CI_OP = 1; CI_AMT = String(tot || 0); if (CI_TOC) el("ciEfec").value = String(tot || 0);
+    el("ciCalcSw").setAttribute("aria-pressed", CI_CALC ? "true" : "false"); el("ciExpr").hidden = !CI_CALC; el("ciExpr").textContent = CI_CALC && tot ? tot.toLocaleString("es-AR") : "";
+    ciArmarTeclado(); ciPintarAmt();
+  }
+  el("ciCalcSw").addEventListener("click", function(){ ciCalcPoner(!CI_CALC); });
+  // la cuenta queda en la nota del cierre (para revisarla después)
+  function ciCalcNota(){ return CI_CALC && CI_CTA_L.length ? "Cuenta: " + ciCalcTxt() + " = " + Math.max(0, ciCalcTot()).toLocaleString("es-AR") + ". " : ""; }
+  function ciPintarAmt(){ const n = CI_CALC ? Math.max(0, ciCalcTot()) : (parseInt(CI_AMT, 10) || 0), a = el("ciAmt"); a.textContent = formatMoney(n); a.classList.toggle("zero", !CI_TOC); }
   function ciLeerEfec(){ const d = String(el("ciEfec").value).replace(/\D/g, ""); return d === "" ? null : parseInt(d, 10); }
   function ciPintarDif(){
     const c = ciLeerEfec(), box = el("ciEfDif");
@@ -7688,7 +7738,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     ciPaso(2);
   });
   function abrirRevision(){
-    CI_ESP = null; el("ciEfec").value = ""; el("ciMot").value = ""; CI_AMT = "0"; CI_TOC = false; buildKeypad(el("ciKeypad"), ciTecla); ciPintarAmt(); ciPintarDif(); ciPrepRetiro(); ciPaso(1);
+    CI_ESP = null; el("ciEfec").value = ""; el("ciMot").value = ""; CI_AMT = "0"; CI_TOC = false; CI_CTA_L = []; CI_OP = 1; CI_CALC = false; ciCalcPoner(false); ciPintarAmt(); ciPintarDif(); ciPrepRetiro(); ciPaso(1);
     el("ciEspV").textContent = "Cargando…"; el("ciEspT").textContent = ""; el("ciStats").innerHTML = ""; el("ciMedios").hidden = true; el("ciEstrella").hidden = true;
     el("ciPill1").textContent = session.vendedor; el("ciPill2").textContent = session.ubicacion || session.feria;
     el("ciResumen").innerHTML = '<div class="empty">Cargando…</div>'; el("ciVend").hidden = true;
@@ -7765,7 +7815,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const fechaC = hoyAR();
     const stockP = FS && !FS.guardado ? Object.assign(volvioPayload(FS), { fecha: FS.fecha || fechaC }) : null;
     const cajaP = { fecha: fechaC, feria: session.feria, ubicacion: session.ubicacion||"", quien: session.vendedor, contado: ciLeerEfec(),
-      nota: ((!el("ciMot").hidden && el("ciMot").value.trim() ? "Diferencia de caja: " + el("ciMot").value.trim() + ". " : "") + (el("ciNota").value || "").trim()).trim(),
+      nota: (ciCalcNota() + (!el("ciMot").hidden && el("ciMot").value.trim() ? "Diferencia de caja: " + el("ciMot").value.trim() + ". " : "") + (el("ciNota").value || "").trim()).trim(),
       retiro: ciRetVisible() && String(el("ciRet").value).replace(/\D/g, "") !== "" ? parseInt(String(el("ciRet").value).replace(/\D/g, ""), 10) : undefined, cuentaRetiro: CI_CTA };
     // sin conexión o con cobros todavía sin subir: queda guardado y se manda solo
     if (!gs() || getQueue().length){ guardarCierrePend(stockP, cajaP); flushCierre(); return; }

@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -1016,6 +1016,10 @@ input[type=date].txt::-webkit-date-and-time-value{text-align:left}
 .ttl{margin:2px 0 0;font-size:24px;line-height:1.15}
 .tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .tabs.dos{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tabs.cuatro{grid-template-columns:repeat(4,minmax(0,1fr))}
+.tab.hay:not(.on){border-color:var(--warn)} .tab.hay:not(.on) small{color:var(--warn);font-weight:800}
+.r.t{border-left-color:#e7a5c6} .r.ta{border-left-color:var(--warn)} .r.tx{border-left-color:var(--red)}
+.noent{background:var(--red-soft);border:2px solid var(--red);color:var(--red);border-radius:12px;padding:10px 12px;font-weight:800;font-size:16px}
 .tab{min-height:56px;border-radius:14px;border:2px solid var(--line-2);background:var(--surface);font-weight:800;font-size:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15;padding:4px}
 .tab small{font-size:15px;color:var(--ink-soft);font-weight:700}
 .tab.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -1152,6 +1156,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <button class="tab on" id="tabHoy" data-tab="hoy">Hoy<small id="nHoy">…</small></button>
     <button class="tab" id="tabProx" data-tab="prox">Próximos<small id="nProx">…</small></button>
     <button class="tab" id="tabSin" data-tab="sin" hidden>Sin día<small id="nSin">…</small></button>
+    <button class="tab" id="tabTeo" data-tab="teo" hidden>🧁 La Teodora<small id="nTeo">…</small></button>
   </div>
   <div id="miMail"></div>
   <div class="seg3" id="hDep" hidden></div>
@@ -1283,10 +1288,46 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     google.script.run.withSuccessHandler(ok).withFailureHandler(function(e){ ok({status:"error", msg:String(e && e.message || e)}); })[fn].apply(null, [A.nombre, A.pin].concat(args)); }); }
 
   // D: pedidos mayoristas «retira» + turnos TN del depósito (getRetirosV3) · X: retiros de Tienda Nube por depósito y ferias, administración (getRetirosAdmin, solo Lucas/Adriana)
-  let D = null, X = null, MAIL = null, CARGO = false, TAB = ({ prox: 1, sin: 1, hoy: 1 })[GIABA_IR] ? GIABA_IR : "hoy", DEP = "Todos", R = null, RQ = "El cliente", ocupado = 0;
+  let D = null, X = null, MAIL = null, CARGO = false, TAB = ({ prox: 1, sin: 1, hoy: 1, teo: 1 })[GIABA_IR] ? GIABA_IR : "hoy", DEP = "Todos", R = null, RQ = "El cliente", ocupado = 0;
   const S = { conf: null, aviso: null, horasDe: null };
   function deps(){ return A.nombre === "Francisco" ? ["Fábrica"] : A.nombre === "Luis" ? ["CABA"] : ["Todos","CABA","Fábrica"]; }   // 29/10 (rev): Luis, solo CABA
+  // 24/11: retiros de clientes de La Teodora en Saavedra (su sistema; Lucas y Luis siempre)
+  const TEO_VE = ["Lucas","Luis"]; let TEO = null, teoOcup = 0;
+  const teoVe = () => !!A && TEO_VE.indexOf(A.nombre) !== -1;
+  function teoCargar(){ if (!teoVe()) return; run("getRetirosTeodora").then(function(r){ TEO = r && r.status === "ok" ? r : { error: "No se pudo leer. Probá de nuevo." }; pint(); }); }
+  function cardTeo(r){
+    const its = (r.items || []).map(function(i){ return esc(i.cantidad + " × " + i.producto) + (i.sabores ? ' <span class="cw">(' + esc(i.sabores) + ')</span>' : ''); }).join("<br>");
+    if (r.retirado) return '<div class="r ok"><div class="l1"><b>' + esc(r.pedido) + ' · ' + esc(r.cliente) + '</b><span class="tag g">retirado ✓</span></div><small>' + (r.retiradoEn ? 'retiró ' + esc(r.retiradoEn) : 'ya retirado') + '</small></div>';
+    const arma = r.arma === "saavedra", late = r.dia && dif(r.dia) < 0;
+    const est = r.estado === "listo" ? '<span class="tag g">Listo para retirar</span>' : r.estado === "para_armar" ? '<span class="tag w">Para armar en Saavedra</span>' : r.estado === "en_preparacion" ? '<span class="tag b">En preparación</span>' : '<span class="tag">' + esc(r.estadoTxt || r.estado) + '</span>';
+    return '<div class="r ' + (r.aviso ? "tx" : arma ? "ta" : "t") + '"><div class="l1"><b>' + esc(r.pedido) + ' · ' + esc(r.cliente) + '</b>' + est + '</div>'
+      + '<small>' + (r.dia ? (late ? '<span class="cw">era el ' + esc(r.dia.slice(0, 5)) + '</span>' : esc(Cap(cuando(r.dia)))) + (r.hora ? ' · ' + esc(r.hora) : '') : 'día a coordinar') + ' · '
+      + (arma ? '<span class="cw">lo armás en Saavedra con su stock</span> (ya descontado, no es venta de Abalauquen)' : r.estado === "en_preparacion" ? 'lo arma la fábrica de La Teodora y lo trae' : 'lo trajo la fábrica de La Teodora') + '</small>'
+      + (its ? '<small>🧁 ' + its + '</small>' : '')
+      + (r.aviso ? '<div class="noent">⛔ ' + esc(r.aviso) + '</div>' : acts(B("g", 'data-teoret="' + esc(r.pedido) + '"', "✓ Retirado"))) + '</div>';
+  }
+  function teoPint(){
+    if (!TEO) return '<div class="empty">Cargando los retiros de La Teodora…</div>';
+    let h = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span class="hint">Clientes de La Teodora que retiran en Saavedra' + (TEO.leido ? ' · leído ' + esc(TEO.leido) : '') + '</span><button class="btn sm" data-teoref>↻ Actualizar</button></div>';
+    if (TEO.error) return h + '<div class="wrb">' + esc(TEO.error) + '</div>';
+    const pend = (TEO.lista || []).filter(function(r){ return !r.retirado; }), hechos = (TEO.lista || []).filter(function(r){ return r.retirado; });
+    h += pend.length ? '<div class="rl">' + pend.map(cardTeo).join("") + '</div>' : '<div class="empty">No hay retiros de La Teodora pendientes 🎉</div>';
+    if (hechos.length) h += '<div class="grp">Retirados · últimos 3 días</div><div class="rl">' + hechos.map(cardTeo).join("") + '</div>';
+    return h + '<div class="hint">Nadie paga al retirar: todos se pagan antes. Si dice NO ENTREGAR, no lo entregues y avisale a Mateo.</div>';
+  }
+  function teoRetirado(b){
+    if (b.dataset.seg !== "1"){ b.dataset.seg = "1"; b.textContent = "¿Seguro? Tocá de nuevo"; setTimeout(function(){ if (b.isConnected && !teoOcup){ delete b.dataset.seg; b.textContent = "✓ Retirado"; } }, 3500); return; }
+    if (teoOcup) return; teoOcup = 1; b.disabled = true; b.textContent = "Guardando…";
+    run("teoRetirado", b.dataset.teoret).then(function(r){
+      teoOcup = 0;
+      if (r && r.status === "ok") t(r.ya ? "Ya estaba retirado" : "Retirado ✓ · quedó también en el sistema y la tienda de La Teodora");
+      else if (r && r.status === "denegado") t("No tenés permiso para esto");
+      else t((r && r.msg) || "No se pudo. Probá de nuevo.");
+      teoCargar();
+    });
+  }
   function cargar(){
+    if (teoVe() && !TEO) teoCargar();
     return Promise.all([run("getRetirosV3"), ADMF ? run("getRetirosAdmin") : run("getMiMail")]).then(function(rs){
       // alguien de RETIROS_ACCESO que no está en «Para retirar»: entra igual a la administración
       if (rs[0] && rs[0].status === "denegado" && !ADMF) return run("getRetirosAdmin").then(function(x){ return [rs[0], x, true]; });
@@ -1385,9 +1426,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!A) return;
     const adm = ADMF, ds = deps();
     $("goCargar").hidden = !adm;
-    $("tabSin").hidden = !adm; $("tabs").classList.toggle("dos", !adm);
+    $("tabSin").hidden = !adm; $("tabTeo").hidden = !teoVe();
+    const nTabs = 2 + (adm ? 1 : 0) + (teoVe() ? 1 : 0);
+    $("tabs").classList.toggle("dos", nTabs === 2); $("tabs").classList.toggle("cuatro", nTabs === 4);
     if (!adm && TAB === "sin") TAB = "hoy";
-    ["hoy","prox","sin"].forEach(function(k){ $("tab" + Cap(k)).classList.toggle("on", TAB === k); });
+    if (!teoVe() && TAB === "teo") TAB = "hoy";
+    const nT = TEO && !TEO.error ? (TEO.lista || []).filter(function(r){ return !r.retirado; }).length : null;
+    $("nTeo").textContent = !TEO ? "…" : TEO.error ? "!" : nT; $("tabTeo").classList.toggle("hay", !!nT);
+    ["hoy","prox","sin","teo"].forEach(function(k){ $("tab" + Cap(k)).classList.toggle("on", TAB === k); });
+    if (TAB === "teo"){ $("hDep").hidden = true; $("soloDep").hidden = true; $("tabBox").innerHTML = teoPint(); return; }
     if (!CARGO) return;
     const L = entradas(), P = { hoy: [], prox: [], coord: [], done: [] };
     L.forEach(function(e){ P[parte(e)].push(e); });
@@ -1461,6 +1508,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if ((b = g("[data-tab]"))){ TAB = b.dataset.tab; pint(); return; }
     if ((b = g("#hDep [data-d]"))){ DEP = b.dataset.d; pint(); return; }
     if ((b = g("[data-ya]"))){ ya(b); return; }
+    if ((b = g("[data-teoret]"))){ teoRetirado(b); return; }
+    if ((b = g("[data-teoref]"))){ TEO = null; pint(); teoCargar(); return; }
     if ((b = g("[data-ent]"))){ entMarcar(b); return; }
     if ((b = g("[data-remito]"))){ remito(b.dataset.remito, b); return; }
     if ((b = g("[data-est]"))){ if (ocupado) return; ocupado = 1; b.classList.add("off");

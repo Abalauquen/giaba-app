@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -666,6 +666,16 @@ h1{font-size:28px;line-height:1.15}
 .v3-btn.g{background:var(--good);border-color:var(--good);color:#0e2614}
 .v3-btn.r{border-color:var(--terra-ink);color:var(--terra-ink);background:transparent}
 .v3-btn.sm{min-height:48px;font-size:16px;padding:0 14px}
+.pl-s{background:var(--surface);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;border-left:8px solid var(--accent)}
+.pl-s.ya{border-left-color:var(--terra-ink)} .pl-s.pronto{border-left-color:var(--warn)}
+.pl-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.pl-h b{font-size:19px;font-family:'Manrope',sans-serif}
+.pl-tag{font-size:14px;font-weight:800;border-radius:99px;padding:4px 10px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pl-tag.ya{background:var(--terra-dk);color:var(--terra-ink)} .pl-tag.pronto{background:#3a2a14;color:var(--warn)}
+.pl-r{display:flex;justify-content:space-between;gap:10px;font-size:15px;border-top:1px solid var(--line);padding-top:8px}
+.pl-r span{color:var(--ink-soft)} .pl-r b{white-space:nowrap}
+.pl-n{font-size:14px;color:var(--ink-soft);line-height:1.4}
+.pl-falta{color:var(--warn)!important}
 .v3-row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;flex-shrink:0}
 .v3-card{background:var(--surface);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:14px;flex-shrink:0}
 .v3-ct{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:'Manrope',sans-serif}
@@ -1552,6 +1562,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <!-- 09/11 (mockup-envasar-granel.html): productos secundarios, botón aparte (no se mezcla con los dulces) -->
   <div class="v3-act area-btn sec-act" data-area="Secundarios" id="secBtn" role="button"><span class="i">🍄</span><b>Envasar productos secundarios</b><span>hongos, aceites, hidrolato, cascarilla… (de granel)</span></div>
   <!-- 29/10 (rev · R11): los botones arriba; lo que llega del servidor (rehacer, hoy, completar, cargas) abajo -->
+  <div class="v3-btn ol" id="planBtn" role="button" hidden>🧭 Te ayudo con el plan de elaboración</div>
   <div class="v3-row2"><div class="v3-btn" id="partBtn">📋 Partidas</div><a class="v3-btn" id="resProdLink">📊 Resumen</a></div>
   <div class="v3-btn r" id="areaInc">⚠ Se rompió o se perdió algo</div>
   <div class="v3-btn g" id="diaBtn" hidden>✓ Terminé por hoy · cerrar el día</div>
@@ -1564,6 +1575,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   </div>
   <div class="v3-card" id="areaCargas" hidden></div>
   <div class="v3-card" id="areaAbiertos" hidden></div>
+</div>
+
+<!-- 24/11 (mockup tanda 2 «Qué elaborar», Lucas 21:58): plan de elaboración para 3 semanas · Lucas, Adriana y Fran · sin plata -->
+<div id="screen-plan" class="screen" hidden>
+  <div class="topbar"><button class="back" data-back="area" data-lbl="Producción" aria-label="Atrás"></button><span class="pill" data-quien></span></div>
+  <h1>🧭 Plan de elaboración</h1>
+  <div class="sub" id="planSub" style="margin-top:0">Armando el plan…</div>
+  <div id="planBox" style="display:flex;flex-direction:column;gap:12px"></div>
 </div>
 
 <div id="screen-elab-sabor" class="screen" hidden>
@@ -1964,10 +1983,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     });
   }
 
-  const screens = ["quien","pin","ir-menu","area","elab-sabor","elab-form","env-sabor","env-form","partidas","partida","volver","reclamo","repro-form","perder","incidente-cat","incidente","env-res","dia","etq","asig","sec","sec-form","sec-res","sec-edit"];
+  const screens = ["quien","pin","ir-menu","area","plan","elab-sabor","elab-form","env-sabor","env-form","partidas","partida","volver","reclamo","repro-form","perder","incidente-cat","incidente","env-res","dia","etq","asig","sec","sec-form","sec-res","sec-edit"];
   // 02/11 · menú: elaborado / envasado a medio cargar → avisa antes de salir
   if (window.GIABA_NAV){ GIABA_NAV.vigilar("screen-elab-form", "Tenés un elaborado a medio cargar"); GIABA_NAV.vigilar("screen-env-form", "Tenés un envasado a medio cargar"); }
   function showScreen(name){
+    if (name === "area"){ const pb = el("planBtn"); if (pb) pb.hidden = !planPuede(); }   // 24/11: plan de elaboración (Lucas, Adriana, Fran)
     screens.forEach(function(s){ el("screen-"+s).hidden = (s !== name); });
     // la fila de "Deshacer" se muestra en la pantalla actual si tiene lugar para ella
     const slot = el("screen-"+name).querySelector(".undo-slot");
@@ -3415,6 +3435,45 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
   el("areaRehacer").addEventListener("click", function(ev){
     const t = ev.target.closest("[data-p]"); if (t) abrirFicha(t.dataset.p);
+  });
+  // ---- 24/11 · 🧭 plan de elaboración (getPlanElaboracion) ----
+  function planPuede(){ const a = au(); return !!(a && ["Lucas","Adriana","Francisco"].indexOf(a.nombre) !== -1); }
+  function planNum(n){ return (Math.round((Number(n) || 0) * 10) / 10).toLocaleString("es-AR"); }
+  function planSem(w){ return w < 1 ? "menos de 1 semana" : "~" + planNum(w) + " semana" + (Math.round(w * 10) === 10 ? "" : "s"); }
+  function planElaborar(sabor){
+    const s = (CFG.sabores || []).filter(function(x){ return normTxt(x.nombre) === normTxt(sabor); })[0];
+    if (!s){ showToast("No encontré el sabor «" + sabor + "» en Elaborar"); renderElabSaborGrid(); showScreen("elab-sabor"); return; }
+    elabElegir(s);
+  }
+  function pintarPlan(r){
+    const box = el("planBox");
+    if (!r){ el("planSub").textContent = "Armando el plan…"; box.innerHTML = ""; return; }
+    if (r.status !== "ok"){ el("planSub").textContent = (r && r.msg) || "No se pudo armar el plan. Probá de nuevo en un ratito."; box.innerHTML = '<div class="v3-btn" data-planre>Probar de nuevo</div>'; return; }
+    el("planSub").textContent = "Para tener " + r.semanas + " semanas de stock (Fábrica + CABA), según lo que salió por semana en las últimas 6 semanas en todos los canales. Lo más urgente primero.";
+    let h = "";
+    if (!r.sabores.length) h += '<div class="v3-card"><div class="v3-ct">✓ Todo alcanza para más de ' + r.semanas + ' semanas</div><div class="pl-n">No hace falta elaborar nada por ahora.</div></div>';
+    r.sabores.forEach(function(s){
+      h += '<div class="pl-s ' + s.nivel + '"><div class="pl-h"><b>' + sabDot(s.sabor) + esc(s.sabor) + '</b><span class="pl-tag ' + s.nivel + '">' + (s.nivel === "ya" ? "elaborar ya" : s.nivel === "pronto" ? "pronto" : "en " + r.semanas + " semanas") + '</span></div>';
+      s.items.forEach(function(i){ h += '<div class="pl-r"><span><b style="color:var(--ink)">' + esc(i.nombre) + '</b><br>quedan ' + i.hay + ' (Fábrica ' + i.fab + ' · CABA ' + i.caba + ') · salen ' + planNum(i.porSem) + ' por semana · alcanza ' + planSem(i.semanas) + '</span><b>faltan ' + i.falta + '</b></div>'; });
+      if (s.fruta.length) h += '<div class="pl-n">🍓 ' + s.fruta.map(function(f){ return esc(f.nombre) + ': hacen falta ' + planNum(f.necesita) + ' kg · ' + (f.alcanza ? 'hay ' + planNum(f.hay) + ' kg ✓' : '<span class="pl-falta">hay ' + planNum(f.hay) + ' kg</span>'); }).join("<br>🍓 ") + (s.cacerolas ? '<br>≈ ' + s.cacerolas + ' cacerola' + (s.cacerolas === 1 ? '' : 's') + ' de ' + planNum(s.kgCacerola) + ' kg' : '') + '</div>';
+      h += '<div class="v3-btn y sm" data-planel="' + esc(s.sabor) + '">Elaborar ' + esc(s.sabor) + ' ›</div></div>';
+    });
+    if (r.insumosFaltan.length) h += '<div class="v3-card"><div class="v3-ct">📦 Insumos que no alcanzan</div><div class="pl-n">Para todo lo de arriba. Avisale a Lucas o Adriana para pedirlos.</div>' + r.insumosFaltan.map(function(x){ return '<div class="pl-r"><span>' + esc(x.nombre) + '<br>hay ' + planNum(x.hay) + ' · hacen falta ' + planNum(x.necesita) + '</span><b class="pl-falta">faltan ' + planNum(x.falta) + (x.unidad ? ' ' + esc(x.unidad) : '') + '</b></div>'; }).join("") + '</div>';
+    else if (r.sabores.length) h += '<div class="v3-card"><div class="v3-ct">✓ Insumos</div><div class="pl-n">Frascos, tapas, etiquetas, precintos y azúcar alcanzan para todo lo de arriba.</div></div>';
+    if (r.roberto && r.roberto.length) h += '<div class="v3-card"><div class="v3-ct">🤝 Pedirle a Roberto</div><div class="pl-n">Mangas y diet que hace él y no alcanzan para ' + r.semanas + ' semanas.</div>' + r.roberto.map(function(i){ return '<div class="pl-r"><span>' + esc(i.nombre) + '<br>quedan ' + i.hay + ' · salen ' + planNum(i.porSem) + ' por semana</span><b>faltan ' + i.falta + '</b></div>'; }).join("") + '</div>';
+    if (r.sinReceta && r.sinReceta.length) h += '<div class="v3-card"><div class="v3-ct">📝 Sin receta cargada</div><div class="pl-n">No alcanzan para ' + r.semanas + ' semanas, pero no tienen receta: no puedo calcular la fruta ni los insumos.</div>' + r.sinReceta.map(function(i){ return '<div class="pl-r"><span>' + esc(i.nombre) + '<br>quedan ' + i.hay + ' · salen ' + planNum(i.porSem) + ' por semana</span><b>faltan ' + i.falta + '</b></div>'; }).join("") + '</div>';
+    h += '<div class="pl-n">No elabora ni pide nada solo: es una ayuda para decidir. «Elaborar» abre la carga de siempre con ese sabor.</div>';
+    box.innerHTML = h;
+  }
+  function abrirPlan(){
+    pintarPlan(null); showScreen("plan");
+    const a = au(); if (!a || typeof google === "undefined" || !google.script){ pintarPlan({ status: "error", msg: "Sin conexión: el plan necesita señal." }); return; }
+    google.script.run.withSuccessHandler(pintarPlan).withFailureHandler(function(){ pintarPlan({ status: "error" }); }).getPlanElaboracion(a.nombre, a.pin);
+  }
+  el("planBtn").addEventListener("click", abrirPlan);
+  el("planBox").addEventListener("click", function(ev){
+    const b = ev.target.closest("[data-planel]"); if (b){ planElaborar(b.dataset.planel); return; }
+    if (ev.target.closest("[data-planre]")) abrirPlan();
   });
   el("partBtn").addEventListener("click", function(){ pintarPartidas(); showScreen("partidas"); cargarPartidas(pintarPartidas); });
   // 27/10 (fix53): partidas como tarjetas (verde sin problemas · amarilla para rehacer · roja con reclamos); kg, no frascos sumados

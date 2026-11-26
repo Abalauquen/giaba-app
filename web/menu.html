@@ -795,6 +795,9 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line
 .mm-sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#2c2c2d;border-top:1.5px solid var(--line);border-radius:22px 22px 0 0;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px;box-shadow:0 -20px 40px rgba(0,0,0,.5);max-width:640px;margin:0 auto}
 .mm-sheet .ln{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:6px 0;border-top:1px solid var(--line)}
 .mm-sheet .ln span:last-child{font-weight:700;text-align:right}
+/* 26/11 15:53 (Lucas, iPhone): al mantener apretado un punto no tiene que seleccionar texto ni abrir «Copiar / Consultar» */
+#screen-minuto .mm-sec,#screen-minuto .mm-tl,#screen-minuto svg{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#screen-minuto [data-mmtip]{touch-action:none}
 #mmTipF{position:fixed;z-index:80;background:var(--accent);color:var(--accent-ink);font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:13px;padding:5px 10px;border-radius:10px;pointer-events:none;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.45)}
 .mm-tl i{width:12px;height:12px;top:1px;margin-left:-6px;touch-action:none}
 .mm-x{align-self:flex-end;background:#3a3a3b;border:0;color:var(--ink);border-radius:999px;padding:4px 12px;font:700 13px system-ui;cursor:pointer}
@@ -2152,6 +2155,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + "px"; tip.style.top = Math.max(8, r.top - h - 8) + "px"; }
     function ocultar(){ cur = null; if (tip) tip.hidden = true; }
     document.addEventListener("pointerover", function(e){ if (e.pointerType !== "mouse") return; const t = e.target.closest && e.target.closest("#screen-minuto [data-mmtip]"); if (t) mostrar(t); else if (cur) ocultar(); });
+    document.addEventListener("contextmenu", function(e){ if (e.target.closest && e.target.closest("#screen-minuto [data-mmtip]")) e.preventDefault(); });
+    document.addEventListener("selectstart", function(e){ if (e.target.closest && e.target.closest("#screen-minuto .mm-sec")) e.preventDefault(); });
     document.addEventListener("pointerdown", function(e){ if (e.pointerType === "mouse") return; const t = e.target.closest && e.target.closest("#screen-minuto [data-mmtip]"); if (t) mostrar(t); });
     ["pointerup", "pointercancel", "scroll"].forEach(function(k){ document.addEventListener(k, function(e){ if (k === "scroll" || (e.pointerType && e.pointerType !== "mouse")) ocultar(); }, true); });
   })();

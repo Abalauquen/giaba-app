@@ -238,16 +238,56 @@
   // 21/11 (Lucas: «el stock que dejé armado no quedó en ningún lado»): las funciones que NO empiezan con (nombre, PIN) —ej. guardarLlevado(p)—
   // y no estaban en la lista perdían su primer argumento (se cortaban 2) y llegaban vacías. Ahora se mira si de verdad empiezan con nombre y PIN.
   function sinQ(n, a) { if (SINQ[n]) return true; var q = quien(); return !(q && a.length >= 2 && String(a[0]) === String(q.nombre) && String(a[1]) === String(q.pin)); }
-  function porGuardar(n, args, cb) {
+  // 26/11 (Lucas: «la app tiene que estar preparada para los imprevistos»): todo lo que se guarda lleva un uid.
+  // Sin señal (o si la base no contesta), queda en la cola del celu y se manda solo cuando vuelve; la base lo hace una sola vez (rt_hechos).
+  var COLA_K = "ap_cola", COLA_ERR_K = "ap_cola_err", COLA_MANDANDO = false;
+  var NO_COLA = /^(factur|anular|emitir|personas|borrar|eliminar|publicar|guardarPrecios|enviar|mandar|entrar|refacturar|notaCredito|marcarPagadoTN|cajaInicial)/i;
+  function nuevoUid() { return "ap-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10); }
+  function colaLeer() { var c = lsG(COLA_K, []); return Array.isArray(c) ? c : []; }
+  function colaPoner(it) { var c = colaLeer(); c.push(it); lsS(COLA_K, c); colaAviso(); }
+  function colaAviso() {
+    try {
+      var n = colaLeer().length, el = document.getElementById("apColaAviso");
+      if (!n) { if (el) el.remove(); return; }
+      if (!el) {
+        el = document.createElement("div"); el.id = "apColaAviso";
+        el.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:99999;background:#3a3214;color:#FFD100;border:1px solid #6b5a14;border-radius:999px;padding:9px 16px;font:700 14px system-ui,sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:92vw;text-align:center";
+        el.addEventListener("click", function () { colaMandar(); });
+        (document.body || document.documentElement).appendChild(el);
+      }
+      el.textContent = "📶 " + n + (n === 1 ? " guardado espera" : " guardados esperan") + " señal · se mandan solos";
+    } catch (e) {}
+    try { colaReintentar(); } catch (e) {}
+  }
+  function colaMandar() {
+    if (COLA_MANDANDO) return; var c = colaLeer(); if (!c.length) { colaAviso(); return; }
+    var q = quien(), i = -1; for (var k = 0; k < c.length; k++) if (q && String(c[k].quien || "").toLowerCase() === String(q.nombre).toLowerCase()) { i = k; break; }
+    if (i === -1) return;   // lo guardó otra persona en este celu: sale cuando esa persona entre
+    var it = c[i]; COLA_MANDANDO = true;
+    porGuardar(it.n, it.a, function (res, red) {
+      COLA_MANDANDO = false;
+      if (red || !res || res.status === "token" || res.status === "google") { colaAviso(); return; }   // todavía sin señal o sin pase: se prueba después
+      var c2 = colaLeer().filter(function (x) { return x.uid !== it.uid; }); lsS(COLA_K, c2);
+      if (res.status !== "ok") { var e = lsG(COLA_ERR_K, []); e.push({ uid: it.uid, n: it.n, t: it.t, msg: String(res.motivo || res.msg || res.status || "") }); lsS(COLA_ERR_K, e.slice(-30));
+        rtFallaAnotar(it.n, "cola: no se pudo guardar · " + String(res.motivo || res.msg || res.status || ""), 0); }
+      else { lsS("ap_sucio", Date.now()); try { window.__apColaMandados = (window.__apColaMandados || 0) + 1; } catch (x) {} }
+      colaAviso(); setTimeout(colaMandar, 300);
+    }, it.uid);
+  }
+  var COLA_TM = null;   // el reintento solo corre mientras hay algo en la cola (sin nada pendiente, no queda ningún reloj prendido)
+  function colaReintentar() { if (COLA_TM || !colaLeer().length) return; COLA_TM = setTimeout(function () { COLA_TM = null; colaMandar(); colaReintentar(); }, 20000); }
+  try { window.__apColaMandar = colaMandar; window.addEventListener("online", function () { setTimeout(colaMandar, 800); });
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { colaAviso(); setTimeout(colaMandar, 1500); }); else { colaAviso(); setTimeout(colaMandar, 1500); } } catch (e) {}
+  function porGuardar(n, args, cb, uid) {
     conPase(function (p) {
       if (!p) return cb(null);
       var a = Array.prototype.slice.call(args), sq = sinQ(n, a); if (!sq) a = a.slice(2);
       var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
-      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null); } }, 90000);
-      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq, guardar: true }) })
+      var listo = false, t0 = Date.now(), tmo = setTimeout(function () { if (!listo) { listo = true; cb(null, true); } }, 90000);
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, fn: n, args: a, sinQuien: sq, guardar: true, uid: uid || undefined }) })
         .then(function (r) { return r.json(); })
         .then(function (j) { if (listo) return; listo = true; clearTimeout(tmo); try { if (window.registrarTiempoRt) window.registrarTiempoRt(n, Date.now() - t0); } catch (e) {} if (j && j.status === "token") lsS("ap_pase", null); cb(j); },
-          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null); });
+          function () { if (listo) return; listo = true; clearTimeout(tmo); cb(null, true); });
     });
   }
   function porRuntime(n, args, cb, intento) {
@@ -313,9 +353,14 @@
       // 19/11 · GIABA sin Google: el guardado corre en la base con la función de siempre (cuando la base es la dueña de las hojas).
       // Con «todo» prendido no hay vuelta a Google (dos dueños rompen la planilla): si falla, se avisa y se prueba de nuevo.
       if (!LIBRES.test(n) && RTL && (RTL.todo || RTL.guarda[n])) return function () {
-        var args = arguments;
-        porGuardar(n, args, function (res) {
+        var args = arguments, uid = nuevoUid();
+        porGuardar(n, args, function (res, red) {
           if (res && res.status === "ok") { lsS("ap_sucio", Date.now()); if (ok) ok(res.r, uo); return; }
+          // 26/11: sin señal o sin respuesta → a la cola del celu (sale sola, una sola vez); la pantalla sigue como si hubiera guardado
+          if (RTL.todo && red && !NO_COLA.test(n) && quien()) {
+            colaPoner({ uid: uid, n: n, a: Array.prototype.slice.call(args), quien: quien().nombre, t: Date.now() });
+            if (ok) ok({ status: "ok", enCola: true, msg: "📶 Sin señal: quedó guardado en el celu. Se manda solo cuando vuelva la señal." }, uo); return;
+          }
           if (RTL.todo) { var e = new Error((res && res.motivo) ? "No se pudo guardar (" + res.motivo + "). Probá de nuevo." : "No se pudo guardar: sin conexión con la base. Probá de nuevo."); if (fail) fail(e, uo); else if (window.console) console.error(e); return; }
           lsS("ap_sucio", Date.now());
           var g = tt.withSuccessHandler(function (x) { if (ok) ok(x, uo); }).withFailureHandler(function (e) { if (fail) fail(e, uo); else if (window.console) console.error(e); });
@@ -1308,6 +1353,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <h1>Lista de precios</h1>
   <div class="sub">Sale de los precios que se fijan en Costos (los que usa Mayoristas), redondeados. Tocá un precio para cambiarlo: lo que cambies acá es solo para la lista que mandás.</div>
   <div class="fl"><span class="lbl">¿Para quién?</span><div class="seg2" id="lpListas"></div></div>
+  <div class="fl"><span class="lbl">🏷️ PVP sugerido al público <small>· margen del comercio sobre lo que le cuesta (con IVA)</small></span><div class="seg2" id="lpPvp"></div><span class="note" id="lpPvpTx"></span></div>
   <div class="row2" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
     <button class="btn y" id="lpPdf" onclick="lpHacer(this,false)">📄 Generar PDF (1 hoja A4)</button>
     <button class="btn gol" id="lpWa" onclick="lpHacer(this,true)">Mandar por WhatsApp</button>
@@ -1953,7 +1999,14 @@ function lpPint(){ const D2 = LP.data; if (!D2) return;
   $("lpTams").innerHTML = D2.tams.length ? D2.tams.map((T, ti) => { const off = lpTamOculto(T); return `<div class="lpz${off ? " off" : ""}"><div class="h"><b>${esc(T.tit)}${T.tag ? ' <span class="tag w">' + esc(T.tag) + '</span>' : ""}</b><span class="note">${esc(T.pack + " · " + T.min)}</span><button class="lnk${off ? "" : " on"}" onclick="lpTam(${ti})">${off ? "🚫 oculto" : "👁 tamaño"}</button></div>`
     + T.filas.map((f, fi) => { const v = lpVal(T, f), man = v.precio !== f.calc; return `<div class="lpr${v.oculto ? " off" : ""}"><div class="f"><span>${f.sabores.map(esc).join(" · ")}</span><span class="note">${off ? "oculto: el tamaño entero no va en esta lista" : v.oculto ? "oculto en esta lista" : "calculado " + fm(f.calc)}</span>${man && !off && !v.oculto ? `<button class="lnk" style="align-self:flex-start" onclick="lpMarca(${ti},${fi},'precio',${f.calc})">cambiado a mano · volver al calculado</button>` : ""}</div><input class="txt num ed${man ? " man" : ""}" data-plata="1" inputmode="decimal" value="${fm(v.precio)}" onfocus="this.select()" onchange="lpMarca(${ti},${fi},'precio',Math.round(num(this.value))||${f.calc})"><button class="eye${v.oculto ? " off" : ""}" onclick="lpMarca(${ti},${fi},'oculto',${!v.oculto})">${v.oculto ? "🚫" : "👁"}</button></div>`; }).join("") + `</div>`; }).join("")
     : '<div class="empty">Esta lista no tiene precios cargados en Listas_Precios.</div>';
+  const pm = lpPvpM(); $("lpPvp").innerHTML = [0, 40, 50, 60, 70].map(m => `<button class="${m === pm ? "on" : ""}" onclick="lpPvp(${m})">${m ? m + " %" : "No"}</button>`).join("");
+  const f0 = (D2.tams[0] && D2.tams[0].filas[0]) || null;
+  $("lpPvpTx").textContent = pm && f0 ? "Ej.: " + fm(f0.precio) + " + IVA = " + fm(f0.precio * 1.21) + " → PVP " + fm(lpPvpDe(f0.precio, pm)) + " (el comercio gana " + fm(lpPvpDe(f0.precio, pm) - f0.precio * 1.21) + ")" : "La lista sale sin precio sugerido.";
   $("lpSw").classList.toggle("on", LP.solo); $("lpSoloTx").textContent = LP.solo ? "no se guardan en la lista de " + ((D2.listas.filter(l => l.k === LP.lista)[0] || {}).corto || LP.lista) : "quedan guardados para la próxima vez"; }
+// 26/11 (tanda 4, aprobado 24/11): PVP sugerido = lo que le cuesta con IVA + el margen elegido, redondeado a $ 100 para arriba. No cambia ningún precio nuestro.
+function lpPvpM(){ const v = lsGet("lp_pvp_" + LP.lista, null); return v === null ? 50 : Number(v) || 0; }
+function lpPvpDe(precio, m){ return m ? Math.ceil(precio * 1.21 * (1 + m / 100) / 100) * 100 : 0; }
+function lpPvp(m){ lsSet("lp_pvp_" + LP.lista, m); lpPint(); }
 function lpLista(k){ if (k === LP.lista && LP.data) return; LP.lista = k; lsSet("lp_lista", k); lpCargar(); }
 function lpTam(ti){ const T = LP.data.tams[ti]; LP.cambios[T.k + "|*"] = { oculto: !lpTamOculto(T) }; lpPint(); }
 function lpMarca(ti, fi, campo, val){ const T = LP.data.tams[ti], f = T.filas[fi], k = lpKey(T.k, f); LP.cambios[k] = LP.cambios[k] || {}; LP.cambios[k][campo] = val; lpPint(); }
@@ -1976,10 +2029,11 @@ function lpGuardar(){ if (LP.solo) return Promise.resolve();
     return '<svg viewBox="0 0 40 46" width="34" height="46"><rect x="' + (x + w * 0.12) + '" y="' + y + '" width="' + (w * 0.76) + '" height="' + lid + '" rx="1.5" fill="' + M + '"/><rect x="' + x + '" y="' + (y + lid - 0.5) + '" width="' + w + '" height="' + (h - lid + 0.5) + '" rx="' + Math.min(5, w / 4) + '" fill="' + F + '" stroke="' + M + '" stroke-width="1.4"/><rect x="' + (x + 2) + '" y="' + (y + lid + (h - lid) * 0.3) + '" width="' + (w - 4) + '" height="' + ((h - lid) * 0.35) + '" fill="#fff" opacity=".85"/></svg>';
   }
   function lpHojaHtml(){
-    const D2 = LP.data, tams = lpFinal();
+    const D2 = LP.data, tams = lpFinal(), PM = lpPvpM();
     const card = function(t){
       return '<section class="q-c"><div class="q-ch"><div class="q-ico">' + lpIco(t.ico) + '</div><div><b class="q-tam">' + esc(t.tit) + '</b>' + (t.tag ? '<span class="q-nt">' + esc(t.tag) + '</span>' : '') + '<div class="q-pk">' + esc(t.pack + ' · ' + t.min) + '</div></div></div>'
-        + t.filas.map(function(f){ return '<div class="q-row"><b class="q-pr">' + fm(f.precio) + '</b><div class="q-fl">' + esc(f.sabores.join(" · ")) + '</div></div>'; }).join("") + '</section>';
+        + t.filas.map(function(f){ const pv = lpPvpDe(f.precio, PM);
+          return '<div class="q-row"><b class="q-pr">' + fm(f.precio) + '</b><div class="q-fl">' + esc(f.sabores.join(" · ")) + (pv ? '<div class="q-pvp">PVP sugerido <b>' + fm(pv) + '</b> · margen ' + Math.round((pv - f.precio * 1.21) / (f.precio * 1.21) * 100) + ' %</div>' : '') + '</div></div>'; }).join("") + '</section>';
     };
     const c1 = tams.filter(function(t){ return t.col === 1; }).map(card).join(""), c2 = tams.filter(function(t){ return t.col !== 1; }).map(card).join("");
     const css = '.a4{width:794px;min-height:1123px;background:#fbf8f3;padding:26px 28px 20px;display:flex;flex-direction:column;overflow:hidden;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#2b2420;box-sizing:border-box}'
@@ -1991,12 +2045,12 @@ function lpGuardar(){ if (LP.solo) return Promise.resolve();
       + '.q-c{background:#fff;border:1px solid #e6dccf;border-radius:10px;overflow:hidden;flex-shrink:0}.q-ch{display:flex;align-items:center;gap:10px;background:#f3ece2;padding:6px 10px}'
       + '.q-ico{width:40px;height:48px;display:flex;align-items:center;justify-content:center;flex-shrink:0}.q-tam{font-family:Georgia,"Times New Roman",serif;font-size:18px;color:#5a2a3a;margin-right:6px}'
       + '.q-nt{font-size:11px;color:#9a5b12;font-weight:700}.q-pk{font-size:11px;color:#6d6158;margin-bottom:2px}'
-      + '.q-row{display:flex;gap:9px;padding:7px 12px;border-top:1px solid #f1ebe2;align-items:baseline}.q-pr{width:76px;flex-shrink:0;font-size:15.5px;font-weight:700}.q-fl{font-size:12.5px;line-height:1.3;color:#3a322c}'
+      + '.q-row{display:flex;gap:9px;padding:7px 12px;border-top:1px solid #f1ebe2;align-items:baseline}.q-pr{width:76px;flex-shrink:0;font-size:15.5px;font-weight:700}.q-fl{font-size:12.5px;line-height:1.3;color:#3a322c}.q-pvp{font-size:10.5px;color:#7a6a5e;margin-top:1px}.q-pvp b{color:#5a2a3a}'
       + '.q-ft{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;border-top:1px solid #d9cdbd;margin-top:10px;padding-top:8px;font-size:10.5px;color:#6d6158;line-height:1.5}'
       + '.q-wa{background:#1f8f4e;color:#fff;border-radius:99px;padding:6px 14px;font-weight:700;font-size:13px;white-space:nowrap}'
       + '.a4.z1 .q-col{gap:8px}.a4.z1 .q-row{padding:4px 12px}.a4.z1 .q-pr{font-size:14px}.a4.z1 .q-fl{font-size:11.5px}.a4.z1 .q-ch{padding:3px 10px}.a4.z1 .q-ico{height:40px}'
       + '.a4.z2 .q-col{gap:6px}.a4.z2 .q-row{padding:2px 10px}.a4.z2 .q-pr{font-size:13px;width:68px}.a4.z2 .q-fl{font-size:10.5px;line-height:1.2}.a4.z2 .q-ch{padding:2px 8px}.a4.z2 .q-ico{height:34px;width:32px}.a4.z2 .q-ico svg{height:34px}.a4.z2 .q-tam{font-size:16px}.a4.z2 .q-info{margin:6px 0 2px}';
-    return '<style>' + css + '</style><div class="a4" id="lpA4"><div class="q-hd"><img src="' + LP_LOGO + '"><div><div class="q-tt">Lista de precios</div><div class="q-sub">Precios por unidad <b>sin IVA</b> · Factura A</div></div>'
+    return '<style>' + css + '</style><div class="a4" id="lpA4"><div class="q-hd"><img src="' + LP_LOGO + '"><div><div class="q-tt">Lista de precios</div><div class="q-sub">Precios por unidad <b>sin IVA</b> · Factura A' + (PM ? ' · PVP sugerido con IVA, para el consumidor final' : '') + '</div></div>'
       + '<div class="q-ver"><span class="q-chip">' + esc(D2.tit) + '</span><div class="q-vig">Vigente al ' + esc(D2.fecha) + '</div></div></div>'
       + '<div class="q-info"><div><b>Packs surtidos:</b> armá cada pack combinando sabores del mismo tamaño.</div><div><b>Mínimo 4 unidades por sabor</b> dentro del pedido.</div></div>'
       + '<div class="q-cols"><div class="q-col">' + c1 + '</div><div class="q-col">' + c2 + '</div></div>'

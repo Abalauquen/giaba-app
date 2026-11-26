@@ -759,7 +759,15 @@ input[type=date]:not([data-nodt])::-webkit-date-and-time-value{text-align:left}
 .v3-lote{font-size:15px;font-weight:800;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.07);color:var(--ink-mid);white-space:nowrap}
 .v3-ant{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:16px;background:var(--surface);border:2px dashed var(--accent);flex-shrink:0}
 .v3-ant .row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.v3-ant b{font-size:17px;font-family:'Manrope',sans-serif}.v3-ant .row span{font-size:15px;color:var(--ink-mid)}
+.v3-ant b{font-size:17px;font-family:'Manrope',sans-serif}
+/* 26/11 · 💰 Cobranzas */
+.cz-g{display:flex;flex-direction:column;gap:8px}.cz-k{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.cz-r{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:11px 12px;color:var(--ink);font:inherit;text-align:left;cursor:pointer;width:100%}
+.cz-r .n{display:flex;flex-direction:column;min-width:0}.cz-r .n b{font-size:16px}.cz-r .n span{font-size:13.5px;color:var(--ink-mid)}.cz-r .m{font-weight:800;white-space:nowrap}
+.cz-p{font-size:11.5px;font-weight:800;border-radius:9px;padding:2px 7px;background:var(--good-soft);color:var(--good);margin-left:6px;white-space:nowrap}
+.cz-d{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:14px;background:var(--bg);border:1.5px solid var(--accent)}
+.cz-d textarea{font:inherit;font-size:15px;line-height:1.4;min-height:130px;border-radius:12px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--ink);padding:10px 12px;resize:vertical;width:100%;box-sizing:border-box}
+.cz-b{display:flex;flex-wrap:wrap;gap:8px}.cz-b>*{flex:1 1 auto}.v3-ant .row span{font-size:15px;color:var(--ink-mid)}
 #pedList{display:flex;flex-direction:column;gap:12px!important;background:none!important;border:none!important;padding:0!important}
 @media (min-width:1024px){ #pedList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start} }
 /* pantallas que siguen con su armado: botones y chips más grandes y tocables */
@@ -1396,6 +1404,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="v3-row2"><button class="v3-btn y" id="goNueva" type="button">+ Nuevo pedido</button><a class="v3-btn ol" id="goMandarLista">📄 Mandar lista de precios</a></div>
   <div class="v3-row2"><button class="v3-btn" id="goClientes" type="button">👥 Clientes</button><a class="v3-btn" id="goComandas">📋 Comandas</a></div>
   <div class="v3-stats2" id="hStats"></div>
+  <div class="v3-card" id="cobzBox" hidden style="border:2px solid var(--warn)"></div>
   <div class="card bz" id="bzBox" hidden></div>
   <div class="v3-card" id="cspBox" hidden style="border:2px solid var(--accent)"><div class="v3-ct" style="color:var(--accent)">Desde comandas · falta el precio</div><div class="v3-col" id="cspList"></div></div>
   <div class="v3-fbox"><span class="v3-flbl">Mostrar</span><div class="v3-segbar n4" id="hFiltros"></div><span class="v3-flbl">Depósito</span><div class="v3-segbar" id="hZona"></div></div>
@@ -1933,7 +1942,103 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     }).join("") : '<div class="empty" style="font-size:16px">' + (q ? "No encontré pedidos con eso" : HF === "Todos" ? "Todavía no hay ventas." : "Nada pendiente 🎉") + '</div>';
     Array.prototype.forEach.call(el("pedList").querySelectorAll("[data-id]"), function(d){ d.addEventListener("click", function(){ abrirDetalle(d.dataset.id); }); });
     pintarAnt();
+    try { pintarCobz(); } catch (e) {}
   }
+  // ===== 26/11 · 💰 Cobranzas (mockup-cobranzas-compras, aprobado 21/11): solo Lucas y Adriana =====
+  // Entregado con saldo → recordatorio de cobro · Listo para retirar → recordatorio de retiro (sin hablar de plata) · A preparar: sin mensaje.
+  // El mensaje sale del WhatsApp de quien lo manda; la app lo arma y anota cuándo se mandó. Maricel no entra (va por su cuenta corriente).
+  const CZ = { abierto: null, rec: null };
+  function czHoy(){ const d = new Date(); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
+  function czFecha(d){ return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
+  function czDias(p){ const d = fD(p.vence); return d ? Math.round((hoy0() - d) / 864e5) : null; }
+  function czEsMaricel(p){ return /^maricel\b/i.test(String(p.cliente || "")); }
+  function czDormido(p){ const h = p.cobWa && p.cobWa.hasta ? fD(p.cobWa.hasta) : null; return !!(h && h > hoy0()); }
+  function czLista(){
+    const P = (PEDS && PEDS.pedidos || []).filter(function(p){ return p.estado !== "Anulado" && !czEsMaricel(p); });
+    const venc = [], prox = [], ret = [], prep = [], dorm = [];
+    P.forEach(function(p){
+      const saldo = p.total - p.cobrado, entregado = p.estadoEntrega === "Entregado" || p.estadoEntrega === "Despachado";
+      let g = null;
+      if (entregado && saldo > 0.5){ const d = czDias(p); g = d !== null && d > 0 ? venc : prox; }
+      else if (p.estadoEntrega === "Listo" && (!p.envio || p.envio === "Retira")) g = ret;
+      else if (p.estadoEntrega === "A preparar" && saldo > 0.5) g = prep;
+      if (!g) return;
+      if (g !== prep && czDormido(p)) dorm.push(p); else g.push(p);
+    });
+    venc.sort(function(a, b){ return (czDias(b) || 0) - (czDias(a) || 0); });
+    return { venc: venc, prox: prox, ret: ret, prep: prep, dorm: dorm };
+  }
+  function czMsg(p){
+    const firma = (A && A.nombre) || "Lucas";
+    if (p.estadoEntrega === "Listo" && p.estadoEntrega !== "Entregado" && !(p.total - p.cobrado > 0.5 && (p.estadoEntrega === "Entregado" || p.estadoEntrega === "Despachado")))
+      return "Hola, ¿cómo andan? Les escribo de Abalauquen: el pedido del " + dm(p.fecha) + " ya está listo y sigue pendiente de retiro. Acuérdense de venir a buscarlo cuando puedan.\n\nEspero se encuentren bien, ¡muchas gracias!\n" + firma;
+    const d = czDias(p), saldo = p.total - p.cobrado;
+    const v = d !== null && d > 0 ? ", que venció el " + dm(p.vence) : (p.vence ? ", que vence el " + dm(p.vence) : "");
+    return "Hola, ¿cómo andan? Solo para recordarles que necesitamos cobrar lo pendiente del pedido del " + dm(p.fecha) + " (" + fm(saldo).replace(/,00$/, "") + v + ").\n\nEspero se encuentren bien, ¡muchas gracias!\n" + firma + " · Abalauquen";
+  }
+  function czTel(p){ const c = DATOS ? DATOS.clientes.filter(function(k){ return k.id === p.clienteId; })[0] : null; return c ? telWa(c.tel) : ""; }
+  function czUlt(p){ return p.cobWa && p.cobWa.ult ? "Último recordatorio por WhatsApp: " + p.cobWa.ult.slice(0, 5) + " " + p.cobWa.ult.slice(11) + (p.cobWa.quien ? " (" + p.cobWa.quien + ")" : "") : "Último recordatorio por WhatsApp: nunca."; }
+  function czFila(p, sub, off){
+    const pill = p.cobWa && p.cobWa.hasta && czDormido(p) ? "recordar " + dm(p.cobWa.hasta) : p.cobWa && p.cobWa.ult && p.cobWa.ult.slice(0, 10) === czHoy() ? "avisado hoy" : "";
+    const saldo = p.total - p.cobrado, m = p.estadoEntrega === "Listo" || p.estadoEntrega === "A preparar" ? p.total : saldo;
+    let h = '<button class="cz-r" type="button"' + (off ? ' disabled style="opacity:.65;cursor:default"' : ' data-cz="' + esc(p.id) + '"') + '><span class="n"><b>' + esc(p.cliente) + (pill ? '<span class="cz-p">' + esc(pill) + '</span>' : '') + '</b><span>' + sub + '</span></span><span class="m">' + fm(m).replace(/,00$/, "") + '</span></button>';
+    if (!off && CZ.abierto === p.id) h += czDetalle(p);
+    return h;
+  }
+  function czDetalle(p){
+    const cob = p.estadoEntrega === "Entregado" || p.estadoEntrega === "Despachado", tel = czTel(p);
+    if (CZ.rec === p.id){
+      const d = hoy0(), op = [2, 4, 7].map(function(n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; });
+      const DS = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+      return '<div class="cz-d"><b>¿Cuándo te lo recuerdo?</b>' + op.map(function(x, i){ return '<button class="v3-btn sm" type="button" data-czdia="' + czFecha(x) + '">' + (i === 2 ? "En una semana · " : "") + DS[x.getDay()] + " " + pad(x.getDate()) + "/" + pad(x.getMonth() + 1) + '</button>'; }).join("")
+        + '<span class="v3-hint">Hasta ese día no te lo muestra arriba; queda más abajo, en «Para más adelante».</span><button class="v3-btn sm ol" type="button" data-cza="volver">‹ Volver</button></div>';
+    }
+    return '<div class="cz-d"><span class="v3-hint">' + (cob ? "Recordatorio de cobro" : "Recordatorio de retiro") + ' · ' + esc(p.id) + ' · pedido del ' + esc(dm(p.fecha)) + '. Tocá el mensaje para cambiar algo:</span>'
+      + '<textarea id="czTxt">' + esc(czMsg(p)) + '</textarea>'
+      + '<div class="cz-b">' + (tel ? '<a class="v3-btn sm g" id="czWa" target="_blank" rel="noopener" href="https://wa.me/' + tel + '?text=' + encodeURIComponent(czMsg(p)) + '">📲 Abrir en WhatsApp</a>' : '<span class="v3-hint">Sin teléfono cargado: copiá el mensaje.</span>')
+      + '<button class="v3-btn sm" type="button" data-cza="copiar">Copiar</button></div>'
+      + '<div class="cz-b">' + (cob ? '<button class="v3-btn sm y" type="button" data-cza="pago">✓ Ya pagó</button>' : '<button class="v3-btn sm y" type="button" data-cza="retiro">✓ Ya lo retiró</button>')
+      + '<button class="v3-btn sm" type="button" data-cza="rec">Recordarme otro día</button></div>'
+      + '<span class="v3-hint">' + esc(czUlt(p)) + '</span></div>';
+  }
+  function pintarCobz(){
+    const box = el("cobzBox"); if (!box) return;
+    if (!ADMIN || !PEDS){ box.hidden = true; return; }
+    const L = czLista(), n = L.venc.length + L.prox.length + L.ret.length;
+    if (!n && !L.dorm.length){ box.hidden = true; return; }
+    const tv = L.venc.reduce(function(a, p){ return a + p.total - p.cobrado; }, 0);
+    let h = '<div class="v3-ct">💰 Cobranzas' + (n ? ' · ' + n + ' para avisar' : '') + '</div>';
+    if (L.venc.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--terra-ink)">Entregado y vencido · ' + fm(tv).replace(/,00$/, "") + '</span>' + L.venc.map(function(p){ const d = czDias(p); return czFila(p, esc(p.id) + ' · venció ' + esc(dm(p.vence)) + ' · hace ' + d + (d === 1 ? ' día' : ' días')); }).join("") + '</div>';
+    if (L.prox.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--warn)">Entregado · a cobrar</span>' + L.prox.map(function(p){ return czFila(p, esc(p.id) + (p.vence ? ' · vence ' + esc(dm(p.vence)) : ' · sin vencimiento')); }).join("") + '</div>';
+    if (L.ret.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--accent)">Listo · pendiente de retiro</span>' + L.ret.map(function(p){ return czFila(p, esc(p.id) + ' · pedido del ' + esc(dm(p.fecha)) + ' · retira en ' + esc(p.deposito || "")); }).join("") + '</div>';
+    if (L.prep.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--ink-mid)">Todavía en preparación · sin mensaje</span>' + L.prep.map(function(p){ return czFila(p, esc(p.id) + ' · ' + esc(p.deposito || "") + ' · a preparar', true); }).join("") + '</div>';
+    if (L.dorm.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--ink-mid)">Para más adelante</span>' + L.dorm.map(function(p){ return czFila(p, esc(p.id) + ' · te lo recuerdo el ' + esc(dm(p.cobWa.hasta))); }).join("") + '</div>';
+    box.innerHTML = h; box.hidden = false;
+    if (CZ.abierto && !DATOS) cargarDatos().then(function(){ if (DATOS) pintarCobz(); });
+  }
+  function czPed(id){ return (PEDS && PEDS.pedidos || []).filter(function(p){ return p.id === id; })[0]; }
+  function czMarcar(p, acc, hasta){
+    p.cobWa = Object.assign({}, p.cobWa || {}, acc === "avisado" ? { ult: czHoy() + " " + pad(new Date().getHours()) + ":" + pad(new Date().getMinutes()), quien: A.nombre, hasta: "" } : { hasta: hasta });
+    run("cobranzaMarcarVM", { id: p.id, accion: acc, hasta: hasta || "" }).then(function(r){ if (!r || r.status !== "ok") toast((r && r.msg) || "No se pudo anotar (probá de nuevo)", true); });
+  }
+  el("cobzBox").addEventListener("input", function(e){
+    if (e.target.id !== "czTxt") return; const w = el("czWa"); if (w) w.href = w.href.split("?")[0] + "?text=" + encodeURIComponent(e.target.value);
+  });
+  el("cobzBox").addEventListener("click", function(e){
+    const r = e.target.closest("[data-cz]"), a = e.target.closest("[data-cza]"), dia = e.target.closest("[data-czdia]"), wa = e.target.closest("#czWa");
+    if (r){ CZ.abierto = CZ.abierto === r.dataset.cz ? null : r.dataset.cz; CZ.rec = null; pintarCobz(); return; }
+    const p = CZ.abierto ? czPed(CZ.abierto) : null; if (!p) return;
+    if (wa){ czMarcar(p, "avisado"); setTimeout(pintarCobz, 400); return; }
+    if (dia){ czMarcar(p, "recordar", dia.dataset.czdia); CZ.abierto = null; CZ.rec = null; pintarCobz(); toast("Listo, te lo recuerdo el " + dm(dia.dataset.czdia)); return; }
+    if (!a) return;
+    const k = a.dataset.cza;
+    if (k === "copiar"){ const t = el("czTxt"); const v = t ? t.value : czMsg(p); try { navigator.clipboard.writeText(v).then(function(){ toast("Copiado"); }, function(){ t.select(); toast("Seleccionado: copialo"); }); } catch (x) { if (t) t.select(); } return; }
+    if (k === "rec"){ CZ.rec = p.id; pintarCobz(); return; }
+    if (k === "volver"){ CZ.rec = null; pintarCobz(); return; }
+    // «Ya pagó» abre la carga del cobro con el monto puesto (no se marca pagado solo) · «Ya lo retiró» abre el pedido (ahí se marca entregado)
+    if (k === "pago"){ abrirDetalle(p.id); setTimeout(function(){ try { el("dtCobrar").click(); } catch (x) {} }, 60); return; }
+    if (k === "retiro"){ abrirDetalle(p.id); return; }
+  });
   el("hBuscar").addEventListener("input", function(){ if (PEDS) pintarHome(); });
   // clientes que ya se pasaron de su frecuencia (sin pedido pendiente): escribirles o repetir el último pedido
   function pintarAnt(){

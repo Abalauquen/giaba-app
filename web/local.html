@@ -3653,6 +3653,8 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const box = el("homePrepRes"); if (!box) return;
     box.hidden = false; box.className = "card"; box.innerHTML = '<b>Feria del ' + esc(P0.txt || P0.fecha) + ' · ' + esc(P0.ubicacion || P0.feria) + '</b><span class="hint">Revisando que quedó guardada…</span>';
     if (!gs()){ box.innerHTML = '<b>⚠ Sin señal: no pude revisar si quedó guardada</b><span class="hint">Volvé a «Dejar lista» con señal para comprobarlo.</span>'; return; }
+    // 26/11 (sin señal, parte 2): lo armado quedó en la cola del celu; se revisa cuando ya salió
+    if (LL_EN_COLA){ LL_EN_COLA = false; box.innerHTML = '<b>📶 Feria del ' + esc(P0.txt || P0.fecha) + ' · quedó guardada en el celu</b><span class="hint">Sin señal: se manda sola cuando vuelva. No hace falta cargarla de nuevo.</span>'; return; }
     let st = null, ap = null, n = 0;
     const fin = function(){
       if (++n < 2) return;
@@ -4048,8 +4050,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const porSku = {}; LL.prods.forEach(function(p){ porSku[p.sku] = p; });
     const its = rec.items.filter(function(x){ return porSku[x.sku]; });
     if (!its.length){ box.hidden = true; return; }
-    const base = rec.base === "dia" ? "Según lo que se vendió en " + (rec.n === 1 ? "la última feria" : "las últimas " + rec.n + " ferias") + " de los " + rec.dia + " acá"
-      : rec.base === "lugar" ? "Según lo que se vendió en " + (rec.n === 1 ? "la última feria" : "las últimas " + rec.n + " ferias") + " acá (cualquier día)"
+    // 26/11 (mockup-cuanto-llevar): «Justo» = lo máximo vendido acá; «Más tranqui» = un poco más. Se recuerda en este celu.
+    if (!LL.recModo){ try { LL.recModo = localStorage.getItem("ll_rec_modo") || "justo"; } catch (e) { LL.recModo = "justo"; } }
+    const cq = function(x){ return LL.recModo === "tranqui" && x.cant2 ? x.cant2 : x.cant; };
+    const nf = rec.n === 1 ? "la última feria" : "las últimas " + rec.n + " ferias";
+    const base = rec.base === "dia" ? "Según lo que se vendió en " + nf + " de los " + rec.dia + " acá"
+      : rec.base === "lugar" ? "Según lo que se vendió en " + nf + " acá" + (rec.desde && rec.n > 1 ? " (del " + String(rec.desde).slice(0, 5) + " al " + String(rec.hasta).slice(0, 5) + ")" : "")
       : "Todavía no hay ferias cerradas acá: me basé en las últimas " + rec.n + " ferias del depósito";
     const fila = function(x){ const p = porSku[x.sku], hay = p.hay; return '<div class="it"><span>' + dot3(p.nombre) + esc(p.nombre) + (x.agotado ? ' <small>· se agotó</small>' : '') + '</span><span>' + x.cant + (hay < x.cant ? ' <small>(hay ' + hay + ')</small>' : '') + '</span></div>'; };
     // 10/11 (Lucas): si ya tenés stock cargado, la recomendación queda plegada (y sin «recomiendo N» en cada renglón) hasta que la pidas
@@ -4061,7 +4067,19 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       el("llRecVer").addEventListener("click", function(){ LL.recVer = true; pintarRec(rec); pintaLlevo(); });
       return;
     }
-    box.innerHTML = '<span class="t">💡 Te recomiendo llevar esto</span><span class="hint">' + base + ', con un margen para no quedarte corto (más si algo se agotó). Cuantas más ferias se cierren con el stock, mejor afina.</span>'
+    const conLl = its.some(function(x){ return x.llevo != null; });
+    let tl = 0, tp = 0; its.forEach(function(x){ tl += Number(x.llevo) || 0; tp += cq(x); });
+    const dif = tp - tl;
+    const nums = conLl ? '<div class="ll-rn" style="display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin:8px 0;font-size:14px">'
+      + (rec.vende ? '<span style="opacity:.75">Se vende por feria</span><b>~' + rec.vende + '</b>' : '')
+      + '<span style="opacity:.75">Llevás normalmente</span><b>' + tl + '</b>'
+      + '<span>Propuesta</span><b style="font-size:18px">' + tp + '</b></div>'
+      + '<div id="llRecDif" style="font-size:13.5px;font-weight:700;color:' + (dif < 0 ? '#7fd48a' : dif > 0 ? '#ffb366' : '#e8d98a') + '">'
+      + (dif < 0 ? '▼ ' + (-dif) + ' frascos menos que lo de siempre' : dif > 0 ? '▲ ' + dif + ' frascos más que lo de siempre' : 'Igual que lo de siempre') + '</div>' : '';
+    const modos = conLl ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0 4px">'
+      + ['justo', 'tranqui'].map(function(m){ const on = LL.recModo === m; return '<button type="button" class="ll-rmodo" data-m="' + m + '" style="min-height:40px;border-radius:12px;border:1.5px solid ' + (on ? '#ffd100' : '#6b5a00') + ';background:' + (on ? '#ffd100' : 'transparent') + ';color:' + (on ? '#111' : '#e8d98a') + ';font:800 14px Manrope,sans-serif;cursor:pointer">' + (m === 'justo' ? 'Justo' : 'Más tranqui') + '</button>'; }).join('') + '</div>' : '';
+    box.innerHTML = '<span class="t">💡 Te recomiendo llevar esto</span><span class="hint">' + base + (conLl ? '. Propongo lo máximo que se vendió en una feria (2 más si se agotó). Con «Más tranqui» va un poco más.' : ', con un margen para no quedarte corto (más si algo se agotó).') + ' Cuantas más ferias se cierren con el stock, mejor afina.</span>'
+      + nums + modos
       + '<button class="btn" type="button" id="llRecOk">✓ Usar la recomendación</button>'
       + '<button class="btn2" type="button" id="llRecOcultar" style="width:100%;margin-top:8px">Ocultar la recomendación</button>';
     void fila;
@@ -4070,10 +4088,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const cargar = function(){
       LL.items = []; LL.pre = null;
       // 29/10 (R5): la cantidad recomendada entra entera; si figura menos en el stock, el renglón avisa «⚠ revisar stock» (no se recorta ni se borra)
-      its.forEach(function(x){ const p = porSku[x.sku]; LL.items.push({ sku: p.sku, nombre: p.nombre, cant: Math.max(0, Number(x.cant) || 0), hay: p.hay }); });
+      its.forEach(function(x){ const p = porSku[x.sku]; LL.items.push({ sku: p.sku, nombre: p.nombre, cant: Math.max(0, Number(cq(x)) || 0), hay: p.hay }); });
       LL.items = ordenar(LL.items.filter(function(it){ return it.cant > 0; }));
     };
-    LL.recMap = {}; its.forEach(function(x){ LL.recMap[x.sku] = x; });
+    LL.recMap = {}; its.forEach(function(x){ LL.recMap[x.sku] = Object.assign({}, x, { cant: cq(x) }); });
+    box.querySelectorAll(".ll-rmodo").forEach(function(b){ b.addEventListener("click", function(){ LL.recModo = b.dataset.m; try { localStorage.setItem("ll_rec_modo", LL.recModo); } catch (e) {} pintarRec(rec); pintaLlevo(); }); });
     // 28/10 (Lucas 18:47): la recomendación NO se carga sola; solo con el botón (la base es lo que se llevó la última vez)
     el("llRecOk").addEventListener("click", function(){ cargar(); LL.recVer = false; pintarRec(rec); pintaLlevo(); el("llRepe").hidden = true; showToast("Cargué la recomendación"); });
     el("llRecOcultar").addEventListener("click", function(){ LL.recVer = false; pintarRec(rec); pintaLlevo(); });
@@ -5123,7 +5142,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const pasado = libreLL(pr) < 0;
       const rc = LL.rec && LL.recMap ? LL.recMap[it.sku] : null;
       row.innerHTML = '<div class="nm"><span>' + nomDot(it.nombre) + '</span><small' + (pasado ? ' style="color:var(--warn)"' : '') + '>'
-        + (rc ? 'vende ~' + String(rc.prom).replace(".", ",") + ' por feria · hay ' + it.hay : (pr.combo ? 'alcanzan para ' + pr.hay + ' · se arma con frascos de ' : 'hay ' + it.hay + ' en ') + esc(LL.dep))
+        + (rc ? 'vende ~' + String(rc.prom).replace(".", ",") + ' por feria' + (rc.max ? ' (hasta ' + rc.max + ' en una)' : '') + (rc.llevo != null ? ' · llevás ~' + rc.llevo : '') + ' · hay ' + it.hay : (pr.combo ? 'alcanzan para ' + pr.hay + ' · se arma con frascos de ' : 'hay ' + it.hay + ' en ') + esc(LL.dep))
         + (pr.se ? ' · 🏷️ ' + pr.se + ' sin etiquetar' : '') + (pasado ? ' · ⚠ más de lo que figura: revisar stock' : '') + '</small>' + (rc ? '<span class="vend3" style="font-size:15px">recomiendo ' + rc.cant + (rc.agotado ? ' · se agotó' : '') + '</span>' : '') + '</div>';
       row.insertAdjacentHTML("afterbegin", mvHtml(idx, LL.items.length)); mvBind(row, LL.items, idx, pintaLlevo);
       if (!it.cant) row.style.opacity = .45;
@@ -5229,7 +5248,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
             peds.splice(peds.indexOf(p), 1); pintarPedidosFeria(peds, destino); pintarBadgePed();
             // "Entregado y cobrado": vuelve a cobrar con el monto puesto; solo falta elegir cómo pagó
             if (p.aCobrar && SCREENS.ped && !SCREENS.ped.hidden){ abrirLoop(); amount = String(Math.round(p.aCobrar)); updateAmount(); PED_COB = String(p.id || ''); showToast("Entregado ✓ · elegí cómo pagó y tocá Cobrar"); }
-            else showToast("Entregado ✓");
+            else showToast(r.enCola ? "Entregado ✓ · 📶 sin señal: se manda solo cuando vuelva" : "Entregado ✓");
           }
           else { delete b.dataset.busy; b.style.opacity = 1; showToast("No se pudo", true); }
         }).withFailureHandler(function(){ delete b.dataset.busy; b.style.opacity = 1; showToast("Sin señal", true); })
@@ -5254,7 +5273,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     Array.prototype.forEach.call(box.querySelectorAll(".ped-ok"), function(b){ b.addEventListener("click", function(){
       const p = peds[+b.dataset.i]; b.style.opacity = .5;
       google.script.run.withSuccessHandler(function(r){
-        if (r && r.status === 'ok'){ showToast("Entregado ✓"); peds.splice(peds.indexOf(p), 1); pintarPedidosFeria(peds); }
+        if (r && r.status === 'ok'){ showToast(r.enCola ? "Entregado ✓ · 📶 sin señal: se manda solo cuando vuelva" : "Entregado ✓"); peds.splice(peds.indexOf(p), 1); pintarPedidosFeria(peds); }
         else { b.style.opacity = 1; showToast("No se pudo", true); }
       }).withFailureHandler(function(){ b.style.opacity = 1; showToast("Sin señal", true); })
         .entregarPedidoFeria({ id: p.id, quien: session.vendedor, feria: session.feria });
@@ -5293,7 +5312,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       guardandoLL = true; el("llOk").style.opacity = .6;
       google.script.run.withSuccessHandler(function(r){
         guardandoLL = false; el("llOk").style.opacity = 1;
-        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); showToast("Refuerzo sumado ✓"); abrirLoop(); }
+        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); showToast(r.enCola ? "📶 Refuerzo guardado en el celu: se manda solo cuando vuelva la señal" : "Refuerzo sumado ✓"); abrirLoop(); }
         else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
         else llNoGuardo(r);
       }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
@@ -5314,7 +5333,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       guardandoLL = true; el("llOk").style.opacity = .6;
       google.script.run.withSuccessHandler(function(r){
         guardandoLL = false; el("llOk").style.opacity = 1;
-        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); if (PREP) terminarPrep(); else { showToast(cambiosTxt || "Stock corregido ✓"); abrirLoop(); } }
+        if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); if (r.enCola) showToast("📶 Sin señal: la corrección quedó en el celu y se manda sola"); if (PREP) terminarPrep(); else { if (!r.enCola) showToast(cambiosTxt || "Stock corregido ✓"); abrirLoop(); } }
         else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
         else llNoGuardo(r);
       }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
@@ -5324,7 +5343,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     guardandoLL = true; el("llOk").style.opacity = .6;
     google.script.run.withSuccessHandler(function(r){
       guardandoLL = false; el("llOk").style.opacity = 1;
-      if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); if (PREP) terminarPrep(); else { showToast("Stock cargado ✓"); abrirLoop(); } }
+      if (r && r.status === 'ok'){ lsSet(llDraftKey(), null); lsSet("ll_idapp", null); if (r.enCola){ LL_EN_COLA = true; showToast("📶 Sin señal: lo que llevás quedó en el celu y se manda solo cuando vuelva"); } if (PREP) terminarPrep(); else { if (!r.enCola) showToast("Stock cargado ✓"); abrirLoop(); } }
       else if (r && r.status === 'cerrado'){ showToast("El stock de hoy ya está cerrado", true); abrirLoop(); }
       else llNoGuardo(r);
     }).withFailureHandler(function(){ llNoGuardo(null, "Sin señal: probá de nuevo (lo armado queda guardado en el celu)"); })
@@ -5512,7 +5531,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   el("voTodo").addEventListener("click", function(){ FS.llevado.forEach(function(it){ FS.volvio[it.sku] = it.cant; }); guardarConteo(); pintaVolvio(); showToast("Volvió todo · contá de nuevo lo que se vendió"); });
   el("voBack").addEventListener("click", function(){ if (FS && FS.cierre) abrirLoop(); else renderHome(); });
   el("voCobrar").addEventListener("click", function(){ guardarConteo(); abrirLoop(); });
-  let guardandoVO = false;
+  let guardandoVO = false, LL_EN_COLA = false;
   // 12/11 (Lucas): el 04/11 y el 11/11 se cerró el stock con «volvió todo» habiendo ventas → no se descontó nada y
   // «Llevar lo mismo» después trae lo que cerró. Si hubo cobros, no deja cerrar sin bajar lo que se vendió.
   function voSinContar(){
@@ -5530,7 +5549,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (guardandoVO) return; guardandoVO = true; el("voOk").style.opacity = .6;
     google.script.run.withSuccessHandler(function(r){
       guardandoVO = false; el("voOk").style.opacity = 1;
-      if (r && r.status === 'ok'){ showToast("Stock cerrado"); FS = null; renderHome(); }
+      if (r && r.status === 'ok'){ showToast(r.enCola ? "📶 Sin señal: lo que volvió quedó en el celu y se manda solo" : "Stock cerrado"); FS = null; renderHome(); }
       else showToast((r && r.msg) || "No se pudo guardar", true);
     }).withFailureHandler(function(){ guardandoVO = false; el("voOk").style.opacity = 1; showToast("Sin señal", true); })
       .cerrarStockFeria(volvioPayload(FS));
@@ -7132,7 +7151,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     CNB.busy = true; cnPintarBil();
     google.script.run.withSuccessHandler(function(r){
       CNB.busy = false;
-      if (r && r.status === "ok"){ showToast("Billetera " + c.num + ": " + formatMoney(r.monto) + " ✓"); cnCargar(function(){ showScreen("cnd"); cnPintarDet(); }); }
+      if (r && r.status === "ok"){ showToast("Billetera " + c.num + ": " + formatMoney(r.monto != null ? r.monto : n) + (r.enCola ? " · 📶 quedó en el celu, se manda sola" : " ✓")); cnCargar(function(){ showScreen("cnd"); cnPintarDet(); }); }
       else { cnPintarBil(); showToast((r && r.msg) || "No se pudo guardar", true); }
     }).withFailureHandler(function(){ CNB.busy = false; cnPintarBil(); showToast("Sin señal", true); }).canastoBilletera(a.nombre, a.pin, { canasto: c.id, monto: n, motivo: el("cnbMot").value.trim(), cuenta: CNB.mueve && !pers ? CNB.cta : "", personal: pers });
   });
@@ -8265,7 +8284,7 @@ window.SSV = (function(){
     run("guardarSalidaSinVenta", [p]).then(function(r){
       busy = false;
       if (r && r.status === "ok" && r.descEmpleado){ try { const b = document.createElement("div"); b.setAttribute("style", "position:fixed;left:12px;right:12px;bottom:18px;z-index:9999;background:#17283a;color:#8cc8ff;border:2px solid #8cc8ff;border-radius:16px;padding:14px 16px;font-weight:800;font-size:16px;line-height:1.35;box-shadow:0 6px 24px rgba(0,0,0,.5)"); b.innerHTML = "🙋 Descuento empleado: $ " + Number(r.descEmpleado).toLocaleString("es-AR", { maximumFractionDigits: 0 }) + '<br><span style="font-weight:600;font-size:14px">Se descuenta de lo que te pagamos por esta feria</span>'; b.addEventListener("click", function(){ b.remove(); }); document.body.appendChild(b); setTimeout(function(){ b.remove(); }, 9000); } catch (e) {} }   // 13/11 (Lucas)
-      if (r && r.status === "ok"){ aviso("Salida guardada · " + porPres_(p.items.map(function(x){ const it = S.items.filter(function(y){ return y.sku === x.sku; })[0]; return { sku: x.sku, nombre: it ? it.nombre : x.sku, cant: x.cant }; })) + " menos en " + r.dep); S.items = []; $("ssvNota").value = ""; recargar(); if (typeof S.listo === "function") S.listo(r); }
+      if (r && r.status === "ok"){ aviso("Salida guardada · " + porPres_(p.items.map(function(x){ const it = S.items.filter(function(y){ return y.sku === x.sku; })[0]; return { sku: x.sku, nombre: it ? it.nombre : x.sku, cant: x.cant }; })) + " menos en " + (r.dep || S.dep) + (r.enCola ? " · 📶 sin señal: quedó en el celu y se manda sola" : "")); S.items = []; $("ssvNota").value = ""; recargar(); if (typeof S.listo === "function") S.listo(r); }
       else { aviso((r && r.msg) || "Sin señal: no se guardó", true); pintar(); }
     });
   }

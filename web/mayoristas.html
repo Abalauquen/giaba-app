@@ -3501,7 +3501,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   else { show("home"); el("who").textContent = A.nombre;
     // 19/11 (Revendedoras › un pedido › Cambiar productos / Anular): ?ped=VTA-0030 abre ese pedido
     let PED_IR = ""; try { PED_IR = (new URLSearchParams(location.search).get("ped") || "").replace(/[^\w-]/g, ""); } catch (e) {}
-    cargarPedidos().then(function(){ if (PED_IR && PEDS && PEDS.pedidos.some(function(x){ return x.id === PED_IR; })) abrirDetalle(PED_IR); }); cargarDatos().then(function(){ if (PEDS && !el("s-home").hidden) pintarAnt(); }); }
+    // 26/11 (📋 Todos los pedidos): &cobrar=1 abre la carga del cobro · &wa=1 abre ese pedido en 💰 Cobranzas (mensaje para WhatsApp)
+    let PED_Q = ""; try { const u = new URLSearchParams(location.search); PED_Q = u.get("cobrar") ? "cobrar" : u.get("wa") ? "wa" : ""; } catch (e) {}
+    cargarPedidos().then(function(){
+      if (!(PED_IR && PEDS && PEDS.pedidos.some(function(x){ return x.id === PED_IR; }))) return;
+      if (PED_Q === "wa"){ CZ.abierto = PED_IR; CZ.rec = null; pintarCobz(); try { el("cobzBox").scrollIntoView({ block: "start" }); } catch (e) {} return; }
+      abrirDetalle(PED_IR);
+      if (PED_Q === "cobrar") setTimeout(function(){ try { el("dtCobrar").click(); } catch (e) {} }, 80);
+    }); cargarDatos().then(function(){ if (PEDS && !el("s-home").hidden) pintarAnt(); }); }
   document.addEventListener("pointerdown", function(e){
     const k = e.target.closest && e.target.closest(".o,.chip,.tile,.btn,.btn2,.li,.v3-btn,.v3-chip,.v3-cat,.v3-cli,.v3-vc,.v3-acts>*,.v3-seg>*,.v3-tams>div");
     if (!k) return; k.classList.add("pressed"); setTimeout(function(){ k.classList.remove("pressed"); }, 160);

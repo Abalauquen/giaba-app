@@ -3044,7 +3044,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   });
 
   if (!OK){ show("noauth"); }
-  else { show("home"); el("who").textContent = A.nombre; cargar(); }
+  else { show("home"); el("who").textContent = A.nombre;
+    // 26/11 (📋 Todos los pedidos › «Ver ›»): ?ped=<id> abre ese pedido
+    let PED_IR = ""; try { PED_IR = (new URLSearchParams(location.search).get("ped") || "").replace(/[^\w-]/g, ""); } catch (e) {}
+    cargar().then(function(){ const np = PED_IR && D && D.pedidos ? D.pedidos.filter(function(q){ return q.id === PED_IR; })[0] : null; if (np) abrirDet(np); }); }
   document.addEventListener("pointerdown", function(e){
     const k = e.target.closest && e.target.closest(".o,.chip,.tile,.btn,.btn2,.li,.v3-btn,.v3-chip,.v3-cat,.v3-cli,.v3-vc,.v3-acts>*,.v3-seg>*,.v3-tams>div");
     if (!k) return; k.classList.add("pressed"); setTimeout(function(){ k.classList.remove("pressed"); }, 160);

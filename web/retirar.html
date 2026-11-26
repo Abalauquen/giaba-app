@@ -1387,25 +1387,55 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // ---- 25/11 · 📋 Todos los pedidos (getPedidosTodos) ----
   const PT_VE = ["Lucas","Adriana","Francisco","Luis"]; let PT = null, PTF = "abiertos";
   const ptVe = () => !!A && PT_VE.indexOf(A.nombre) !== -1;
-  const PT_FIL = [["abiertos","Sin terminar"],["1","Para armar"],["2","Listos"],["3","En camino"],["cobrar","Falta cobrar"],["todos","Todos"]];
-  function ptAbrir(){ ir("todos"); if (!PT) ptPintar(); run("getPedidosTodos").then(function(r){ PT = r && r.status === "ok" ? r : { error: (r && r.status === "denegado") ? "No tenés permiso para esto" : "No se pudo cargar. Probá de nuevo." }; ptPintar(); }); }
+  // 26/11 (mockup-pedidos-v2 aprobado 07:45): «Pendientes» (todo lo que no está entregado y cobrado) · «Entregados» quedan 3 días
+  const PT_FIL = [["abiertos","Pendientes"],["1","Para armar"],["2","Listos"],["3","En camino"],["cobrar","Falta cobrar"],["4","Entregados"]];
+  let PT_SEL = {}, PT_TRK = null, PT_OCUP = false;
+  const ptLink = function(q){ return GIABA_BASE_URL + (GIABA_BASE_URL.indexOf("?") === -1 ? "?" : "&") + q; };
+  function ptAbrir(){ ir("todos"); if (!PT) ptPintar(); ptCargar(); }
+  function ptCargar(){ return run("getPedidosTodos").then(function(r){ PT = r && r.status === "ok" ? r : { error: (r && r.status === "denegado") ? "No tenés permiso para esto" : "No se pudo cargar. Probá de nuevo." }; PT_SEL = {}; PT_TRK = null; ptPintar(); }); }
+  function ptKey(x){ return x.k + ":" + x.pid; }
   function ptPintar(){
     const box = $("ptBox");
     if (!PT){ box.innerHTML = '<div class="empty">Cargando…</div>'; return; }
     if (PT.error){ box.innerHTML = '<div class="wrb">' + esc(PT.error) + '</div>'; return; }
-    const L = PT.pedidos || [], cuenta = { abiertos: L.filter(function(x){ return x.paso < 4; }).length, "1": PT.n[1], "2": PT.n[2], "3": PT.n[3], cobrar: PT.n.cobrar, todos: L.length };
+    const L = PT.pedidos || [], cuenta = { abiertos: L.filter(function(x){ return x.paso < 4; }).length, "1": PT.n[1], "2": PT.n[2], "3": PT.n[3], cobrar: PT.n.cobrar, "4": L.filter(function(x){ return x.paso === 4; }).length };
     $("ptF").innerHTML = PT_FIL.filter(function(f){ return f[0] !== "cobrar" || PT.plata; }).map(function(f){ return '<button class="chip' + (PTF === f[0] ? ' on' : '') + '" data-ptf="' + f[0] + '">' + f[1] + ' <small>' + (cuenta[f[0]] || 0) + '</small></button>'; }).join("");
-    const V = L.filter(function(x){ return PTF === "todos" ? true : PTF === "abiertos" ? x.paso < 4 : PTF === "cobrar" ? x.falta > 500 : String(x.paso) === PTF; });
-    const col = { 1: "w", 2: "b", 3: "", 4: "g" };
-    box.innerHTML = V.length ? '<div class="rl">' + V.map(function(x){
+    const V = L.filter(function(x){ return PTF === "abiertos" ? x.paso < 4 : PTF === "cobrar" ? x.falta > 500 : String(x.paso) === PTF; });
+    const col = { 1: "w", 2: "b", 3: "", 4: "g" }, nsel = Object.keys(PT_SEL).length;
+    let h = nsel ? '<div class="r" style="border-left-color:var(--accent);position:sticky;top:0;z-index:3"><b>' + nsel + (nsel === 1 ? ' pedido elegido' : ' pedidos elegidos') + '</b><div class="acts"><button class="btn y" data-ptvarios="1">✓ Pasar ' + (nsel === 1 ? 'al' : 'los ' + nsel + ' al') + ' próximo paso</button><button class="btn" data-ptlimpiar="1">Ninguno</button></div><small class="hint">Cada uno pasa a su paso que sigue (armado → listo, listo → salió o lo retiró).</small></div>' : '';
+    h += V.length ? '<div class="rl">' + V.map(function(x){
       const pasos = [1,2,3,4].map(function(i){ return '<i style="flex:1;height:6px;border-radius:9px;background:' + (i <= x.paso ? 'var(--good)' : 'var(--line-2)') + '"></i>'; }).join("");
-      return '<div class="r' + (x.paso === 4 ? ' ok' : x.paso === 1 ? ' w' : '') + '"><div class="l1"><b>' + esc(x.id) + ' · ' + esc(x.cliente) + '</b><span class="tag ' + (col[x.paso] || '') + '">' + esc(x.pasoTxt) + '</span></div>'
+      const k = ptKey(x), sel = !!PT_SEL[k], A = [];
+      if (x.sig) A.push('<button class="btn y" data-ptsig="' + esc(k) + '">' + esc(x.sig.txt) + '</button>');
+      if (PT.plata && x.falta > 500 && x.k === "vm") {
+        if (x.maricel) A.push('<a class="btn" href="' + ptLink("app=revendedores") + '" target="_top">Su cuenta corriente</a>');
+        else { A.push('<a class="btn" href="' + ptLink("app=mayoristas&ped=" + encodeURIComponent(x.pid) + "&cobrar=1") + '" target="_top">💰 Cobrar</a>'); A.push('<a class="btn wa" href="' + ptLink("app=mayoristas&ped=" + encodeURIComponent(x.pid) + "&wa=1") + '" target="_top">📲 Recordar</a>'); }
+      }
+      A.push('<a class="btn" href="' + ptLink((x.k === "vm" ? "app=mayoristas" : "app=ventas") + "&ped=" + encodeURIComponent(x.pid)) + '" target="_top">Ver ›</a>');
+      const trk = PT_TRK === k ? '<div class="stack" style="gap:6px"><input id="ptTrk" placeholder="N° de seguimiento (opcional)" style="min-height:48px;border-radius:12px;border:2px solid var(--line-2);background:var(--inp);color:var(--ink);font-size:16px;padding:0 12px"><div class="acts"><button class="btn y" data-ptok="' + esc(k) + '">🚚 Salió</button><button class="btn" data-ptno="1">Cancelar</button></div></div>' : '';
+      return '<div class="r' + (x.paso === 4 ? ' ok' : x.paso === 1 ? ' w' : '') + '"' + (sel ? ' style="outline:3px solid var(--accent)"' : '') + '><div class="l1">'
+        + (x.sig ? '<label style="display:flex;gap:10px;align-items:flex-start;min-width:0;cursor:pointer"><input type="checkbox" data-ptsel="' + esc(k) + '"' + (sel ? ' checked' : '') + ' style="width:24px;height:24px;flex:0 0 auto;margin-top:1px;accent-color:var(--accent)"><b>' + esc(x.id) + ' · ' + esc(x.cliente) + '</b></label>' : '<b>' + esc(x.id) + ' · ' + esc(x.cliente) + '</b>')
+        + '<span class="tag ' + (col[x.paso] || '') + '">' + esc(x.pasoTxt) + '</span></div>'
         + '<small>' + esc(x.canal) + ' · ' + esc(x.dep) + (x.entrega ? ' · ' + esc(x.entrega) : '') + ' · ' + esc(String(x.fecha || '').slice(0, 5)) + '</small>'
         + (x.items ? '<small>🫙 ' + esc(x.items) + '</small>' : '')
         + (PT.plata && x.total ? '<small>' + fm(x.total) + (x.falta > 500 ? ' · <span class="cw">falta cobrar ' + fm(x.falta) + '</span>' : '') + '</small>' : '')
-        + '<div style="display:flex;gap:4px">' + pasos + '</div><small class="hint">armar · listo · en camino o retira · terminado</small></div>';
+        + '<div style="display:flex;gap:4px">' + pasos + '</div>'
+        + (trk || '<div class="acts' + (A.length === 1 ? ' one' : '') + '">' + A.join("") + '</div>') + '</div>';
     }).join("") + '</div>' : '<div class="empty">No hay pedidos acá 🎉</div>';
-    box.insertAdjacentHTML("beforeend", '<div class="hint">Por ahora es para mirar: cada pedido se sigue marcando donde se marca hoy (Mayoristas, Ventas online, Comandas y Para retirar).</div>');
+    box.innerHTML = h;
+    if (PT_TRK){ const i = $("ptTrk"); if (i) i.focus(); }
+  }
+  function ptBuscar(k){ return (PT && PT.pedidos || []).filter(function(x){ return ptKey(x) === k; })[0]; }
+  function ptMandar(L){
+    if (PT_OCUP || !L.length) return; PT_OCUP = true;
+    t("Guardando…");
+    run("ptMarcar", L).then(function(r){
+      PT_OCUP = false;
+      if (r && (r.status === "ok" || (r.hechos && r.hechos.length))){
+        t((r.enCola ? "📶 Quedó en el celu · " : "") + (r.hechos ? r.hechos.length : L.length) + (L.length === 1 ? " pedido al próximo paso ✓" : " pedidos al próximo paso ✓") + (r.msg ? " · " + r.msg : ""));
+        ptCargar();
+      } else t((r && r.msg) || "No se pudo. Probá de nuevo.");
+    });
   }
   function cargar(){
     if (teoVe() && !TEO) teoCargar();
@@ -1592,6 +1622,14 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if ((b = g("[data-ya]"))){ ya(b); return; }
     if ((b = g("[data-teoret]"))){ teoRetirado(b); return; }
     if ((b = g("[data-ptf]"))){ PTF = b.dataset.ptf; ptPintar(); return; }
+    if ((b = g("[data-ptsel]"))){ const k = b.dataset.ptsel; if (b.checked) PT_SEL[k] = 1; else delete PT_SEL[k]; ptPintar(); return; }
+    if ((b = g("[data-ptlimpiar]"))){ PT_SEL = {}; ptPintar(); return; }
+    if ((b = g("[data-ptvarios]"))){ ptMandar(Object.keys(PT_SEL).map(ptBuscar).filter(function(x){ return x && x.sig; }).map(function(x){ return { k: x.k, id: x.pid, a: x.sig.a }; })); return; }
+    if ((b = g("[data-ptsig]"))){ const x = ptBuscar(b.dataset.ptsig); if (!x || !x.sig) return;
+      if (x.online && x.sig.a === "Despachada"){ PT_TRK = b.dataset.ptsig; ptPintar(); return; }   // Tienda Nube / Mercado Libre: pide el seguimiento, como en Ventas online
+      ptMandar([{ k: x.k, id: x.pid, a: x.sig.a }]); return; }
+    if ((b = g("[data-ptok]"))){ const x = ptBuscar(b.dataset.ptok); const i = $("ptTrk"); if (x) ptMandar([{ k: x.k, id: x.pid, a: x.sig.a, tracking: i ? i.value.trim() : "" }]); PT_TRK = null; return; }
+    if ((b = g("[data-ptno]"))){ PT_TRK = null; ptPintar(); return; }
     if ((b = g("#goTodos"))){ ptAbrir(); return; }
     if ((b = g("#todosBack"))){ ir("home"); return; }
     if ((b = g("[data-teoref]"))){ TEO = null; pint(); teoCargar(); return; }

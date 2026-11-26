@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getMinuto","getPromo","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -1285,10 +1285,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     <h1 id="vTit"></h1>
     <div class="card" style="gap:8px"><div class="bar"><i id="vBar"></i></div><span class="lbl" id="vProg"></span></div>
     <div class="nota" id="vNota" hidden></div>
-    <div class="hint" id="vHint">Tocá cada producto cuando lo armás: queda <b>✓ armado</b>. Lo que falta está <b>en comanda</b> (A elaborar) y, cuando se envase, aparece acá para armar.</div>
+    <div class="hint" id="vHint">Tocá <b>Armar</b> en cada producto y poné cuántas armaste (viene con todas las que hay). Cada vez se guarda. Lo que falta elaborar está <b>en comanda</b> y, cuando se envase, pasa a «para armar ya».</div>
     <div id="vItems" style="display:flex;flex-direction:column;gap:8px"></div>
     <div class="info" id="vExtras" hidden></div>
     <button class="btn gol" id="vArmarTodo" hidden></button>
+    <button class="btn" id="vGuardar">💾 Guardar y seguir después</button>
     <button class="btn" id="vParte"></button>
     <button class="btn y" id="vDesp"></button>
     <div class="hint">Podés <b>esperar</b> a que esté todo o <b>mandar lo armado</b> y que lo demás quede para el próximo. Se despacha desde <b>🚚 Movimientos</b> (cómo va, bultos y peso).</div>
@@ -1599,7 +1600,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function envListo(e){ return !!e.armadoTodo; }
   function envProg(e){
     const a = envArm(e);
-    return a + " de " + e.u + " armados" + (envListo(e) ? " · ✓ listo para despachar" : (e.porArmar ? " · " + e.porArmar + " por armar" : "") + (e.falta ? " · " + e.falta + (e.origen === "Fábrica" ? " esperan elaboración" : " faltan en " + e.origen) : ""));
+    return a + " de " + e.u + " armadas" + (envListo(e) ? " · ✓ listo para despachar" : (e.porArmar ? " · " + e.porArmar + " para armar ya" : "") + (e.falta ? " · " + e.falta + (e.origen === "Fábrica" ? " faltan elaborar" : " faltan en " + e.origen) : ""));
   }
   function envCard(e){
     const a = envArm(e), pct = e.u ? Math.round(a / e.u * 100) : 0, ok = envListo(e);
@@ -1620,14 +1621,19 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     $("vProg").textContent = envProg(e);
     $("vNota").hidden = !e.nota; $("vNota").textContent = "📝 " + (e.nota || "");
     $("vHint").hidden = ok;
-    const st = {};
-    $("vItems").innerHTML = e.items.slice().sort(porOrd).map(function(i){
-      const nm = dot(sabDe(i.sku, i.nombre)) + " " + esc(nomP(i.sku, i.nombre));
-      let h = grpH(st, i.sku);
-      if (i.armado > 0) h += '<button class="ln" data-desarm="' + esc(i.sku) + '"><span class="n">' + nm + '</span><span class="q">' + i.armado + '</span><span class="st g">✓ armado</span></button>';
-      if (i.porArmar > 0) h += '<button class="ln w" data-arm="' + esc(i.sku) + '"><span class="n">' + nm + '<small>hay en ' + esc(e.origen) + ' · tocá cuando lo armes</small></span><span class="q">' + i.porArmar + '</span><span class="st">armar</span></button>';
-      if (i.falta > 0) h += '<div class="ln w"><span class="n">' + nm + '<small>' + (e.origen === "Fábrica" ? "a elaborar" : "falta en CABA") + '</small></span><span class="q">' + i.falta + '</span><span class="st">' + (e.origen === "Fábrica" ? "en comanda" : "falta") + '</span></div>';
-      return h;
+    // 26/11 (mockup «Armar envío v2» aprobado): UN renglón por producto con su total, y abajo «✓ armadas · para armar ya · faltan elaborar».
+    // «Armar» abre un contador con lo que hay: si armaste menos, lo bajás y se guarda eso.
+    const st = {}, G = {}, ord = [];
+    e.items.slice().sort(porOrd).forEach(function(i){ let g = G[i.sku]; if (!g){ g = G[i.sku] = { sku: i.sku, nombre: i.nombre, arm: 0, ya: 0, fal: 0 }; ord.push(g); } g.arm += Number(i.armado) || 0; g.ya += Number(i.porArmar) || 0; g.fal += Number(i.falta) || 0; });
+    $("vItems").innerHTML = ord.map(function(g){
+      const nm = dot(sabDe(g.sku, g.nombre)) + " " + esc(nomP(g.sku, g.nombre)), tot = g.arm + g.ya + g.fal, done = g.arm >= tot, fab = e.origen === "Fábrica";
+      let h = grpH(st, g.sku) + '<div class="ln' + (done ? "" : " w") + '" style="flex-direction:column;align-items:stretch;gap:6px"><div style="display:flex;align-items:center;gap:10px"><span class="n">' + nm + '</span><span class="q">' + tot + '</span></div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:6px">' + (g.arm ? '<button class="st g" style="border:0;cursor:pointer;font-family:inherit" data-desarm="' + esc(g.sku) + '">✓ ' + g.arm + ' armada' + (g.arm === 1 ? '' : 's') + '</button>' : '')
+        + (g.ya ? '<span class="st">' + g.ya + ' para armar ya</span>' : '') + (g.fal ? '<span class="st w">' + g.fal + (fab ? ' faltan elaborar' : ' faltan en ' + esc(e.origen)) + '</span>' : '') + '</div>';
+      if (ENV_ED === g.sku) h += '<div style="display:flex;gap:8px;align-items:center"><button class="btn sm" style="width:48px" data-envq="-1">−</button><input class="txt" type="number" inputmode="numeric" id="envCnt" value="' + g.ya + '" min="0" max="' + g.ya + '" style="width:80px;text-align:center"><button class="btn sm" style="width:48px" data-envq="1">+</button><span class="hint" style="flex:1">de ' + g.ya + ' que hay</span></div>'
+        + '<div style="display:flex;gap:8px"><button class="btn y sm" data-envok="' + esc(g.sku) + '">Guardar</button><button class="btn sm" data-envcx="1">Cancelar</button></div>';
+      else if (g.ya) h += '<div><button class="btn y sm" style="width:auto;padding:0 22px" data-armq="' + esc(g.sku) + '">Armar</button></div>';
+      return h + '</div>';
     }).join("");
     const ex = e.extras || [];
     $("vExtras").hidden = !ex.length;
@@ -1649,14 +1655,23 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       toast((r && r.msg) || "No se guardó. Revisá la señal.", true);
     });
   }
+  var ENV_ED = null;
   $("vItems").addEventListener("click", function(ev){
     const b = ev.target.closest("button"); if (!b || !DV) return;
+    const sumSku = function(sku, k){ return DV.items.filter(function(i){ return i.sku === sku; }).reduce(function(s, i){ return s + (Number(i[k]) || 0); }, 0); };
+    if (b.dataset.armq){ ENV_ED = b.dataset.armq; pintarEnv(); const c = $("envCnt"); if (c) c.focus(); return; }
+    if (b.dataset.envcx){ ENV_ED = null; pintarEnv(); return; }
+    if (b.dataset.envq){ const c = $("envCnt"); if (c) c.value = Math.max(0, Math.min(Number(c.max) || 0, (Number(c.value) || 0) + Number(b.dataset.envq))); return; }
+    if (b.dataset.envok){ const sku = b.dataset.envok, c = $("envCnt"), ya = sumSku(sku, "porArmar"), n = Math.max(0, Math.min(ya, Math.round(Number(c && c.value) || 0)));
+      ENV_ED = null; if (!n){ pintarEnv(); return; }
+      armarV({ sku: sku, armado: sumSku(sku, "armado") + n }, "✓ " + n + " " + nomP(sku) + " armada" + (n === 1 ? "" : "s") + " · guardado"); return; }
     if (b.dataset.arm){ const L = DV.items.filter(function(i){ return i.sku === b.dataset.arm; }), a = L.reduce(function(s, i){ return s + i.armado + i.porArmar; }, 0); armarV({ sku: b.dataset.arm, armado: a }, "✓ " + nomP(b.dataset.arm, L[0] && L[0].nombre) + " armado"); return; }
     if (b.dataset.desarm){
-      if (!b.dataset.ok){ b.dataset.ok = "1"; const s = b.querySelector(".st"); s.textContent = "¿destildar?"; s.className = "st w"; setTimeout(function(){ if (b.isConnected){ delete b.dataset.ok; s.textContent = "✓ armado"; s.className = "st g"; } }, 3000); return; }
+      if (!b.dataset.ok){ b.dataset.ok = "1"; const s = b.querySelector(".st") || b, tx = s.textContent; s.textContent = "¿destildar?"; s.className = "st w"; setTimeout(function(){ if (b.isConnected){ delete b.dataset.ok; s.textContent = tx; s.className = "st g"; } }, 3000); return; }
       armarV({ sku: b.dataset.desarm, armado: 0 }, "Destildado: " + nomP(b.dataset.desarm));
     }
   });
+  $("vGuardar").addEventListener("click", function(){ if (!DV) return; ENV_ED = null; toast("💾 Guardado: " + envArm(DV) + " de " + DV.u + " armadas. Lo seguís cuando quieras."); const h = document.querySelector("#s-env [data-home]"); if (h) h.click(); });
   $("vArmarTodo").addEventListener("click", function(){ if (DV && DV.porArmar) armarV({ todo: true }, "✓ Todo lo que hay quedó armado"); });
   $("vParte").addEventListener("click", function(){ if (!DV) return; if (!envArm(DV)){ toast("Todavía no hay nada armado", true); return; } irMov((envListo(DV) ? "desp:" : "parte:") + DV.id); });
   $("vDesp").addEventListener("click", function(){ if (!DV) return; if (!envListo(DV)){ toast("Faltan armar " + (DV.u - envArm(DV)) + ": mandá lo armado o esperá a que esté todo", true); return; } irMov("desp:" + DV.id); });

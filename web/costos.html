@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getMinuto","getPromo","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -1347,6 +1347,17 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <div class="sticky"><button class="btn off" id="pbOk" onclick="pbGuardar()">Sin cambios</button></div>
 </div>
 
+<!-- 🏷️ PROMOCIONES (26/11) -->
+<div class="screen" id="s-promo" hidden>
+  <div class="top"><button class="back" onclick="show('pub');pbPint()">Publicaciones</button><span class="step">Promoción</span><span class="who" data-yo></span></div>
+  <h1 id="pmTit">🏷️ Promoción</h1>
+  
+  <div id="pmEst"></div>
+  <div class="card" id="pmForm"></div>
+  <div class="cols" id="pmList"></div>
+  <div class="sticky"><button class="btn off" id="pmOk" onclick="pmGuardar()">Programar</button></div>
+</div>
+
 <!-- LISTA DE PRECIOS -->
 <div class="screen" id="s-lpre" hidden>
   <div class="top"><button class="back" id="lpBack" onclick="lpVolver()">Costos</button><span class="step">Lista de precios</span><span class="who" data-yo></span></div>
@@ -1551,7 +1562,7 @@ document.addEventListener("blur", e => { const i = e.target; if (!i || i.tagName
 document.addEventListener("pointerdown", e => { const k = e.target.closest && e.target.closest(".btn,.chip,.fr,.tl,.hm,.lnk,.eye,.xb,.swrow,.pr.tap,.seg2 button,.seg3 button,.seg4 button,.mesnav button"); if (!k) return; k.classList.add("pressed"); setTimeout(() => k.classList.remove("pressed"), 160); }, { passive: true });
 
 /* ================= pantallas y servidor ================= */
-const SC = ["load","noauth","home","cuanto","capas","calc","pub","lpre","lmandar","marg","lista","canal","bolsas","insumos","fijos","cubrimos","productos","rev","alertas"];
+const SC = ["load","noauth","home","cuanto","capas","calc","pub","promo","lpre","lmandar","marg","lista","canal","bolsas","insumos","fijos","cubrimos","productos","rev","alertas"];
 let ACTUAL = "load";
 function show(n){ SC.forEach(s => $("s-" + s).hidden = s !== n); ACTUAL = n; window.scrollTo(0, 0); try { cosPestanas(n); } catch (e) {} }
 const AUTH = lsGet("giaba_auth", null);
@@ -1930,7 +1941,7 @@ function pbCargar(){ PB.cambios = {}; PB.data = null; pbChips(); $("pbMal").inne
   run("getPublicacionesCos", canal).then(r => { if (canal !== PB.canal) return;
     if (!r || r.status !== "ok"){ $("pbList").innerHTML = '<div class="wrb">' + esc((r && r.msg) || "Sin señal") + '</div>'; return; }
     PB.data = r; pbPint(); }); }
-function pbChips(){ $("pbCanal").innerHTML = ["Mercado Libre","Tienda Nube","⚠ Dejan poco"].map(c => `<button class="chip${c === PB.canal || (c === "⚠ Dejan poco" && PB.filtro === "poco") ? " on" : ""}" onclick="pbChip('${c}')">${c}</button>`).join(""); }
+function pbChips(){ $("pbCanal").innerHTML = ["Mercado Libre","Tienda Nube","⚠ Dejan poco"].map(c => `<button class="chip${c === PB.canal || (c === "⚠ Dejan poco" && PB.filtro === "poco") ? " on" : ""}" onclick="pbChip('${c}')">${c}</button>`).join("") + `<button class="chip" id="pbPromo" onclick="pmAbrir()">🏷️ Promoción</button>`; }
 function pbChip(c){ if (c === "⚠ Dejan poco"){ PB.filtro = PB.filtro === "poco" ? "Todas" : "poco"; pbChips(); pbPint(); return; } if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios antes", true); return; } if (c === PB.canal && PB.data) return; PB.canal = c; pbCargar(); }
 // 10/11 (Lucas): el margen objetivo se elige acá (20 … 45 %) y el «Nos queda» se recalcula al tipear el precio
 function pbObj(){ const r = PB.data; let v = Number(lsGet("pb_obj", 0)); return v || (r && r.objetivo) || 35; }
@@ -1983,6 +1994,75 @@ function pbGuardar(){ const ids = Object.keys(PB.cambios); if (!ids.length){ t("
     PB.cambios = {}; pbCargar();
     if (r.mal && r.mal.length) $("pbMal").innerHTML = '<div class="wrb">No se pudieron cambiar:<br>' + r.mal.map(esc).join("<br>") + '</div>'; }); }
 
+/* ================= 🏷️ PROMOCIONES (26/11, mockup aprobado: Black Friday, Cyber Monday… por canal) ================= */
+// Usa lo que ya trajo Publicaciones (PB.data) y la misma cuenta (pbCalc): piso de ganancia NETA sobre el precio con descuento.
+const PM = { canal: "", nombre: "", desde: "", hasta: "", piso: 20, gen: 15, per: {}, sel: {}, promo: null, fin: false };
+function pmIso(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function pmDm(iso){ const p = String(iso || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] : iso; }
+function pmMg(x, p){ return pbCalc(x, p, 0).pct; }
+function pmMax(x){ if (pmMg(x, x.precio) < PM.piso) return 0; let lo = 0, hi = x.precio; for (let i = 0; i < 40; i++){ const m = (lo + hi) / 2; if (pmMg(x, m) >= PM.piso) hi = m; else lo = m; } return Math.max(0, Math.floor((1 - hi / x.precio) * 100 + 1e-9)); }
+function pmDeal(x, ds){ return Math.round(x.precio * (1 - ds / 100)); }   // exacto: 15 % es 15 % (Lucas 13:54: no redondear)
+function pmItems(){ return ((PB.data && PB.data.items) || []).filter(x => !x.sinCosto && x.costo && x.precio > 0); }
+function pmFila(x){ const mx = pmMax(x), want = PM.per[x.id] === undefined ? PM.gen : PM.per[x.id]; let ds = Math.min(want, mx); if (PM.canal === "Mercado Libre" && ds < 5) ds = 0;
+  const deal = ds ? pmDeal(x, ds) : x.precio, real = ds ? Math.round((1 - deal / x.precio) * 100) : 0; return { x, mx, ds, real, deal, on: PM.sel[x.id] !== false && ds > 0, mg: pmMg(x, deal), tope: want > mx }; }
+function pmAbrir(){
+  if (!PB.data){ t("Esperá que carguen las publicaciones", true); return; }
+  if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios de precios antes", true); return; }
+  const m = new Date(Date.now() + 864e5), f = new Date(Date.now() + 4 * 864e5);
+  Object.assign(PM, { canal: PB.canal, nombre: "Black Friday", desde: pmIso(m), hasta: pmIso(f), piso: 20, gen: 15, per: {}, sel: {}, promo: null, fin: false });
+  $("pmTit").textContent = "🏷️ Promoción · " + PM.canal; $("pmEst").innerHTML = '<div class="hint">Viendo si ya hay una promoción…</div>';
+  show("promo"); pmPint();
+  run("getPromo", PM.canal).then(r => { if (!r || r.status !== "ok"){ $("pmEst").innerHTML = ""; return; } PM.promo = r.promo;
+    const p = r.promo; if (p && p.estado !== "terminada"){ PM.nombre = p.nombre; PM.desde = p.desde; PM.hasta = p.hasta; PM.piso = p.piso || PM.piso;
+      const L = {}; (p.items || []).forEach(i => { L[i.id] = i.desc; }); pmItems().forEach(x => { if (L[x.id] !== undefined) PM.per[x.id] = L[x.id]; else PM.sel[x.id] = false; }); }
+    pmPint(); });
+}
+function pmEstado(){ const p = PM.promo; if (!p || p.estado === "terminada") return "";
+  const tx = { programada: "Programada", activa: "Activa ahora", terminando: "Terminando (volviendo a los precios de siempre)" }[p.estado] || p.estado;
+  return '<div class="card" style="border:2px solid var(--accent)"><b>' + esc(tx) + ': ' + esc(p.nombre) + ' · del ' + pmDm(p.desde) + ' al ' + pmDm(p.hasta) + '</b><span class="hint">' + p.ok + ' de ' + p.n + ' publicaciones puestas · piso ' + p.piso + ' % neto' + (p.quien ? ' · la cargó ' + esc(p.quien) : '') + '</span>'
+    + (p.mal && p.mal.length ? '<div class="wrb">No se pudieron poner:<br>' + p.mal.map(esc).join("<br>") + '</div>' : '')
+    + (p.estado !== "terminando" ? '<button class="btn" onclick="pmTerminar()">' + (PM.fin ? "¿Seguro? Tocá de nuevo para terminarla ya" : "Terminar la promoción ahora") + '</button>' : '') + '<span class="hint">Si la cambiás abajo y tocás «Programar», reemplaza a esta.</span></div>'; }
+function pmPint(){
+  const L = pmItems().map(pmFila), act = L.filter(o => o.on), prom = act.length ? Math.round(act.reduce((s, o) => s + o.real, 0) / act.length) : 0, ml = PM.canal === "Mercado Libre";
+  $("pmEst").innerHTML = pmEstado();
+  $("pmForm").innerHTML = '<div class="fl"><span class="lbl">Nombre</span><input class="txt" id="pmNom" value="' + esc(PM.nombre) + '" maxlength="40"></div>'
+    + '<div class="row2"><div class="fl"><span class="lbl">Desde</span><input class="txt" type="date" id="pmD1" value="' + PM.desde + '"></div><div class="fl"><span class="lbl">Hasta (incluido)</span><input class="txt" type="date" id="pmD2" value="' + PM.hasta + '"></div></div>'
+    + '<div class="fl"><span class="lbl">Piso neto · <b id="pmPisoV">' + PM.piso + ' %</b></span><input type="range" id="pmPiso" min="5" max="40" step="1" value="' + PM.piso + '" style="width:100%;height:40px"></div>'
+    + '<div class="fl"><span class="lbl">Descuento a todas · <b id="pmGenV">' + PM.gen + ' %</b></span><input type="range" id="pmGen" min="' + (ml ? 5 : 1) + '" max="60" step="1" value="' + PM.gen + '" style="width:100%;height:40px"></div>'
+    + '<div class="hint">Entran <b>' + act.length + ' de ' + L.length + '</b> · promedio <b>' + prom + ' %</b></div>'
+    + '<div class="chips"><button class="chip" onclick="pmTodas(true)">Todas</button><button class="chip" onclick="pmTodas(false)">Ninguna</button><button class="chip" onclick="pmAlMax()">Cada una al máximo</button></div>';
+  // 26/11 14:06 (Lucas): lo más minimalista posible: título, precios, % y lo neto; si no llega, solo «máx N %»
+  $("pmList").innerHTML = L.map(o => { const x = o.x, ch = (t, c) => '<span style="font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--s2,#303031);color:' + c + '">' + t + '</span>';
+    return '<div class="card" style="gap:6px;padding:12px' + (o.mx ? "" : ";opacity:.45") + '"><label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-pms="' + esc(x.id) + '"' + (o.on ? " checked" : "") + (o.mx ? "" : " disabled") + ' style="width:22px;height:22px;flex-shrink:0"><b style="min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px">' + esc(x.titulo) + '</b></label>'
+      + (o.mx ? '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span style="min-width:0"><s style="color:var(--ink-soft);font-size:13px">' + fm(x.precio).replace(/,00$/, "") + '</s> <b>' + fm(o.deal).replace(/,00$/, "") + '</b> <b style="color:var(--accent)">−' + o.real + ' %</b></span>'
+        + '<span style="display:flex;gap:4px;align-items:center;flex-shrink:0"><button class="btn" style="width:40px;min-height:40px;padding:0" data-pmd="' + esc(x.id) + '|-1">−</button><input class="txt" type="number" inputmode="numeric" min="0" max="' + o.mx + '" value="' + o.ds + '" data-pmp="' + esc(x.id) + '" style="width:58px;height:40px;text-align:center;padding:0 4px"><button class="btn" style="width:40px;min-height:40px;padding:0" data-pmd="' + esc(x.id) + '|1">+</button></span></div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + ch(o.mg.toFixed(0) + " % neto", o.mg >= PM.piso ? "var(--good,#8fd19e)" : "var(--terra-ink,#ff8a83)") + (o.tope ? ch("máx " + o.mx + " %", "var(--warn,#ffb366)") : "") + '</div>'
+        : '<div>' + ch("sin margen para descuento", "var(--ink-soft)") + '</div>') + '</div>'; }).join("");
+  $("pmOk").textContent = "Programar «" + (PM.nombre || "Promoción") + "» en " + PM.canal + " · " + act.length + " publicaciones"; $("pmOk").className = "btn " + (act.length ? "y" : "off");
+}
+document.addEventListener("input", function(e){ const id = e.target.id;
+  if (id === "pmPiso"){ PM.piso = +e.target.value; pmPint(); $("pmPiso").focus(); }
+  else if (id === "pmGen"){ PM.gen = +e.target.value; PM.per = {}; pmPint(); $("pmGen").focus(); }
+  else if (id === "pmNom"){ PM.nombre = e.target.value; $("pmOk").textContent = "Programar «" + (PM.nombre || "Promoción") + "» en " + PM.canal; }
+  else if (id === "pmD1") PM.desde = e.target.value; else if (id === "pmD2") PM.hasta = e.target.value; });
+document.addEventListener("change", function(e){ const d = e.target.dataset;
+  if (d.pmp !== undefined){ PM.per[d.pmp] = Math.max(0, Number(e.target.value) || 0); pmPint(); }
+  else if (d.pms !== undefined){ PM.sel[d.pms] = e.target.checked; pmPint(); } });
+document.addEventListener("click", function(e){ const b = e.target.closest("[data-pmd]"); if (!b) return; const q = b.dataset.pmd.split("|"), x = pmItems().filter(y => String(y.id) === q[0])[0]; if (!x) return;
+  const mx = pmMax(x), cur = Math.min(PM.per[x.id] === undefined ? PM.gen : PM.per[x.id], mx); PM.per[x.id] = Math.max(0, Math.min(mx, cur + Number(q[1]))); pmPint(); });
+function pmTodas(v){ pmItems().forEach(x => { PM.sel[x.id] = v; }); pmPint(); }
+function pmAlMax(){ pmItems().forEach(x => { PM.per[x.id] = 99; }); pmPint(); }
+function pmGuardar(){ if ($("pmOk").dataset.busy) return;
+  const act = pmItems().map(pmFila).filter(o => o.on); if (!act.length){ t("No hay ninguna publicación con descuento", true); return; }
+  if (!PM.desde || !PM.hasta || PM.hasta < PM.desde){ t("Revisá las fechas", true); return; }
+  $("pmOk").dataset.busy = "1"; $("pmOk").textContent = "Programando en " + PM.canal + "… (puede tardar un minuto)";
+  run("promoGuardar", PM.canal, { nombre: PM.nombre, desde: PM.desde, hasta: PM.hasta, piso: PM.piso, items: act.map(o => ({ id: o.x.id, t: o.x.titulo, precio: o.x.precio, deal: o.deal, pp: o.x.pp || 0, mg: Math.round(o.mg * 10) / 10 })) }).then(r => {
+    delete $("pmOk").dataset.busy;
+    if (!r || r.status !== "ok"){ t((r && r.msg) || "No se pudo", true); pmPint(); return; }
+    PM.promo = r.promo; pmPint(); window.scrollTo(0, 0);
+    t("✓ «" + r.promo.nombre + "» programada: " + r.promo.ok + " de " + r.promo.n + (PM.canal === "Tienda Nube" && r.promo.desde > pmIso(new Date()) ? " (se pone el " + pmDm(r.promo.desde) + " a las 00:00)" : " puestas")); }); }
+function pmTerminar(){ if (!PM.fin){ PM.fin = true; pmPint(); setTimeout(() => { PM.fin = false; if (!$("s-promo").hidden) pmPint(); }, 4000); return; }
+  PM.fin = false; run("promoTerminar", PM.canal).then(r => { if (!r || r.status !== "ok"){ t((r && r.msg) || "No se pudo", true); return; } PM.promo = r.promo; pmPint(); t("Listo: la promoción terminó (cada publicación vuelve a su precio)"); }); }
 /* ================= LISTA DE PRECIOS ================= */
 const LP = { lista: lsGet("lp_lista", "Comercio CABA"), data: null, cambios: {}, solo: true };
 function lpKey(tk, f){ return tk + "|" + f.key; }

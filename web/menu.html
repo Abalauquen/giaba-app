@@ -17,7 +17,7 @@
 (function () {
   var FRESCO_MS = 3 * 3600000, SUCIO_MS = 60000;
   var RESUMEN = { getPendientesMenu: 1, getParaRevisarN: 1, getResumenIncidentes: 1, getResumenMovimientos: 1, getMiSueldoAviso: 1 }, RESUMEN_MS = 20 * 60000;   // 17/11 22:20: lo que vale es «nada cambió desde que se armó»; las 3 h son por las dudas (el reloj las rearma cada 40 min)
-  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
+  var base = null, pidiendo = false, esperan = [], FNS = ["getMantenimiento","getMiSemana","getMinuto","getPromo","getRetirosTeodora","getPlanElaboracion","getPedidosTodos","getPersonas","getConsumoEnvasado","getProductosLocal","buscarPedidoRetiroAdmin","buscarCuitFactura","getPendientesMenu","getResumenMovimientos","borradoresListar","getPublicacionesCos","getPedidosVM","reclamosDeVenta","getCompras","getMiMail","getResumenIncidentes","getDatosVM","getPedidosFeriaHoy","getCargasProduccion","getCaja","getCuentasCorrientesHub","getCostos","getCierreDia","getSinEtiquetar","getProduccionHoy","getAgendaFeriasV3","getMateriaPrima","getStock","getDatosMovimientos","getMiCuentaFerias","getIvaMes","getPartidas","getFacturas","getVentasMin","getNombresConAcceso","getAPagarLocal","getCanastos","getCompletables","getControlVentas","getDatosIncidentes","getDetalleFeria","getDiasMismaFeria","getDulcesCoccion","getFaltaStock","getFeriasHoyAdmin","getHorasFerias","getIncidentes","getMiSueldoAviso","getMisFerias","getParaRevisar","getParaRevisarN","getResumenDiaProd","getSecundarios","getStockFeriaAdmin","getVentasParaReclamo","getFichaje","getConfig","getConfigProduccion","getTamanosPorSabor","getInsumosParaIncidente","getPartida","getEstadoPuesto","getHistorialPuesto","getAperturasPuesto","getCanastoPuesto","getCanastosFeria","getStockFeria","getCambiosRecientes","getSalidaSinVenta","getVendedorasPago","getFeriasParaPago","getChacraAgenda","getHoras","getSueldos","getSueldoEmp","getComandas","getAnalisisMP","getCompraEditable","getCtaCteTodo","getRol","fotosDe","getFotosFacturas","getFijosCos","getListaPreciosCos","getNumerosCos","getLogoVM","getResumenProduccion","getResumenMovV3","getRetirosV3","getRetirosAdmin","getRevendedores","getRoberto","getRobertoCarga","getResumenRoberto","getPartidasDeSku","getMangasPeso","getHistorialStock","getValuacionStock","getConteosHist","getCatalogo","getIngresoInsumos","getDatosVentaMin","tnEstado","mlEstado","getPreciosAlertas","getReclamosIndice","getRetirosSocios","getCierreAviso","getCierreMes","getConciliacionAviso","getConciliacionMP","getImpuestosMes","getIvaV3","getPatrimonio","getSinFacturar","getAgendaFerias","getResumenMovPeriodo","getRevisionPrecios","getRevisionPreciosML","getFull","getMiSueldo","getHistorialLocal","getSeTermina","getAutorizacionFeria","getAutorizacionesFeria"], SINQ = {"getResumenMovimientos":1,"getPedidosFeriaHoy":1,"getProduccionHoy":1,"getPartidas":1,"getNombresConAcceso":1,"getConfig":1,"getConfigProduccion":1,"getTamanosPorSabor":1,"getInsumosParaIncidente":1,"getPartida":1,"getEstadoPuesto":1,"getHistorialPuesto":1,"getAperturasPuesto":1,"getCanastoPuesto":1,"getCanastosFeria":1,"getStockFeria":1,"getCambiosRecientes":1};
   // 17/11 · Mayoristas guarda en la base (zMayoristasBase.gs): lo último que se mostró de cada pantalla (MEM) y, por 2 minutos
   // después de guardar en la base, se muestra eso con lo guardado ya puesto (Google tarda unos segundos en ponerse al día)
   var MEM = {}, OVR_HASTA = 0, VM_OFF_HASTA = 0, OVR_MS = 120000;
@@ -723,6 +723,79 @@ h1{font-family:'Manrope',sans-serif;margin:0;font-size:26px;font-weight:800;line
 .ps-ok{background:rgba(127,212,138,.14);color:#7fd48a;border-radius:12px;padding:10px 12px;font-size:14px}
 .ps-msg{background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:12px;font-size:15px;white-space:pre-line}
 .ps-err{color:#ff8a83;font-size:14px;font-weight:700;min-height:18px}
+/* 26/11 · 📡 Minuto a minuto (mockup v2.2 aprobado) */
+.mm{background:var(--surface);border:1.5px solid var(--line);border-radius:20px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.mm-h{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 2px}
+.mm-h b{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px}
+.mm-act{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mm-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:mmpl 2s infinite}
+@keyframes mmpl{0%{box-shadow:0 0 0 0 rgba(143,209,158,.55)}70%{box-shadow:0 0 0 7px rgba(143,209,158,0)}100%{box-shadow:0 0 0 0 rgba(143,209,158,0)}}
+.mm-in{background:#303031;border-radius:14px;padding:10px 12px;min-width:0}
+.mm-k{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft)}
+.mm-v{font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:22px;letter-spacing:-.5px;line-height:1.2}
+.mm-v.s{font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:15px;letter-spacing:0;color:var(--ink-mid)}
+.mm-v.no{color:var(--ink-soft)}
+.mm-in small,.mm small.m{display:block;color:var(--ink-soft);font-size:12px}
+.mm-g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mm-frs{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.mm-fr{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;background:#3a3a3b;border-radius:999px;padding:2px 8px 2px 5px}
+.mm-fr i{width:9px;height:9px;border-radius:50%}
+.mm-up{color:var(--ok)}.mm-dn{color:var(--terra-ink)}.mm-sp{color:var(--ink-soft)}
+.mm-vermas{border:0;border-radius:14px;padding:12px;background:var(--accent);color:var(--accent-ink);font-family:'Manrope',sans-serif;font-weight:800;font-size:15px;cursor:pointer}
+.mm-big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.mm-big .n{font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:30px;letter-spacing:-1px}
+.mm-big small{color:var(--ink-soft);font-size:13px}
+.mm-sec{background:var(--surface);border:1.5px solid var(--line);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.mm-st{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);display:flex;justify-content:space-between;gap:8px}
+.mm-st em{font-style:normal;color:var(--ink-soft);text-transform:none;letter-spacing:0}
+.mm-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.mm-tabs button{border:1.5px solid var(--line);background:#303031;color:var(--ink);border-radius:999px;padding:5px 10px;font:700 12.5px system-ui,sans-serif;cursor:pointer}
+.mm-tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.mm svg,.mm-sec svg{display:block;width:100%;height:auto}
+.mm-leg{display:flex;gap:12px;font-size:12px;color:var(--ink-soft);flex-wrap:wrap}
+.mm-leg span{display:inline-flex;align-items:center;gap:5px}
+.mm-leg i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.mm-tip{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12px;color:var(--ink-mid);min-height:18px}
+.mm-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;color:var(--ink);text-align:left;font:inherit;width:100%}
+.mm-row:first-child{border-top:0}
+.mm-row b{font-size:15px}.mm-row .m{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;text-align:right}
+.mm-row small{color:var(--ink-soft);font-size:12.5px}.mm-row small.r{text-align:right;white-space:nowrap}
+.mm-prog{grid-column:1/-1;height:8px;background:#3a3a3b;border-radius:4px;position:relative;margin-top:2px}
+.mm-prog b{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent)}
+.mm-prog u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.mm-pp{display:grid;grid-template-columns:30px minmax(0,1fr);gap:4px 10px;padding:8px 0;border-top:1px solid var(--line);align-items:center}
+.mm-pp:first-child{border-top:0}
+.mm-av{width:30px;height:30px;border-radius:50%;background:#3a3a3b;display:grid;place-items:center;font-family:'Manrope',sans-serif;font-weight:800;font-size:12px}
+.mm-pp small{color:var(--ink-soft);font-size:12.5px}
+.mm-tl{grid-column:2;position:relative;height:14px;background:#303031;border-radius:7px}
+.mm-tl i{position:absolute;top:2px;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-left:-5px;cursor:pointer}
+.mm-tl u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+.mm-ax{grid-column:2;display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-soft)}
+.mm-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.mm-chip{flex-shrink:0;border:1.5px solid var(--line);background:#303031;color:var(--ink);border-radius:12px;padding:6px 10px;text-align:left;cursor:pointer;font:600 12px system-ui,sans-serif}
+.mm-chip b{display:block;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:15px}
+.mm-chip.on{border-color:var(--accent)}.mm-chip.z{opacity:.5}
+.mm-vt{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:8px;padding:8px 0;border-top:1px solid var(--line);align-items:center;cursor:pointer;font-size:14px;background:none;border-left:0;border-right:0;border-bottom:0;color:var(--ink);text-align:left;width:100%;font-family:inherit}
+.mm-vt:first-child{border-top:0}
+.mm-vt .h{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12px;color:var(--ink-soft)}
+.mm-vt .m{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px}
+.mm-vt small{display:block;color:var(--ink-soft);font-size:12px}
+.mm-don{display:grid;grid-template-columns:110px minmax(0,1fr);gap:12px;align-items:center}
+.mm-don ul{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.mm-don li{display:flex;justify-content:space-between;gap:8px}.mm-don li span{display:inline-flex;align-items:center;gap:6px}
+.mm-don li i{width:10px;height:10px;border-radius:3px}.mm-don li b{font-family:'IBM Plex Mono',monospace}
+.mm-empty{background:#303031;border-radius:14px;padding:16px;text-align:center;color:var(--ink-soft)}
+.mm-empty b{display:block;font-family:'Manrope',sans-serif;font-weight:800;font-size:16px;color:var(--ink-mid)}
+.mm-pc{background:#303031;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;border-left:5px solid}
+.mm-pc-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mm-pc-h b{font-family:'Manrope',sans-serif;font-weight:800;font-size:16px}
+.mm-pc-h span{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:12px;color:var(--ink-soft)}
+.mm-stk{display:flex;height:22px;border-radius:6px;overflow:hidden;gap:2px}
+.mm-stk span{display:grid;place-items:center;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:11px;color:#111;min-width:0;cursor:pointer}
+.mm-sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#2c2c2d;border-top:1.5px solid var(--line);border-radius:22px 22px 0 0;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px;box-shadow:0 -20px 40px rgba(0,0,0,.5);max-width:640px;margin:0 auto}
+.mm-sheet .ln{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:6px 0;border-top:1px solid var(--line)}
+.mm-sheet .ln span:last-child{font-weight:700;text-align:right}
+.mm-x{align-self:flex-end;background:#3a3a3b;border:0;color:var(--ink);border-radius:999px;padding:4px 12px;font:700 13px system-ui;cursor:pointer}
 </style>
 <!-- GIABA v3 · estilo común de TODAS las pantallas (aprobado 22/10). Se incluye en cada Index*.html; cambiar acá cambia toda la app. -->
 <script>
@@ -1331,6 +1404,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   </div>
   <button id="menuBackLink" hidden></button>
   <h1 id="menuHola"></h1>
+  <div id="mmBox" hidden></div>
   <div id="fichBox" hidden style="display:flex;flex-direction:column;gap:8px"></div>
   <!-- 28/10 (Lucas 11:06): arriba solo lo URGENTE de hoy (visitas, retiros/entregas de hoy, pagos vencidos); después los botones;
        abajo los retiros del mes y el resto de los pendientes (que cada uno puede ocultar; a Adriana le arranca oculto) -->
@@ -1353,6 +1427,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <h1 id="smTit">📊 Números</h1>
   <div class="nm-tabs" id="nmTabs"><button data-nm="hoy">Hoy</button><button data-nm="sem" class="on">Semana</button><button data-nm="mes">Mes</button></div>
   <div id="smIn" style="display:flex;flex-direction:column;gap:10px"></div>
+</div>
+<div id="screen-minuto" class="screen" hidden>
+  <div class="topbar"><button class="back" id="mmBack" aria-label="Atrás"></button></div>
+  <h1 id="mmTit">Minuto a minuto 📡</h1>
+  <div id="mmAct" style="display:flex;gap:4px;align-items:center;margin-top:-6px"></div>
+  <div id="mmIn" style="display:flex;flex-direction:column;gap:10px"></div>
 </div>
 <div id="screen-avisos" class="screen" hidden>
   <div class="topbar"><button class="back" id="avBack" aria-label="Atrás"></button></div>
@@ -1455,7 +1535,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     });
   }
 
-  const screens = ["quien","pin","menu","personas","avisos","semana"];
+  const screens = ["quien","pin","menu","personas","avisos","semana","minuto"];
   var SM_IDO = false;
   function showScreen(name){ screens.forEach(function(s){ el("screen-"+s).hidden = (s!==name); }); }
 
@@ -1878,6 +1958,196 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   }
 
   // ---- menú: tarjetas como links reales (lo único confiable en el sandbox) ----
+  // ---- 26/11 · 📡 Minuto a minuto (mockup v2.2 aprobado por Lucas 13:33): recuadro en el Inicio + «Ver más». Por ahora solo Lucas. ----
+  // Con el Inicio abierto se actualiza cada 3 min; con «Ver más» abierto, cada 1 min. La cuenta «a esta hora» se hace acá con la hora real.
+  const MM_PARA = ["Lucas"];
+  const MM = { d: null, t: 0, pidiendo: false, solo: "todas", can: "todas", vt: null, fsel: null, vista: "mas" };
+  const MM_FRU = { Frambuesa:"#e0466b", "Frutos del bosque":"#9b2d55", Mora:"#6b3fa0", Boysenberry:"#7d3c8c", Zarzamora:"#5b2a6e", Guinda:"#b3203b", Sauco:"#7a4fb0", Mosqueta:"#e0574f", Frutilla:"#ff6f86", Grosella:"#c23a6b", Ciruela:"#8e4a7a", "Manzana con canela":"#d9a441", Calafate:"#4b3a8c", Membrillo:"#e6a23c" };
+  const MM_PAL = ["#e0574f","#7a4fb0","#ff6f86","#c23a6b","#6b9fe0","#d9a441","#5ec8d8","#9b2d55"];
+  const MM_TAM = ["#f2c94c","#a9d18e","#8cc8ff","#c9a7ff","#ffb366","#5ec8d8"];
+  const MM_MED = { Efectivo:"#8fd19e", "Crédito":"#8cc8ff", "Débito":"#c9a7ff", Transferencia:"#ffb366", "QR / MP":"#5ec8d8" };
+  function mmCol(s, i){ return MM_FRU[s] || MM_PAL[i % MM_PAL.length]; }
+  function mmPlata(n){ return "$" + Math.round(Number(n) || 0).toLocaleString("es-AR"); }
+  function mmAhoraH(){ const d = new Date(); return d.getHours() + d.getMinutes() / 60; }
+  function mmHm(h){ const m = Math.round(h * 60); return Math.floor(m / 60) + ":" + ("0" + (m % 60)).slice(-2); }
+  function mmTot(o){ let s = 0; Object.keys(o || {}).forEach(function(k){ s += Number(o[k]) || 0; }); return s; }
+  function mmHasta(o, h){ let s = 0; Object.keys(o || {}).forEach(function(k){ const x = Number(k); if (x >= 23) return; if (x + 1 <= h) s += o[k]; else if (x < h) s += o[k] * (h - x); }); return s; }
+  function mmPct(a, b){ if (!b) return '<span class="mm-sp">sin promedio</span>'; const p = Math.round((a - b) / b * 100); return '<span class="' + (p >= 0 ? "mm-up" : "mm-dn") + '">' + (p >= 0 ? "▲ " : "▼ ") + Math.abs(p) + " %</span>"; }
+  function mmAbierta(f, h){ const a = f.desde ? Number(String(f.desde).split(":")[0]) + Number(String(f.desde).split(":")[1] || 0) / 60 : null, b = f.hasta ? Number(String(f.hasta).split(":")[0]) + Number(String(f.hasta).split(":")[1] || 0) / 60 : null;
+    if (a === null) return f.cob.length > 0; return h >= a && (b === null || h < b); }
+  function mmFer(){ return (MM.d && MM.d.ferias) || []; }
+  function mmVentasTot(){ return ((MM.d && MM.d.ventas) || []).reduce(function(s, v){ return s + (Number(v.m) || 0); }, 0); }
+  function mmCorto(n){ return String(n || "").replace(/^Plaza /, "").replace(/^Parque /, "").replace(/^Diagonal /, "Diag. "); }
+  function mmHace(hm){ if (!hm) return ""; const p = hm.split(":"), m = Math.round(mmAhoraH() * 60) - (+p[0] * 60 + +p[1]); return m < 1 ? "recién" : m < 60 ? "hace " + m + " min" : "hace " + Math.floor(m / 60) + " h " + ("0" + (m % 60)).slice(-2); }
+  function mmEmpTxt(e, corto){ if (!e) return ""; if (e.sal) return (corto ? e.n.split(" ")[0] + " trabajó " : "Trabajó ") + mmHm((e.min || 0) / 60).replace(":", " h ");
+    const p = String(e.ent).split(":"), m = Math.max(0, Math.round(mmAhoraH() * 60) - (+p[0] * 60 + +p[1])); return (corto ? e.n.split(" ")[0] + " entró " + e.ent + " · " : "") + "lleva " + Math.floor(m / 60) + " h " + ("0" + (m % 60)).slice(-2); }
+  // curva acumulada tipo rating: amarilla hoy, gris punteada el promedio
+  function mmCurva(fs, w, h, mini){
+    const ahora = mmAhoraH(), sumO = function(key){ const o = {}; fs.forEach(function(f){ Object.keys(f[key] || {}).forEach(function(k){ if (+k < 23) o[k] = (o[k] || 0) + f[key][k]; }); }); return o; };
+    const A0 = sumO("avg"), H0 = sumO("hoy"), ks = Object.keys(A0).concat(Object.keys(H0)).map(Number);
+    const X0 = Math.min(9, ks.length ? Math.min.apply(null, ks) : 9), X1 = Math.max(19, ks.length ? Math.max.apply(null, ks) + 1 : 19), now = Math.max(X0, Math.min(X1, ahora));
+    const acc = function(o, upto){ const P = []; for (let x = X0; x <= Math.floor(upto); x++) P.push([x, mmHasta(o, x)]); if (upto > Math.floor(upto)) P.push([upto, mmHasta(o, upto)]); return P; };
+    const A = acc(A0, X1), H = acc(H0, now); if (H.length) H[H.length - 1][1] = mmTot(H0);
+    const mx = Math.max.apply(null, A.concat(H).map(function(p){ return p[1]; }).concat([1])) * 1.1, pad = mini ? 4 : 30;
+    const sx = function(x){ return pad + (x - X0) / (X1 - X0) * (w - pad - 6); }, sy = function(y){ return h - (mini ? 4 : 18) - y / mx * (h - (mini ? 8 : 28)); };
+    const path = function(P){ return P.map(function(p, i){ return (i ? "L" : "M") + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1); }).join(" "); };
+    let g = '<svg viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="Lo vendido hoy contra el promedio">';
+    if (!mini){
+      [0, .5, 1].forEach(function(t){ const y = sy(mx / 1.1 * t); g += '<line x1="' + pad + '" x2="' + (w - 6) + '" y1="' + y + '" y2="' + y + '" stroke="#3a3a3b"/><text x="' + (pad - 4) + '" y="' + (y + 3) + '" fill="#a9a49e" font-size="9" text-anchor="end" font-family="IBM Plex Mono">' + Math.round(mx / 1.1 * t / 1000) + 'k</text>'; });
+      for (let x = X0; x <= X1; x += 2) g += '<text x="' + sx(x) + '" y="' + (h - 4) + '" fill="#a9a49e" font-size="9" text-anchor="middle" font-family="IBM Plex Mono">' + x + 'h</text>';
+    }
+    g += '<line x1="' + sx(now) + '" x2="' + sx(now) + '" y1="2" y2="' + (h - (mini ? 2 : 16)) + '" stroke="#f5efe8" stroke-opacity=".35" stroke-dasharray="2 3"/>';
+    if (A.length > 1) g += '<path d="' + path(A) + '" fill="none" stroke="#8a847e" stroke-width="' + (mini ? 1.5 : 2) + '" stroke-dasharray="4 4"/>';
+    if (H.length){ g += '<path d="' + path(H) + " L" + sx(H[H.length - 1][0]) + " " + sy(0) + " L" + sx(X0) + " " + sy(0) + 'Z" fill="#ffd100" fill-opacity=".12"/><path d="' + path(H) + '" fill="none" stroke="#ffd100" stroke-width="' + (mini ? 2 : 3) + '" stroke-linejoin="round"/>';
+      const l = H[H.length - 1]; g += '<circle cx="' + sx(l[0]) + '" cy="' + sy(l[1]) + '" r="' + (mini ? 3 : 4.5) + '" fill="#ffd100"/>'; }
+    if (!mini){ A.forEach(function(p){ g += '<circle cx="' + sx(p[0]) + '" cy="' + sy(p[1]) + '" r="9" fill="transparent" data-mmtip="A las ' + mmHm(p[0]) + ' · promedio ' + mmPlata(p[1]) + '"/>'; });
+      H.forEach(function(p){ g += '<circle cx="' + sx(p[0]) + '" cy="' + sy(p[1]) + '" r="9" fill="transparent" data-mmtip="A las ' + mmHm(p[0]) + ' · hoy ' + mmPlata(p[1]) + '"/>'; }); }
+    return g + "</svg>";
+  }
+  function mmBarras(f){
+    const ahora = mmAhoraH(), ks = Object.keys(f.avg).concat(Object.keys(f.hoy)).map(Number).filter(function(k){ return k < 23; });
+    const X0 = Math.min(10, ks.length ? Math.min.apply(null, ks) : 10), X1 = Math.max(18, ks.length ? Math.max.apply(null, ks) : 18), X = []; for (let x = X0; x <= X1; x++) X.push(x);
+    const w = 360, h = 120, bw = (w - 30) / X.length, mx = Math.max.apply(null, X.map(function(x){ return Math.max(f.avg[x] || 0, f.hoy[x] || 0); }).concat([1]));
+    let g = '<svg viewBox="0 0 ' + w + " " + h + '" role="img" aria-label="Cobros por hora">';
+    X.forEach(function(x, i){ const a = (f.avg[x] || 0) / mx * (h - 30), t = (f.hoy[x] || 0) / mx * (h - 30), x0 = 20 + i * bw;
+      g += '<rect x="' + (x0 + 2) + '" y="' + (h - 16 - a) + '" width="' + Math.max(1, bw / 2 - 3) + '" height="' + a + '" rx="2" fill="#5a5550" data-mmtip="' + x + ' h · promedio ' + mmPlata(f.avg[x] || 0) + '"/>';
+      if (x <= ahora && t) g += '<rect x="' + (x0 + bw / 2) + '" y="' + (h - 16 - t) + '" width="' + Math.max(1, bw / 2 - 3) + '" height="' + t + '" rx="2" fill="#ffd100" data-mmtip="' + x + ' h · hoy ' + mmPlata(f.hoy[x] || 0) + '"/>';
+      g += '<text x="' + (x0 + bw / 2) + '" y="' + (h - 3) + '" fill="#a9a49e" font-size="9" text-anchor="middle" font-family="IBM Plex Mono">' + x + '</text>'; });
+    return g + "</svg>";
+  }
+  function mmDonut(L){
+    const o = {}; L.forEach(function(v){ const k = v.med || "Otro"; o[k] = (o[k] || 0) + (Number(v.m) || 0); });
+    const parts = Object.keys(o).map(function(k){ return [k, o[k], MM_MED[k] || "#aaa"]; }).filter(function(p){ return p[1] > 0; });
+    const tot = parts.reduce(function(s, p){ return s + p[1]; }, 0) || 1, r = 42, c = 2 * Math.PI * r; let a = 0;
+    let g = '<svg viewBox="0 0 110 110" role="img" aria-label="Cómo cobraron"><circle cx="55" cy="55" r="' + r + '" fill="none" stroke="#3a3a3b" stroke-width="16"/>';
+    parts.forEach(function(p){ const l = p[1] / tot * c; g += '<circle cx="55" cy="55" r="' + r + '" fill="none" stroke="' + p[2] + '" stroke-width="16" stroke-dasharray="' + Math.max(0, l - 1.5) + " " + (c - l + 1.5) + '" stroke-dashoffset="' + (-a) + '" transform="rotate(-90 55 55)" data-mmtip="' + psEsc(p[0]) + " · " + mmPlata(p[1]) + '"/>'; a += l; });
+    g += '<text x="55" y="53" fill="#f5efe8" font-size="15" font-weight="800" text-anchor="middle" font-family="IBM Plex Mono">' + Math.round(tot / 1000) + 'k</text><text x="55" y="68" fill="#a9a49e" font-size="9" text-anchor="middle">' + parts.length + " medio" + (parts.length === 1 ? "" : "s") + "</text></svg>";
+    return '<div class="mm-don">' + g + "<ul>" + parts.map(function(p){ return '<li><span><i style="background:' + p[2] + '"></i>' + psEsc(p[0]) + "</span><b>" + mmPlata(p[1]) + "</b></li>"; }).join("") + "</ul></div>";
+  }
+  function mmAct(){ return '<span class="mm-act"><span class="mm-dot"></span>act. ' + psEsc((MM.d && MM.d.ahora) || "") + "</span>"; }
+  function mmPintarBox(){
+    const box = el("mmBox"); if (!box) return;
+    const au = psAuth(); if (MM_PARA.indexOf(au.nombre) === -1 || !MM.d){ box.hidden = true; return; }
+    const D = MM.d, F = mmFer(), h = mmAhoraH(), tf = F.reduce(function(s, f){ return s + mmTot(f.hoy); }, 0), af = F.reduce(function(s, f){ return s + mmHasta(f.avg, h); }, 0);
+    const ab = F.filter(function(f){ return mmAbierta(f, h); }).length, vend = {}; F.forEach(function(f){ if (mmAbierta(f, h) && f.vend) vend[f.vend] = 1; });
+    const E = D.elab || [], fr = E.reduce(function(s, x){ return s + (x.frascos || 0); }, 0), cac = E.reduce(function(s, x){ return s + (x.cac || 0); }, 0), coc = E.filter(function(x){ return x.cac > 0; });
+    const e0 = (D.emp || [])[0], nV = Object.keys(vend).length;
+    box.hidden = false;
+    box.innerHTML = '<div class="mm"><div class="mm-h"><b>Minuto a minuto 📡</b>' + mmAct() + "</div>"
+      + (F.length ? '<div class="mm-in"><div class="mm-k">🧺 Ferias · ' + ab + " abierta" + (ab === 1 ? "" : "s") + '</div><div class="mm-big" style="gap:6px"><span class="mm-v">' + mmPlata(tf) + "</span><small>" + mmPct(tf, af) + " vs promedio</small></div>"
+          + mmCurva(F, 340, 52, true) + "<small>" + F.map(function(f){ return psEsc(mmCorto(f.n)) + " " + mmPlata(mmTot(f.hoy)); }).join(" · ") + "</small></div>"
+        : '<div class="mm-in"><div class="mm-k">🧺 Ferias</div><div class="mm-v s no">Hoy no hay ferias</div></div>')
+      + '<div class="mm-g2"><div class="mm-in"><div class="mm-k">🛒 Ventas de hoy</div><div class="mm-v">' + mmPlata(mmVentasTot()) + "</div><small>" + (D.ventas || []).length + " venta" + ((D.ventas || []).length === 1 ? "" : "s") + " · sin mayoristas</small></div>"
+      + '<div class="mm-in"><div class="mm-k">📦 Mayoristas hoy</div><div class="mm-v">' + mmPlata(D.mayoristas.tot) + "</div><small>" + (D.mayoristas.lista.length ? D.mayoristas.lista.length + " pedido" + (D.mayoristas.lista.length === 1 ? "" : "s") + " nuevo" + (D.mayoristas.lista.length === 1 ? "" : "s") : "ningún pedido nuevo") + "</small></div></div>"
+      + '<div class="mm-in"><div class="mm-k">👥 Equipo</div><div class="mm-v s">' + (e0 ? psEsc(mmEmpTxt(e0, true)) : "Nadie fichó todavía") + "</div><small>" + (nV ? nV + " vendedora" + (nV === 1 ? "" : "s") + " en feria" : "ninguna vendedora en feria ahora") + "</small></div>"
+      + '<div class="mm-g2"><div class="mm-in"><div class="mm-k">🍲 Elaboración de hoy</div>' + (coc.length ? '<div class="mm-frs">' + coc.map(function(x, i){ return '<span class="mm-fr"><i style="background:' + mmCol(x.s, i) + '"></i>' + psEsc(x.s) + "</span>"; }).join("") + '</div><small style="margin-top:3px">' + cac + " cacerola" + (cac === 1 ? "" : "s") + "</small>" : '<div class="mm-v s no">Sin elaboración</div>') + "</div>"
+      + '<div class="mm-in"><div class="mm-k">🫙 Envasado de hoy</div>' + (fr ? '<div class="mm-v">' + fr + "</div><small>frascos · " + E.filter(function(x){ return x.frascos; }).length + " sabor" + (E.filter(function(x){ return x.frascos; }).length === 1 ? "" : "es") + "</small>" : '<div class="mm-v s no">Sin envasado</div>') + "</div></div>"
+      + '<button class="mm-vermas" id="mmVer">Ver más ›</button></div>';
+  }
+  function mmPintarMas(){
+    const D = MM.d, box = el("mmIn"); if (!box) return;
+    if (!D){ box.innerHTML = '<div class="ps-card"><div class="sm-hint">Cargando…</div></div>'; return; }
+    el("mmAct").innerHTML = mmAct() + ' <span class="mm-act">· cada 1 min</span>';
+    if (MM.vista === "feria"){ mmPintarFeria(); return; }
+    const h = mmAhoraH(), F = mmFer(), fs = MM.solo === "todas" ? F : F.filter(function(f){ return f.k === MM.solo; });
+    const t = fs.reduce(function(s, f){ return s + mmTot(f.hoy); }, 0), a = fs.reduce(function(s, f){ return s + mmHasta(f.avg, h); }, 0), dia = fs.reduce(function(s, f){ return s + (f.dia || 0); }, 0);
+    const V = D.ventas || [], CAN = ["Ferias", "Local", "Tienda Nube", "Mercado Libre", "WhatsApp y otros"], VL = MM.can === "todas" ? V : V.filter(function(v){ return v.c === MM.can; });
+    let s = "";
+    // FERIAS (con las vendedoras)
+    s += '<div class="mm-sec"><div class="mm-st">🧺 Ferias <em>vs promedio de las últimas ' + (F[0] ? Math.max.apply(null, F.map(function(f){ return f.nProm || 0; })) || 4 : 4) + "</em></div>";
+    if (!F.length) s += '<div class="mm-empty"><b>Hoy no hay ferias</b>No hay ferias en la agenda ni cobros de ferias hoy.</div>';
+    else {
+      s += '<div class="mm-tabs" id="mmSolo"><button data-mms="todas" class="' + (MM.solo === "todas" ? "on" : "") + '">Todas</button>' + F.map(function(f){ return '<button data-mms="' + psEsc(f.k) + '" class="' + (MM.solo === f.k ? "on" : "") + '">' + psEsc(mmCorto(f.n)) + "</button>"; }).join("") + "</div>"
+        + '<div class="mm-big"><span class="n">' + mmPlata(t) + "</span><small>" + mmPct(t, a) + " · a esta hora el promedio es " + mmPlata(a) + "</small></div>" + mmCurva(fs, 360, 150, false)
+        + '<div class="mm-leg"><span><i style="background:#ffd100"></i>hoy</span><span><i style="background:repeating-linear-gradient(90deg,#8a847e 0 4px,transparent 4px 8px)"></i>promedio</span>' + (dia ? "<span>un día promedio cierra en " + mmPlata(dia) + "</span>" : "") + "</div>"
+        + '<div class="mm-tip">Tocá la curva para ver los montos</div><div>'
+        + F.map(function(f){ const th = mmTot(f.hoy), av = mmHasta(f.avg, h), mx = Math.max(th, av) * 1.25 || 1, u = f.cob.length ? f.cob[f.cob.length - 1][0] : "";
+            return '<button class="mm-row" data-mmf="' + psEsc(f.k) + '"><b>' + psEsc(f.n) + '</b><span class="m">' + mmPlata(th) + "</span><small>" + psEsc(f.vend || "sin vendedora") + (f.desde ? " · " + psEsc(f.desde) + " a " + psEsc(f.hasta) : "") + " · " + (f.cob.length ? f.cob.length + " cobro" + (f.cob.length === 1 ? "" : "s") + " · último " + psEsc(u) : "sin cobros cargados") + '</small><small class="r">' + (th ? mmPct(th, av) : '<span class="mm-sp">sin cobros</span>') + " ›</small>"
+              + '<span class="mm-prog"><b style="width:' + (th / mx * 100) + '%"></b><u style="left:' + (av / mx * 100) + '%"></u></span></button>'; }).join("") + "</div>";
+      // vendedoras: cada cobro es un punto en el día
+      const pos = function(hm){ const p = String(hm).split(":"); return Math.max(0, Math.min(100, ((+p[0] + (+p[1] || 0) / 60) - 8) / 12 * 100)); };
+      s += '<div class="mm-st" style="margin-top:6px">Vendedoras <em>cada punto es un cobro · la línea es ahora</em></div><div>'
+        + F.map(function(f){ return '<div class="mm-pp"><span class="mm-av">' + psEsc((f.vend || "?").charAt(0)) + "</span><div><b>" + psEsc(f.vend || "Sin vendedora") + "</b> <small>" + psEsc(f.n) + " · " + (f.cob.length ? "primer cobro " + psEsc(f.cob[0][0]) : "sin cobros cargados") + '</small></div><span></span><div class="mm-tl">'
+            + f.cob.filter(function(c){ return c[0]; }).map(function(c){ return '<i style="left:' + pos(c[0]) + '%" data-mmtip="' + psEsc(f.vend) + " · " + psEsc(c[0]) + " · " + mmPlata(c[1]) + '"></i>'; }).join("") + '<u style="left:' + pos(mmHm(h)) + '%"></u></div></div>'; }).join("")
+        + '<div class="mm-pp" style="border-top:0;padding-top:0"><span></span><div class="mm-ax"><span>8</span><span>11</span><span>14</span><span>17</span><span>20</span></div></div></div>';
+    }
+    s += "</div>";
+    // VENTAS
+    s += '<div class="mm-sec"><div class="mm-st">🛒 Ventas que entraron hoy <em>tocá un canal o una venta</em></div><div class="mm-big"><span class="n">' + mmPlata(mmVentasTot()) + "</span><small>" + V.length + " venta" + (V.length === 1 ? "" : "s") + "</small></div>"
+      + '<div class="mm-chips"><button class="mm-chip ' + (MM.can === "todas" ? "on" : "") + '" data-mmc="todas">Todas<b>' + V.length + "</b></button>" + CAN.map(function(c){ const n = V.filter(function(v){ return v.c === c; }).length; return '<button class="mm-chip ' + (MM.can === c ? "on" : "") + (n ? "" : " z") + '" data-mmc="' + c + '">' + c + "<b>" + n + "</b></button>"; }).join("") + "</div>"
+      + (VL.length ? mmDonut(VL) + '<div class="mm-tip"></div><div>' + VL.slice().reverse().map(function(v){ const i = V.indexOf(v); return '<button class="mm-vt" data-mmv="' + i + '"><span class="h">' + psEsc(v.h || "hoy") + "</span><span>" + psEsc(v.d) + "<small>" + psEsc(v.q || "") + (v.med ? " · " + psEsc(v.med) : "") + '</small></span><span class="m">' + mmPlata(v.m) + " ›</span></button>"; }).join("") + "</div>"
+        : '<div class="mm-empty"><b>Hoy no entró nada' + (MM.can === "todas" ? "" : " por " + psEsc(MM.can)) + "</b>Cuando entre una venta aparece acá.</div>") + "</div>";
+    // MAYORISTAS (aparte)
+    const M = D.mayoristas;
+    s += '<div class="mm-sec"><div class="mm-st">📦 Mayoristas hoy <em>van aparte</em></div><div class="mm-big"><span class="n">' + mmPlata(M.tot) + "</span><small>" + (M.lista.length ? M.lista.length + " pedido" + (M.lista.length === 1 ? "" : "s") + " nuevo" + (M.lista.length === 1 ? "" : "s") : "ningún pedido nuevo hoy") + "</small></div>"
+      + (M.lista.length ? "<div>" + M.lista.map(function(p){ return '<div class="mm-vt" style="cursor:default"><span class="h">' + psEsc(p.id) + "</span><span>" + psEsc(p.cliente) + '</span><span class="m">' + mmPlata(p.total) + "</span></div>"; }).join("") + "</div>"
+        : (M.ultimo ? '<small class="m">El último fue ' + psEsc(String(M.ultimo.cliente).split(" - ").pop()) + ", el " + psEsc(String(M.ultimo.fecha).slice(0, 5)) + " (" + mmPlata(M.ultimo.total) + ").</small>" : "")) + "</div>";
+    // PRODUCCIÓN (empleados + elaboración y envasado)
+    const E = D.elab || [], fr = E.reduce(function(s2, x){ return s2 + (x.frascos || 0); }, 0), cac = E.reduce(function(s2, x){ return s2 + (x.cac || 0); }, 0);
+    s += '<div class="mm-sec"><div class="mm-st">🍳 Producción <em>empleados, elaboración y envasado</em></div>'
+      + ((D.emp || []).length ? "<div>" + D.emp.map(function(e){ return '<div class="mm-pp"><span class="mm-av">' + psEsc(e.n.charAt(0)) + "</span><div><b>" + psEsc(e.n) + '</b></div><span></span><div class="mm-frs" style="grid-column:2">'
+          + '<span class="mm-fr"><i style="background:var(--ok)"></i>Entró ' + psEsc(e.ent || "—") + "</span>" + (e.sal ? '<span class="mm-fr"><i style="background:var(--terra-ink)"></i>Salió ' + psEsc(e.sal) + '</span><span class="mm-fr"><i style="background:var(--accent)"></i>' + psEsc(mmEmpTxt(e)) + "</span>" : '<span class="mm-fr" style="opacity:.7"><i style="background:var(--ink-soft)"></i>Todavía no salió · ' + psEsc(mmEmpTxt(e)) + "</span>") + "</div></div>"; }).join("") + "</div>"
+        : '<small class="m">Todavía nadie fichó hoy.</small>');
+    if (!E.length) s += '<div class="mm-empty"><b>Sin elaboración · Sin envasado</b>Todavía no se cargó ninguna partida hoy.</div>';
+    else {
+      const tams = []; E.forEach(function(x){ Object.keys(x.porTam || {}).forEach(function(k){ if (tams.indexOf(k) === -1) tams.push(k); }); }); tams.sort(function(a2, b2){ return a2 - b2; });
+      const tTxt = function(k){ return Number(k) >= 1000 ? (Number(k) / 1000).toLocaleString("es-AR") + " kg" : k + " g"; }, mx = Math.max.apply(null, E.map(function(x){ return x.frascos || 0; }).concat([1]));
+      s += '<div class="mm-g2"><div class="mm-in"><div class="mm-k">Sabores</div><div class="mm-v">' + E.length + "</div><small>" + cac + " cacerola" + (cac === 1 ? "" : "s") + ' en total</small></div><div class="mm-in"><div class="mm-k">Envasado</div><div class="mm-v">' + fr + "</div><small>frascos</small></div></div>"
+        + '<div class="mm-leg">' + tams.map(function(k, i){ return '<span><i style="background:' + MM_TAM[i % MM_TAM.length] + ';height:8px;width:10px"></i>' + tTxt(k) + "</span>"; }).join("") + "</div>"
+        + E.map(function(x, i){ return '<div class="mm-pc" style="border-color:' + mmCol(x.s, i) + '"><div class="mm-pc-h"><b>' + psEsc(x.s) + "</b><span>" + (x.frascos ? x.frascos + " frascos" : "sin envasar todavía") + "</span></div>"
+            + (x.cac ? '<div style="font-size:13px;color:var(--ink-mid)">' + "🍲".repeat(Math.min(x.cac, 8)) + " " + x.cac + " cacerola" + (x.cac === 1 ? "" : "s") + "</div>" : "")
+            + (x.frascos ? '<div class="mm-stk" style="width:' + (x.frascos / mx * 100) + '%">' + tams.filter(function(k){ return x.porTam[k]; }).map(function(k){ return '<span style="flex:' + x.porTam[k] + ";background:" + MM_TAM[tams.indexOf(k) % MM_TAM.length] + '" data-mmtip="' + psEsc(x.s) + " " + tTxt(k) + " · " + x.porTam[k] + ' frascos">' + x.porTam[k] + "</span>"; }).join("") + "</div>" : "") + "</div>"; }).join("")
+        + '<div class="mm-tip">Tocá una barra para ver los frascos de cada tamaño</div>';
+    }
+    s += "</div>";
+    if (MM.vt !== null && V[MM.vt]){ const v = V[MM.vt];
+      s += '<div class="mm-sheet"><button class="mm-x" data-mmx="1">Cerrar ✕</button><div class="mm-big"><span class="n">' + mmPlata(v.m) + "</span><small>" + psEsc(v.h || "hoy") + " · " + psEsc(v.c) + "</small></div>"
+        + '<div class="ln"><span>Dónde</span><span>' + psEsc(v.d) + '</span></div><div class="ln"><span>' + (v.c === "Ferias" || v.c === "Local" ? "Cobró" : "Cliente") + "</span><span>" + psEsc(v.q || "—") + '</span></div><div class="ln"><span>Medio</span><span>' + psEsc(v.med || "—") + "</span></div>"
+        + '<div class="ln"><span>Qué se vendió</span><span>' + (v.det ? psEsc(v.det) : (v.c === "Ferias" ? "No se cargaron los productos (en feria se ven al cerrar con el stock contado)" : "—")) + "</span></div></div>"; }
+    box.innerHTML = s;
+  }
+  function mmPintarFeria(){
+    const f = mmFer().filter(function(x){ return x.k === MM.fsel; })[0], box = el("mmIn"); if (!f){ MM.vista = "mas"; mmPintarMas(); return; }
+    const h = mmAhoraH(), th = mmTot(f.hoy), av = mmHasta(f.avg, h), L = f.cob.map(function(c){ return { m: c[1], med: c[2] }; });
+    el("mmTit").textContent = f.n;
+    box.innerHTML = '<div class="mm-sec"><div class="mm-st">Hasta ahora <em>' + psEsc(f.vend || "") + (f.desde ? " · " + psEsc(f.desde) + " a " + psEsc(f.hasta) : "") + "</em></div>"
+      + '<div class="mm-big"><span class="n">' + mmPlata(th) + "</span><small>" + (th ? mmPct(th, av) : '<span class="mm-sp">sin cobros</span>') + " · promedio a esta hora " + mmPlata(av) + "</small></div>"
+      + '<div class="mm-g2"><div class="mm-in"><div class="mm-k">Cobros</div><div class="mm-v">' + f.cob.length + "</div><small>" + (f.cob.length ? "último " + psEsc(f.cob[f.cob.length - 1][0]) + " · " + mmHace(f.cob[f.cob.length - 1][0]) : "sin cobros cargados") + '</small></div><div class="mm-in"><div class="mm-k">Ticket promedio</div><div class="mm-v">' + (f.cob.length ? mmPlata(th / f.cob.length) : "—") + "</div><small>" + (f.dia ? "un día promedio: " + mmPlata(f.dia) : "todavía sin promedio") + "</small></div></div>"
+      + mmCurva([f], 360, 140, false) + '<div class="mm-leg"><span><i style="background:#ffd100"></i>hoy</span><span><i style="background:repeating-linear-gradient(90deg,#8a847e 0 4px,transparent 4px 8px)"></i>promedio (' + (f.nProm || 0) + " ferias)</span></div><div class=\"mm-tip\">Tocá la curva para ver los montos</div></div>"
+      + '<div class="mm-sec"><div class="mm-st">Hora por hora <em><span style="color:#ffd100">■</span> hoy · <span style="color:#8a847e">■</span> promedio</em></div>' + mmBarras(f) + '<div class="mm-tip"></div></div>'
+      + (L.length ? '<div class="mm-sec"><div class="mm-st">Cómo cobraron</div>' + mmDonut(L) + '<div class="mm-tip"></div></div><div class="mm-sec"><div class="mm-st">Cobros de hoy</div><div>' + f.cob.slice().reverse().map(function(c){ return '<div class="mm-vt" style="cursor:default"><span class="h">' + psEsc(c[0] || "—") + "</span><span>" + psEsc(c[2] || "") + '</span><span class="m">' + mmPlata(c[1]) + "</span></div>"; }).join("") + "</div>"
+          + (f.ini ? '<small class="m">Caja inicial: ' + mmPlata(f.ini) + " (no cuenta como venta)</small>" : "") + "</div>"
+        : '<div class="mm-sec"><div class="mm-empty"><b>Todavía no hay cobros cargados</b>' + (f.ini ? "Caja inicial: " + mmPlata(f.ini) + "." : "") + "</div></div>")
+      + (f.fuera && f.fuera.length ? '<small class="m">No cuentan en el promedio (se cargaron todos juntos al final): ' + f.fuera.map(function(x){ return psEsc(String(x).slice(0, 5)); }).join(", ") + ".</small>" : "");
+  }
+  function mmCargar(forzar){
+    const au = psAuth(); if (MM_PARA.indexOf(au.nombre) === -1 || !au.pin){ const b = el("mmBox"); if (b) b.hidden = true; return; }
+    if (MM.pidiendo || (!forzar && MM.d && Date.now() - MM.t < 60000)) { mmPintarBox(); return; }
+    if (typeof google === "undefined" || !google.script) return;
+    MM.pidiendo = true;
+    google.script.run.withSuccessHandler(function(r){ MM.pidiendo = false; if (!r || r.status !== "ok" || psAuth().nombre !== au.nombre) return; MM.d = r; MM.t = Date.now(); mmPintarBox(); if (!el("screen-minuto").hidden) mmPintarMas(); })
+      .withFailureHandler(function(){ MM.pidiendo = false; }).getMinuto(au.nombre, au.pin);
+  }
+  function mmAbrir(){ MM.vista = "mas"; MM.vt = null; el("mmTit").textContent = "Minuto a minuto 📡"; showScreen("minuto"); window.scrollTo(0, 0); mmPintarMas(); mmCargar(true); }
+  document.addEventListener("click", function(ev){
+    const t = ev.target;
+    if (t.closest && t.closest("#mmVer")){ mmAbrir(); return; }
+    const sc = el("screen-minuto"); if (!sc || sc.hidden || !sc.contains(t)) return;
+    let b;
+    if ((b = t.closest("[data-mms]"))){ MM.solo = b.dataset.mms; mmPintarMas(); return; }
+    if ((b = t.closest("[data-mmc]"))){ MM.can = b.dataset.mmc; MM.vt = null; mmPintarMas(); return; }
+    if ((b = t.closest("[data-mmv]"))){ MM.vt = +b.dataset.mmv; mmPintarMas(); return; }
+    if ((b = t.closest("[data-mmx]"))){ MM.vt = null; mmPintarMas(); return; }
+    if ((b = t.closest("[data-mmf]"))){ MM.fsel = b.dataset.mmf; MM.vista = "feria"; MM.vt = null; mmPintarMas(); window.scrollTo(0, 0); return; }
+    if ((b = t.closest("[data-mmtip]"))){ const s = b.closest(".mm-sec"), tp = s && s.querySelector(".mm-tip"); if (tp) tp.textContent = b.getAttribute("data-mmtip"); }
+  });
+  el("mmBack").addEventListener("click", function(){ if (MM.vista === "feria"){ MM.vista = "mas"; el("mmTit").textContent = "Minuto a minuto 📡"; mmPintarMas(); window.scrollTo(0, 0); return; } showScreen("menu"); mmPintarBox(); });
+  setInterval(function(){
+    if (document.hidden) return;
+    if (!el("screen-minuto").hidden) mmCargar(true);
+    else if (!el("screen-menu").hidden && Date.now() - MM.t >= 3 * 60000) mmCargar(true);
+  }, 60000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden && (!el("screen-menu").hidden || !el("screen-minuto").hidden)) mmCargar(false); });
   function irAlDestino(nombre, apps){
     if (!apps || !apps.length){
       el("pinError").textContent = "Tu usuario no tiene ninguna app habilitada. Avisale a Lucas.";
@@ -1977,6 +2247,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (apps.indexOf("incidentes") !== -1) actualizarBadge();
     if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov();
     actualizarBadgeCaja(nombre); PEND_T = Date.now();
+    mmCargar(false);   // 26/11 📡 Minuto a minuto (solo Lucas)
     prvContar(nombre);
     try { if (new URLSearchParams(location.search).get("s") === "semana" && NM_VEN.indexOf(nombre) !== -1 && !SM_IDO){ SM_IDO = true; abrirSemana(); } } catch (eS) {}   // 24/11: el aviso del lunes abre «Tu semana»
     if (window.GIABA_NAV && GIABA_NAV.refrescar) GIABA_NAV.refrescar();   // 02/11: barra de la compu con esta persona

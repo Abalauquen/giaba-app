@@ -2288,15 +2288,23 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (el("cnOk").classList.contains("off")){ faltaAca("cnNombre", "Falta el nombre del cliente"); el("cnNombre").focus(); return; }
     if (buscandoCuit){ toast("Esperá que termine de buscar el CUIT", true); return; }
     guardandoCli = true; guardandoCliT = Date.now(); el("cnOk").textContent = "Guardando…";
-    run("guardarClienteVM", { id: CN.id || undefined, nombre: el("cnNombre").value.trim(), cuit: el("cnCuit").value.trim(), tel: el("cnTel").value.trim(), email: el("cnMail").value.trim(), iva: CN.iva, tipo: CN.tipo, zona: CN.zona,
+    // 26/11 (Brason · Martin Chang quedó 5 veces): el cliente nuevo lleva su ID desde el primer toque, así reintentar no lo duplica
+    if (!CN.id && !CN.idNuevo) CN.idNuevo = "CLI-" + Date.now();
+    run("guardarClienteVM", { id: CN.id || CN.idNuevo, nombre: el("cnNombre").value.trim(), cuit: el("cnCuit").value.trim(), tel: el("cnTel").value.trim(), email: el("cnMail").value.trim(), iva: CN.iva, tipo: CN.tipo, zona: CN.zona,
       direccion: el("cnDir").value.trim(), notaEntrega: el("cnNotaEnt").value.trim(),
       provincia: el("cnProv").value, localidad: el("cnLoc").value.trim(), cp: el("cnCp").value.trim(), domFiscal: el("cnDomF").value.trim(), arca: CN.arca || "" }).then(function(r){
       guardandoCli = false; el("cnOk").textContent = CLI_MODO === "editar" ? "Guardar cambios" : "Guardar y armar pedido";
-      if (r && r.status === "ok" && CLI_MODO === "editar"){
+      if (!r || r.status !== "ok"){ toast((r && r.msg) || "No se pudo guardar", true); return; }
+      CN.idNuevo = null;
+      // 26/11: si la lista de clientes no había llegado (la base tardó), se trae y se sigue: nunca queda trabado sin avisar
+      const seguir = function(){
+        if (!DATOS){ toast("Cliente guardado ✓ · no pude traer la lista: volvé a abrir Mayoristas", true); return; }
         const i = DATOS.clientes.findIndex(function(x){ return x.id === r.cliente.id; }); if (i >= 0) DATOS.clientes[i] = r.cliente; else DATOS.clientes.push(r.cliente);
-        toast("Cliente guardado ✓"); pintarClientes(); show("cli"); return; }
-      if (r && r.status === "ok"){ DATOS.clientes.push(r.cliente); elegirCliente(r.cliente); }
-      else toast((r && r.msg) || "No se pudo guardar", true);
+        toast("Cliente guardado ✓");
+        if (CLI_MODO === "editar"){ pintarClientes(); show("cli"); return; }
+        elegirCliente(r.cliente);
+      };
+      if (!DATOS) cargarDatos().then(seguir); else seguir();
     });
   });
 

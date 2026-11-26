@@ -7020,7 +7020,13 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function cnTk(c, idx, zt){ const t = cnReponerTxt(c); if (!t) return ""; const nm = String(c.nombre || ""); return '<div class="cn-tk"><b>🧺 Reponer ' + (/^el /i.test(nm) ? '' : 'el ') + esc(nm) + (zt && nm.indexOf(zt) === -1 ? ' · ' + esc(zt) : '') + '</b><span>' + esc(t) + '</span><button type="button" class="bt" data-cn="' + idx + '">Ver el canasto ›</button></div>'; }
   // d: los datos de la zona de ese aviso (Lucas ve los de CABA y los de El Bolsón juntos)
   function cnBindTk(box, d){ Array.prototype.forEach.call(box.querySelectorAll("[data-cn]"), function(b){ b.addEventListener("click", function(){ if (d){ CN.d = d; CN.zona = d.zona; } CN.i = +b.dataset.cn; cnAbrirDet(); }); }); }
-  function cnNoLlegoHtml(L, zt){ return (L || []).map(function(x){ return '<div class="cn-tk r"><b>⚠ No llegó · ' + esc(x.canasto) + (zt ? ' · ' + esc(zt) : '') + '</b><span>' + esc(x.puesto + " · " + x.fecha.slice(0, 5) + " " + x.hora + " · " + x.quien + ": " + x.txt) + '</span></div>'; }).join(""); }
+  // 26/11: un solo aviso por canasto (el último) y «✓ Resuelto» para sacarlo
+  function cnNoLlegoHtml(L, zt){ const u = {}; (L || []).forEach(function(x){ u[x.canasto] = x; });
+    return Object.keys(u).map(function(k){ const x = u[k]; return '<div class="cn-tk r"><b>⚠ No llegó · ' + esc(x.canasto) + (zt ? ' · ' + esc(zt) : '') + '</b><span>' + esc(x.puesto + " · " + x.fecha.slice(0, 5) + " " + x.hora + " · " + x.quien + ": " + x.txt) + '</span>'
+      + (esAdmin() ? '<button class="btn sm" style="margin-top:6px" data-cnres="' + esc(x.canasto) + '">✓ Resuelto</button>' : '') + '</div>'; }).join(""); }
+  document.addEventListener("click", function(e){ const b = e.target.closest && e.target.closest("[data-cnres]"); if (!b || b.disabled) return; const a = auth(); b.disabled = true; b.textContent = "Guardando…";
+    google.script.run.withSuccessHandler(function(r){ if (!r || r.status !== "ok"){ b.disabled = false; b.textContent = "✓ Resuelto"; showToast((r && r.msg) || "No se pudo", true); return; } const t = b.closest(".cn-tk"); if (t) t.remove(); showToast("Listo: aviso resuelto"); })
+      .withFailureHandler(function(){ b.disabled = false; b.textContent = "✓ Resuelto"; showToast("No se pudo (probá de nuevo)", true); }).canastoResolver(a.nombre, a.pin, b.dataset.cnres); });
   // inicio de Ferias (Lucas / Adriana): avisos abajo (lo que llega del servidor va abajo)
   // 29/10 (R13): Lucas ve los avisos de las dos zonas (CABA y El Bolsón); Adriana, los de su zona
   function cargarCanAv(){

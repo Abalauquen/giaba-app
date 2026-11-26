@@ -4050,9 +4050,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const porSku = {}; LL.prods.forEach(function(p){ porSku[p.sku] = p; });
     const its = rec.items.filter(function(x){ return porSku[x.sku]; });
     if (!its.length){ box.hidden = true; return; }
-    // 26/11 (mockup-cuanto-llevar): «Justo» = lo máximo vendido acá; «Más tranqui» = un poco más. Se recuerda en este celu.
-    if (!LL.recModo){ try { LL.recModo = localStorage.getItem("ll_rec_modo") || "justo"; } catch (e) { LL.recModo = "justo"; } }
-    const cq = function(x){ return LL.recModo === "tranqui" && x.cant2 ? x.cant2 : x.cant; };
+    const cq = function(x){ return x.cant; };   // 26/11 v2: sin «Justo / Más tranqui» (el margen ya va en la cuenta)
     const nf = rec.n === 1 ? "la última feria" : "las últimas " + rec.n + " ferias";
     const base = rec.base === "dia" ? "Según lo que se vendió en " + nf + " de los " + rec.dia + " acá"
       : rec.base === "lugar" ? "Según lo que se vendió en " + nf + " acá" + (rec.desde && rec.n > 1 ? " (del " + String(rec.desde).slice(0, 5) + " al " + String(rec.hasta).slice(0, 5) + ")" : "")
@@ -4067,19 +4065,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       el("llRecVer").addEventListener("click", function(){ LL.recVer = true; pintarRec(rec); pintaLlevo(); });
       return;
     }
-    const conLl = its.some(function(x){ return x.llevo != null; });
-    let tl = 0, tp = 0; its.forEach(function(x){ tl += Number(x.llevo) || 0; tp += cq(x); });
-    const dif = tp - tl;
-    const nums = conLl ? '<div class="ll-rn" style="display:grid;grid-template-columns:1fr auto;gap:2px 10px;margin:8px 0;font-size:14px">'
-      + (rec.vende ? '<span style="opacity:.75">Se vende por feria</span><b>~' + rec.vende + '</b>' : '')
-      + '<span style="opacity:.75">Llevás normalmente</span><b>' + tl + '</b>'
-      + '<span>Propuesta</span><b style="font-size:18px">' + tp + '</b></div>'
-      + '<div id="llRecDif" style="font-size:13.5px;font-weight:700;color:' + (dif < 0 ? '#7fd48a' : dif > 0 ? '#ffb366' : '#e8d98a') + '">'
-      + (dif < 0 ? '▼ ' + (-dif) + ' frascos menos que lo de siempre' : dif > 0 ? '▲ ' + dif + ' frascos más que lo de siempre' : 'Igual que lo de siempre') + '</div>' : '';
-    const modos = conLl ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0 4px">'
-      + ['justo', 'tranqui'].map(function(m){ const on = LL.recModo === m; return '<button type="button" class="ll-rmodo" data-m="' + m + '" style="min-height:40px;border-radius:12px;border:1.5px solid ' + (on ? '#ffd100' : '#6b5a00') + ';background:' + (on ? '#ffd100' : 'transparent') + ';color:' + (on ? '#111' : '#e8d98a') + ';font:800 14px Manrope,sans-serif;cursor:pointer">' + (m === 'justo' ? 'Justo' : 'Más tranqui') + '</button>'; }).join('') + '</div>' : '';
-    box.innerHTML = '<span class="t">💡 Te recomiendo llevar esto</span><span class="hint">' + base + (conLl ? '. Propongo lo máximo que se vendió en una feria (2 más si se agotó). Con «Más tranqui» va un poco más.' : ', con un margen para no quedarte corto (más si algo se agotó).') + ' Cuantas más ferias se cierren con el stock, mejor afina.</span>'
-      + nums + modos
+    // 26/11 v2 (mockup-cuanto-llevar-v2, Lucas 07:39: «más minimalista»): título + 🌱 aprendiendo + la fecha + el botón. El detalle va en cada renglón.
+    const v2 = rec.v === 2;
+    const apr = v2 ? (rec.aprendiendo ? '<span style="font-size:11.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:#17283a;color:#8cc8ff;margin-left:6px;white-space:nowrap">🌱 aprendiendo</span>' : '') : '';
+    const fechaL = v2 && rec.fechaTxt ? '<div style="background:rgba(0,0,0,.25);border-radius:12px;padding:9px 10px;margin:8px 0;font-size:13.5px;color:#f1e7b0">📅 <b>' + esc(rec.fechaTxt) + '</b>' + (rec.ajuste ? '<br>' + esc(rec.ajuste) : '') + '</div>' : '';
+    box.innerHTML = '<span class="t">💡 Te recomiendo llevar esto' + apr + '</span>' + (v2 ? (rec.base === "deposito" ? '<span class="hint">Todavía no hay ferias cerradas acá: me basé en las del depósito.</span>' : '') : '<span class="hint">' + base + ', con un margen para no quedarte corto.</span>')
+      + fechaL
       + '<button class="btn" type="button" id="llRecOk">✓ Usar la recomendación</button>'
       + '<button class="btn2" type="button" id="llRecOcultar" style="width:100%;margin-top:8px">Ocultar la recomendación</button>';
     void fila;
@@ -4092,7 +4083,6 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       LL.items = ordenar(LL.items.filter(function(it){ return it.cant > 0; }));
     };
     LL.recMap = {}; its.forEach(function(x){ LL.recMap[x.sku] = Object.assign({}, x, { cant: cq(x) }); });
-    box.querySelectorAll(".ll-rmodo").forEach(function(b){ b.addEventListener("click", function(){ LL.recModo = b.dataset.m; try { localStorage.setItem("ll_rec_modo", LL.recModo); } catch (e) {} pintarRec(rec); pintaLlevo(); }); });
     // 28/10 (Lucas 18:47): la recomendación NO se carga sola; solo con el botón (la base es lo que se llevó la última vez)
     el("llRecOk").addEventListener("click", function(){ cargar(); LL.recVer = false; pintarRec(rec); pintaLlevo(); el("llRepe").hidden = true; showToast("Cargué la recomendación"); });
     el("llRecOcultar").addEventListener("click", function(){ LL.recVer = false; pintarRec(rec); pintaLlevo(); });
@@ -5142,7 +5132,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const pasado = libreLL(pr) < 0;
       const rc = LL.rec && LL.recMap ? LL.recMap[it.sku] : null;
       row.innerHTML = '<div class="nm"><span>' + nomDot(it.nombre) + '</span><small' + (pasado ? ' style="color:var(--warn)"' : '') + '>'
-        + (rc ? 'vende ~' + String(rc.prom).replace(".", ",") + ' por feria' + (rc.max ? ' (hasta ' + rc.max + ' en una)' : '') + (rc.llevo != null ? ' · llevás ~' + rc.llevo : '') + ' · hay ' + it.hay : (pr.combo ? 'alcanzan para ' + pr.hay + ' · se arma con frascos de ' : 'hay ' + it.hay + ' en ') + esc(LL.dep))
+        + (rc ? 'vende ~' + String(rc.prom).replace(".", ",") + ' por feria' + (rc.agoto ? ' · se agotó ' + (rc.agoto === 1 ? '1 vez' : rc.agoto + ' veces') : '') + (rc.llevo != null ? ' · llevás ~' + rc.llevo : '') + ' · hay ' + it.hay : (pr.combo ? 'alcanzan para ' + pr.hay + ' · se arma con frascos de ' : 'hay ' + it.hay + ' en ') + esc(LL.dep))
         + (pr.se ? ' · 🏷️ ' + pr.se + ' sin etiquetar' : '') + (pasado ? ' · ⚠ más de lo que figura: revisar stock' : '') + '</small>' + (rc ? '<span class="vend3" style="font-size:15px">recomiendo ' + rc.cant + (rc.agotado ? ' · se agotó' : '') + '</span>' : '') + '</div>';
       row.insertAdjacentHTML("afterbegin", mvHtml(idx, LL.items.length)); mvBind(row, LL.items, idx, pintaLlevo);
       if (!it.cant) row.style.opacity = .45;

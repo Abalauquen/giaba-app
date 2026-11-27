@@ -2261,10 +2261,12 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       box.appendChild(head); box.appendChild(sub); list.appendChild(box);
     });
     showScreen("menu");
+    // 27/11 (revisión de la noche: al entrar salían 5–8 lecturas juntas y se cortaban por tiempo): primero el fichaje y los pendientes;
+    // los numeritos (incidentes, movimientos, para revisar) y el Minuto a minuto, de a uno unos segundos después. Todos se ven ya con lo guardado en el celu.
     traerFichaje(nombre);
-    if (apps.indexOf("incidentes") !== -1) actualizarBadge();
-    if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov();
     actualizarBadgeCaja(nombre); PEND_T = Date.now();
+    setTimeout(function(){ if (apps.indexOf("incidentes") !== -1) actualizarBadge(); }, 2500);
+    setTimeout(function(){ if (apps.indexOf("movimientos") !== -1) actualizarBadgeMov(); }, 4000);
     mmCargar(false);   // 26/11 📡 Minuto a minuto (solo Lucas)
     prvContar(nombre);
     try { if (new URLSearchParams(location.search).get("s") === "semana" && NM_VEN.indexOf(nombre) !== -1 && !SM_IDO){ SM_IDO = true; abrirSemana(); } } catch (eS) {}   // 24/11: el aviso del lunes abre «Tu semana»

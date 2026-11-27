@@ -1165,6 +1165,42 @@ a.back{color:var(--ink)}
 .load.ns{cursor:pointer}
 /* campos editables: siempre fondo negro (regla GIABA, 16/10) */
 input.txt,.bigamt,.capg input,.stp input{background:var(--inp)!important}
+/* 27/11 promo (mockup interactivo) */
+.pm-seg{display:flex;background:var(--surface);border-radius:12px;padding:3px;margin-bottom:12px}.pm-seg button{flex:1;padding:10px 6px;border-radius:9px;font-weight:800;font-size:15px;color:var(--ink-soft);background:none;border:0}.pm-seg .on{background:var(--accent);color:var(--accent-ink)}
+#pmForm{display:flex;flex-direction:column;gap:12px}
+.pm-card{background:var(--surface);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px;border:0;color:var(--ink);font:inherit}
+.pm-st{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--good)}.pm-st .dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px var(--good-soft)}.pm-st.prog{color:var(--accent)}.pm-st.prog .dot{box-shadow:0 0 0 4px var(--accent-soft)}
+.pm-nm{font-size:20px;font-weight:800}
+.pm-tl{position:relative;height:6px;background:var(--s2);border-radius:3px}.pm-tl i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)}
+.pm-tlx{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft)}
+.pm-kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pm-kp div{background:var(--s2);border-radius:12px;padding:9px 6px;text-align:center}.pm-kp b{display:block;font-size:19px}.pm-kp span{font-size:11.5px;color:var(--ink-soft)}
+.pm-hist{position:relative;height:36px;border-bottom:1px solid var(--line)}.pm-hist i{position:absolute;bottom:0;width:7px;border-radius:2px 2px 0 0;transform:translateX(-3.5px)}.pm-hist .ps{position:absolute;top:0;bottom:0;border-left:2px dashed var(--accent)}
+.pm-lst{gap:0;padding:4px 12px}
+.pm-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;padding:10px 2px;border:0;border-bottom:1px solid var(--line);align-items:center;width:100%;text-align:left;background:none;color:var(--ink);font:inherit}.pm-r:last-child{border-bottom:0}
+.pm-r .t{font-weight:650;font-size:14.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pm-r .p{font-size:12.5px;color:var(--ink-soft);grid-column:2}.pm-r .p b{color:var(--ink)}
+.pm-r .d{grid-row:span 2;grid-column:3;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pm-pill{font-weight:800;font-size:14px;border-radius:999px;padding:3px 10px;background:var(--accent-soft);color:var(--accent)}.pm-pill.o{background:var(--warn-soft);color:var(--warn)}.pm-pill.x{background:var(--red-soft);color:var(--red)}
+.pm-mini{width:54px;height:4px;background:var(--s2);border-radius:2px;position:relative;display:block}.pm-mini i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+.pm-cb{grid-row:span 2;width:28px;height:28px;border-radius:8px;border:2px solid var(--ink-soft);display:grid;place-items:center;font-weight:900;font-size:15px;color:var(--accent-ink)}.pm-cb.on{background:var(--accent);border-color:var(--accent)}
+.pm-full{font-size:10.5px;color:#b48cff;font-weight:800}
+.pm-grp{font-size:12px;color:var(--ink-soft);font-weight:800;display:flex;justify-content:space-between;padding:8px 2px 2px;text-transform:uppercase;letter-spacing:.04em}
+.pm-q{color:var(--ink-soft);font-size:14px;text-align:center;background:none;border:0;padding:8px}
+.pm-cap{text-align:center;font-weight:800;letter-spacing:.06em;font-size:12px;color:var(--ink-soft);text-transform:uppercase}
+.pm-big{display:flex;align-items:center;justify-content:center;gap:18px}.pm-big .n{font-size:54px;font-weight:850;letter-spacing:-.03em;min-width:2.6ch;text-align:center;line-height:1}.pm-big .n small{font-size:24px;color:var(--ink-soft)}
+.pm-rb{width:52px;height:52px;border-radius:50%;background:var(--s2);display:grid;place-items:center;font-size:26px;font-weight:700;border:0;color:var(--ink)}
+.pm-range{width:100%;accent-color:var(--accent);height:32px;margin:0}
+.pm-sel{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.pm-sel .chip,.pm-chips .chip{min-height:40px;font-size:14px;padding:0 13px;border-radius:999px}
+.pm-fit{justify-content:center;min-height:46px}
+.pm-tip{background:#2e2614;color:#ffe08a;border-radius:12px;padding:9px 11px;font-size:13px;margin:0 0 8px}
+.pm-mal{border:2px solid var(--warn)}
+.pm-mlrow{flex-direction:row;align-items:center;gap:10px;width:100%}.pm-mlrow .ic{width:38px;height:38px;border-radius:12px;background:var(--blue);color:#0b1a29;display:grid;place-items:center;font-weight:900;flex-shrink:0}
+.pm-dim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40}
+.pm-sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:520px;background:var(--surface);border-radius:24px 24px 0 0;padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:92vh;overflow-y:auto;z-index:41}
+.pm-sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);align-self:center}
+.pm-two{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}.pm-two span{display:block}.pm-bigp{font-size:24px;display:block}
+.pm-bar{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--s2)}.pm-bar i{display:block;height:100%}
+.pm-bk{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;font-size:12.5px}.pm-bk div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:6px;align-items:center}.pm-bk i{width:10px;height:10px;border-radius:3px}.pm-bk span{color:var(--ink-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pm-bk em{font-style:normal;color:var(--warn);font-weight:800}
+.pm-stt{border-radius:12px;padding:9px 11px;font-size:13.5px;font-weight:650;background:var(--good-soft);color:var(--good)}.pm-stt.no{background:var(--red-soft);color:var(--red)}
 </style>
 </head>
 <body>
@@ -1353,9 +1389,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   <h1 id="pmTit">🏷️ Promoción</h1>
   
   <div id="pmEst"></div>
-  <div class="card" id="pmForm"></div>
+  <div id="pmForm"></div>
   <div class="cols" id="pmList"></div>
   <div id="pmComp" style="display:flex;flex-direction:column;gap:10px"></div>
+  <div id="pmHojaBox"></div>
   <div class="sticky"><button class="btn off" id="pmOk" onclick="pmGuardar()">Programar</button></div>
 </div>
 
@@ -1941,7 +1978,7 @@ function pbCargar(){ PB.cambios = {}; PB.data = null; pbChips(); $("pbMal").inne
   const canal = PB.canal;
   run("getPublicacionesCos", canal).then(r => { if (canal !== PB.canal) return;
     if (!r || r.status !== "ok"){ $("pbList").innerHTML = '<div class="wrb">' + esc((r && r.msg) || "Sin señal") + '</div>'; return; }
-    PB.data = r; pbPint(); }); }
+    PB.data = r; pbPint(); if (PM.abrirAl){ PM.abrirAl = false; pmAbrir(); } }); }
 function pbChips(){ $("pbCanal").innerHTML = ["Mercado Libre","Tienda Nube","⚠ Dejan poco"].map(c => `<button class="chip${c === PB.canal || (c === "⚠ Dejan poco" && PB.filtro === "poco") ? " on" : ""}" onclick="pbChip('${c}')">${c}</button>`).join("") + `<button class="chip" id="pbPromo" onclick="pmAbrir()">🏷️ Promoción</button>`; }
 function pbChip(c){ if (c === "⚠ Dejan poco"){ PB.filtro = PB.filtro === "poco" ? "Todas" : "poco"; pbChips(); pbPint(); return; } if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios antes", true); return; } if (c === PB.canal && PB.data) return; PB.canal = c; pbCargar(); }
 // 10/11 (Lucas): el margen objetivo se elige acá (20 … 45 %) y el «Nos queda» se recalcula al tipear el precio
@@ -1995,69 +2032,130 @@ function pbGuardar(){ const ids = Object.keys(PB.cambios); if (!ids.length){ t("
     PB.cambios = {}; pbCargar();
     if (r.mal && r.mal.length) $("pbMal").innerHTML = '<div class="wrb">No se pudieron cambiar:<br>' + r.mal.map(esc).join("<br>") + '</div>'; }); }
 
-/* ================= 🏷️ PROMOCIONES (26/11, mockup aprobado: Black Friday, Cyber Monday… por canal) ================= */
+/* ================= 🏷️ PROMOCIONES (26/11; 27/11 rediseño con el mockup interactivo aprobado por Lucas 00:59) ================= */
 // Usa lo que ya trajo Publicaciones (PB.data) y la misma cuenta (pbCalc): piso de ganancia NETA sobre el precio con descuento.
-const PM = { canal: "", nombre: "", desde: "", hasta: "", piso: 20, gen: 15, per: {}, sel: {}, promo: null, fin: false, camps: [], camp: "" };
+// Vistas: «andando» (la promo que está puesta) · «nueva» (armar otra) · hoja de detalle de una publicación (PM.hoja).
+const PM = { canal: "", nombre: "", desde: "", hasta: "", piso: 20, gen: 15, per: {}, on: new Set(), promo: null, fin: false, camps: [], camp: "", vista: "nueva", hoja: null, edFechas: false, edPiso: false, verComp: false, abrirAl: false };
 function pmIso(d){ return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
 function pmDm(iso){ const p = String(iso || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] : iso; }
 function pmMg(x, p){ return pbCalc(x, p, 0).pct; }
-function pmMax(x){ if (pmMg(x, x.precio) < PM.piso) return 0; let lo = 0, hi = x.precio; for (let i = 0; i < 40; i++){ const m = (lo + hi) / 2; if (pmMg(x, m) >= PM.piso) hi = m; else lo = m; } return Math.max(0, Math.floor((1 - hi / x.precio) * 100 + 1e-9)); }
+const pmF = n => fm(n).replace(/,00$/, ""), pmP = n => (Math.round(n * 10) / 10).toFixed(1).replace(".", ",") + " %";
+// el % más alto (entero) que deja el piso, bajando de a 1 desde 0 · −1 si no llega ni sin descuento
+function pmMax(x){ let d = -1; for (let i = 0; i <= 60; i++){ if (pmMg(x, x.precio * (1 - i / 100)) >= PM.piso) d = i; else break; } return d; }
+// 27/11: si más abajo el precio baja del límite del envío gratis y vuelve a dejar el piso (ML deja de cobrar el envío)
+function pmSalto(x, mx){ if (!x.lim || mx < 0) return null; for (let i = mx + 2; i <= 60; i++) if (pmMg(x, x.precio * (1 - i / 100)) >= PM.piso) return i; return null; }
 function pmDeal(x, ds){ return Math.round(x.precio * (1 - ds / 100)); }   // exacto: 15 % es 15 % (Lucas 13:54: no redondear)
 function pmItems(){ return ((PB.data && PB.data.items) || []).filter(x => !x.sinCosto && x.costo && x.precio > 0); }
-function pmFila(x){ const mx = pmMax(x), want = PM.per[x.id] === undefined ? PM.gen : PM.per[x.id]; let ds = Math.min(want, mx); if (PM.canal === "Mercado Libre" && !PM.camp && ds < 5) ds = 0;
-  const deal = ds ? pmDeal(x, ds) : x.precio, real = ds ? Math.round((1 - deal / x.precio) * 100) : 0; return { x, mx, ds, real, deal, on: PM.sel[x.id] !== false && ds > 0, mg: pmMg(x, deal), tope: want > mx }; }
+// nombre corto: «Dulce De Frutilla 454g Abalauquen» → «Frutilla 454 g»
+function pmCorto(t){ let s = String(t || "").replace(/\b(Abalauquen|Mermelada|Artesanal(es)?|Dulces?( De)?|La Teodora Torta Polaca|Org[aá]nico|Patag[oó]nico|100% Artesanal|Sin Tacc Gourmet|Souvenir Desayuno)\b/gi, " ").replace(/\s+-\s+Patagonia/i, "").replace(/–\s*Estancia La Teodora/i, "").replace(/\s+/g, " ").trim().replace(/^De /i, "");
+  s = s.replace(/(\d+)\s?g\b/gi, "$1 g").replace(/\s(Pack\s)?x\s?(\d+)/gi, " ×$2"); return s || String(t || ""); }
+function pmFila(x){ const mx = pmMax(x), propio = PM.per[x.id] !== undefined, want = propio ? PM.per[x.id] : PM.gen; let ds = propio ? want : Math.min(want, Math.max(mx, 0)); if (PM.canal === "Mercado Libre" && !PM.camp && ds < 5) ds = 0;
+  const deal = ds ? pmDeal(x, ds) : x.precio; return { x, mx, ds, deal, on: PM.on.has(x.id) && ds > 0, mg: pmMg(x, deal), menos: !propio && mx >= 0 && mx < want, no: mx < 0 && !propio }; }
+// cómo se reparte el precio (la misma cuenta que pbCalc, separada)
+function pmDesg(x, precio){ const r = PB.data, iva = (r.iva || 0) / 100, iibb = (r.iibb || 0) / 100, neto = precio / (1 + iva), fijo = pbFijo(x, precio), ml = PM.canal === "Mercado Libre";
+  const L = [["Producto", x.costo || 0, "#7a7570"], [(ml ? "Comisión ML " : "Pago Nube y envíos ") + String(x.comPct).replace(".", ",") + " %", precio * ((x.comPct || 0) / 100 + (r.oPct || 0)), "var(--blue)"]];
+  if (fijo) L.push([x.lim && precio >= x.lim ? "Envío gratis" : ml ? "Cargo fijo ML" : "Envío", fijo, "#5b8fc4"]);
+  if (r.oFijo) L.push(["Otros fijos", r.oFijo, "#5b8fc4"]);
+  L.push(["Impuestos " + String(r.iibb || 0).replace(".", ",") + " %", neto * iibb, "var(--warn)"]);
+  if (iva) L.push(["IVA " + (r.iva) + " %", precio - neto, "#9b7bd0"]);
+  L.push(["Embalaje" + (x.cajaAprox ? " <em>aprox</em>" : !x.caja && !x.full ? " <em>¿$0?</em>" : ""), x.caja || 0, "#c9a36b"]);
+  const k = pbCalc(x, precio, 0); return { L, queda: k.queda, pct: k.pct, neto }; }
 function pmAbrir(){
   if (!PB.data){ t("Esperá que carguen las publicaciones", true); return; }
   if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios de precios antes", true); return; }
   const m = new Date(Date.now() + 864e5), f = new Date(Date.now() + 4 * 864e5);
-  Object.assign(PM, { canal: PB.canal, nombre: "Black Friday", desde: pmIso(m), hasta: pmIso(f), piso: 20, gen: 15, per: {}, sel: {}, promo: null, fin: false, camps: [], camp: "" });
+  Object.assign(PM, { canal: PB.canal, nombre: "Black Friday", desde: pmIso(m), hasta: pmIso(f), piso: 20, gen: 15, per: {}, on: new Set(), promo: null, fin: false, camps: [], camp: "", vista: "nueva", hoja: null, edFechas: false, edPiso: false, verComp: false });
   // 26/11 (Lucas «sí, sumar la opción»): en ML, sumarse a una campaña de ML (ej. BLACK FRIDAY NOV DIC 26) en vez del descuento propio
   PM.comp = null; PM.compVer = {}; $("pmComp").innerHTML = "";
-  if (PM.canal === "Mercado Libre"){ $("pmComp").innerHTML = '<div class="hint">Buscando las promos compartidas y relámpago de ML…</div>'; run("getPromoMlCompartidas").then(r => { PM.comp = r && r.status === "ok" ? r.campanas : []; pmCompPint(); }); }
-  if (PM.canal === "Mercado Libre") run("getPromoMlCampanas").then(r => { if (!r || r.status !== "ok") return; PM.camps = r.campanas || []; if (!PM.promo && PM.camps.length) pmCamp(PM.camps[0].id); else pmPint(); });
-  $("pmTit").textContent = "🏷️ Promoción · " + PM.canal; $("pmEst").innerHTML = '<div class="hint">Viendo si ya hay una promoción…</div>';
+  if (PM.canal === "Mercado Libre"){ run("getPromoMlCompartidas").then(r => { PM.comp = r && r.status === "ok" ? r.campanas : []; pmPint(); }); }
+  if (PM.canal === "Mercado Libre") run("getPromoMlCampanas").then(r => { if (!r || r.status !== "ok") return; PM.camps = r.campanas || []; if (!PM.camp && PM.camps.length && PM.vista === "nueva" && !PM.on.size) pmCamp(PM.camps[0].id); else pmPint(); });
+  $("pmTit").textContent = "🏷️ Promoción"; $("pmEst").innerHTML = '<div class="hint">Viendo si ya hay una promoción…</div>';
   show("promo"); pmPint();
   run("getPromo", PM.canal).then(r => { if (!r || r.status !== "ok"){ $("pmEst").innerHTML = ""; return; } PM.promo = r.promo;
-    const p = r.promo; if (p && p.estado !== "terminada"){ PM.nombre = p.nombre; PM.desde = p.desde; PM.hasta = p.hasta; PM.piso = p.piso || PM.piso; PM.camp = p.campana ? p.campana.id : "";
-      const L = {}; (p.items || []).forEach(i => { L[i.id] = i.desc; }); pmItems().forEach(x => { if (L[x.id] !== undefined) PM.per[x.id] = L[x.id]; else PM.sel[x.id] = false; }); }
+    const p = r.promo; if (p && p.estado !== "terminada"){ PM.vista = "andando"; PM.nombre = p.nombre; PM.desde = p.desde; PM.hasta = p.hasta; PM.piso = p.piso || PM.piso; PM.camp = p.campana ? p.campana.id : "";
+      (p.items || []).forEach(i => { if (i.sacada) return; PM.per[i.id] = i.desc; PM.on.add(i.id); }); }
     pmPint(); });
 }
-function pmEstado(){ const p = PM.promo; if (!p || p.estado === "terminada") return "";
+// 27/11 (Lucas: el canal se elige adentro de la promo)
+function pmCanal(c){ if (c === PM.canal) return; if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios de precios antes", true); return; }
+  PB.canal = c; PM.abrirAl = true;  $("pmEst").innerHTML = ""; $("pmForm").innerHTML = '<div class="load"><div class="spin"></div><span>Trayendo las publicaciones de ' + esc(c) + '…</span></div>'; $("pmList").innerHTML = ""; $("pmComp").innerHTML = ""; $("pmOk").parentNode.hidden = true; pbCargar(); }
+function pmSeg(){ return '<div class="pm-seg">' + ["Mercado Libre", "Tienda Nube"].map(c => '<button class="' + (c === PM.canal ? "on" : "") + '" data-pmcanal="' + c + '">' + c + '</button>').join("") + '</div>'; }
+function pmHist(L){ if (!L.length) return ""; const c = {}; L.forEach(m => { const k = Math.floor(m); c[k] = (c[k] || 0) + 1; }); const top = Math.max(...Object.values(c)), lo = 5, hi = 45, X = v => (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * 100;
+  return '<div class="pm-hist"><div class="ps" style="left:' + X(PM.piso) + '%"></div>' + Object.keys(c).map(k => '<i style="left:' + X(+k + .5) + '%;height:' + (5 + c[k] / top * 28) + 'px;background:' + (+k >= PM.piso ? "var(--good)" : "var(--red)") + '"></i>').join("") + '</div><div class="pm-tlx"><span>neto de cada publicación</span><span style="color:var(--accent)">piso ' + PM.piso + ' %</span></div>'; }
+function pmRow(x, ds, mg, cls, cb){ const w = Math.max(0, Math.min(100, mg / 45 * 100));
+  return '<button class="pm-r" data-pmx="' + esc(x.id) + '">' + (cb ? '<span class="pm-cb' + (PM.on.has(x.id) ? " on" : "") + '" data-pms="' + esc(x.id) + '">' + (PM.on.has(x.id) ? "✓" : "") + '</span>' : '<span></span>')
+    + '<span class="t">' + esc(pmCorto(x.titulo || x.t)) + (x.full ? ' <b class="pm-full">FULL</b>' : '') + '</span><span class="d"><span class="pm-pill ' + (cls || "") + '">' + (cls === "x" ? "no entra" : ds ? "−" + ds + " %" : "0 %") + '</span><span class="pm-mini"><i style="width:' + w + '%;background:' + (mg >= PM.piso ? "var(--good)" : "var(--red)") + '"></i></span></span>'
+    + '<span class="p"><b>' + pmF(x.precio * (1 - (ds || 0) / 100)) + '</b> · neto ' + pmP(mg) + '</span></button>'; }
+function pmAndando(){ const p = PM.promo, I = pmItems(), por = {}; I.forEach(x => { por[x.id] = x; });
+  const A = (p.items || []).filter(i => !i.sacada), L = A.map(i => i.mg), prom = A.length ? A.reduce((s, i) => s + (i.desc || 0), 0) / A.length : 0;
+  const hoy = pmIso(new Date()), d0 = new Date(p.desde + "T00:00"), d1 = new Date(p.hasta + "T23:59"), av = Math.max(0, Math.min(100, (Date.now() - d0) / (d1 - d0) * 100)), quedan = Math.max(0, Math.ceil((d1 - Date.now()) / 864e5));
   const tx = { programada: "Programada", activa: "Activa ahora", terminando: "Terminando (volviendo a los precios de siempre)" }[p.estado] || p.estado;
-  return '<div class="card" style="border:2px solid var(--accent)"><b>' + esc(tx) + ': ' + esc(p.nombre) + ' · del ' + pmDm(p.desde) + ' al ' + pmDm(p.hasta) + '</b><span class="hint">' + p.ok + ' de ' + p.n + ' publicaciones puestas · piso ' + p.piso + ' % neto' + (p.quien ? ' · la cargó ' + esc(p.quien) : '') + '</span>'
-    + (p.mal && p.mal.length ? '<div class="wrb">No se pudieron poner (' + p.mal.length + '):<br>' + p.mal.map(x => esc(String(x).replace(/:.*?(Offer Locked|OFFER_SIBLING_CREATION_IN_PROCESS).*$/, ": ML la estaba procesando"))).join("<br>") + '</div><button class="btn y" id="pmReint" onclick="pmReintentar()">Reintentar las ' + p.mal.length + ' que faltan</button>' : '')
-    + (p.estado !== "terminando" ? '<button class="btn" onclick="pmTerminar()">' + (PM.fin ? "¿Seguro? Tocá de nuevo para terminarla ya" : "Terminar la promoción ahora") + '</button>' : '') + '<span class="hint">Si la cambiás abajo y tocás «Programar», reemplaza a esta.</span></div>'; }
+  let h = '<div class="pm-card"><div class="pm-st' + (p.estado === "activa" ? "" : " prog") + '"><span class="dot"></span>' + esc(tx) + '</div><div class="pm-nm">' + esc(p.nombre) + '</div>'
+    + '<div class="pm-tl"><i style="width:' + (p.estado === "activa" ? av : 0) + '%"></i></div><div class="pm-tlx"><span>' + pmDm(p.desde) + '</span><span>' + (p.desde > hoy ? "arranca el " + pmDm(p.desde) : quedan ? "quedan " + quedan + " día" + (quedan === 1 ? "" : "s") : "termina hoy") + '</span><span>' + pmDm(p.hasta) + '</span></div>'
+    + '<div class="pm-kp"><div><b>' + p.ok + '/' + p.n + '</b><span>puestas</span></div><div><b>−' + Math.round(prom) + ' %</b><span>promedio</span></div><div><b>' + (L.length ? pmP(Math.min(...L)) : "—") + '</b><span>neto mínimo</span></div></div>' + pmHist(L) + '</div>';
+  if (p.mal && p.mal.length) h += '<div class="pm-card pm-mal"><b>No se pudieron poner (' + p.mal.length + ')</b><span class="note">' + p.mal.map(x => esc(String(x).replace(/:.*?(Offer Locked|OFFER_SIBLING_CREATION_IN_PROCESS).*$/, ": ML la estaba procesando"))).join("<br>") + '</span><button class="btn y" id="pmReint" onclick="pmReintentar()">Reintentar las ' + p.mal.length + ' que faltan</button></div>';
+  h += '<div class="pm-card pm-lst">' + A.slice().sort((a, b) => a.mg - b.mg).map(i => { const x = por[i.id] || { id: i.id, t: i.t, precio: i.precio }; return pmRow(Object.assign({}, x, { precio: i.precio }), i.desc, i.mg, ""); }).join("") + '</div>';
+  h += '<button class="btn" data-pmnueva="1">＋ Armar otra promo</button>' + pmCompFilaMenu() + (p.estado !== "terminando" ? '<button class="pm-q" onclick="pmTerminar()">' + (PM.fin ? "¿Seguro? Tocá de nuevo para terminarla ya" : "Terminar la promo") + '</button>' : '');
+  return h; }
+function pmCompFilaMenu(){ if (PM.canal !== "Mercado Libre") return ""; const C = PM.comp || [];
+  return '<button class="pm-card pm-mlrow" data-pmverc="1"><span class="ic">ML</span><span style="flex:1;text-align:left"><b>Promos de ML para sumarte</b><span class="note" style="display:block">' + (PM.comp === null ? "Buscando…" : C.length ? C.length + " compartida" + (C.length === 1 ? "" : "s") + " y relámpago" : "Ahora no hay") + '</span></span><b style="color:var(--accent);font-size:20px">' + (PM.verComp ? "▾" : "›") + '</b></button>'; }
+function pmNueva(){ const I = pmItems(), R = I.map(pmFila), ml = PM.canal === "Mercado Libre", cs = PM.camps || [], cc = cs.filter(c => c.id === PM.camp)[0];
+  const con = R.filter(o => !o.menos && !o.no), men = R.filter(o => o.menos), no = R.filter(o => o.no), sel = R.filter(o => o.on), prom = sel.length ? sel.reduce((s, o) => s + o.ds, 0) / sel.length : 0;
+  let h = (ml && cs.length ? '<div class="chips pm-chips"><button class="chip' + (!PM.camp ? ' on' : '') + '" data-pmcamp="">Descuento propio</button>' + cs.map(c => '<button class="chip' + (PM.camp === c.id ? ' on' : '') + '" data-pmcamp="' + esc(c.id) + '">' + esc(c.nombre) + '</button>').join("") + '</div>' : '')
+    + '<div class="chips pm-chips"><button class="chip" data-pmfe="1">📅 ' + pmDm(PM.desde) + ' → ' + pmDm(PM.hasta) + (cc ? ' · fechas de ML' : ' ✎') + '</button><button class="chip" data-pmpi="1">Piso neto ' + PM.piso + ' % ✎</button></div>';
+  if (PM.edFechas) h += '<div class="pm-card"><div class="fl"><span class="lbl">Nombre</span><input class="txt" id="pmNom" value="' + esc(PM.nombre) + '" maxlength="40"></div>' + (cc ? '<span class="note">Las fechas las pone ML (campaña «' + esc(cc.nombre) + '»).</span>' : '<div class="row2"><div class="fl"><span class="lbl">Desde</span><input class="txt" type="date" id="pmD1" value="' + PM.desde + '"></div><div class="fl"><span class="lbl">Hasta (incluido)</span><input class="txt" type="date" id="pmD2" value="' + PM.hasta + '"></div></div>') + '</div>';
+  if (PM.edPiso) h += '<div class="pm-card"><span class="lbl">Piso neto · <b>' + PM.piso + ' %</b> <span class="note">(lo mínimo que te tiene que quedar)</span></span><input type="range" id="pmPiso" min="5" max="40" step="1" value="' + PM.piso + '" class="pm-range"></div>';
+  h += '<div class="pm-card" style="gap:12px"><div class="pm-cap">Descuento a todas</div><div class="pm-big"><button class="pm-rb" data-pmg="-1">−</button><span class="n">' + PM.gen + '<small>%</small></span><button class="pm-rb" data-pmg="1">+</button></div><input type="range" id="pmGen" min="' + (ml && !PM.camp ? 5 : 1) + '" max="60" step="1" value="' + PM.gen + '" class="pm-range">'
+    + '<div class="pm-kp"><div><b style="color:var(--good)">' + con.length + '</b><span>entran con ' + PM.gen + ' %</span></div><div><b style="color:var(--warn)">' + men.length + '</b><span>con menos (su máximo)</span></div><div><b style="color:var(--red)">' + no.length + '</b><span>no entran</span></div></div>'
+    + '<div class="pm-q">' + (sel.length ? 'Descuento promedio real: <b style="color:var(--ink)">' + pmP(prom) + '</b>' : 'Todavía no tildaste ninguna') + '</div></div>'
+    + '<div class="pm-sel"><b>' + sel.length + ' de ' + I.length + ' tildadas</b><span class="chips"><button class="chip" data-pmtodas="0">Ninguna</button><button class="chip" data-pmtodas="1">Todas</button></span></div>'
+    + '<button class="chip on pm-fit" data-pmfit="1">✓ Solo las que entran con ' + PM.gen + ' %</button>';
+  const grp = (tit, L, cls, tips) => L.length ? '<div class="pm-card pm-lst"><div class="pm-grp"><span>' + tit + '</span><span>' + L.length + '</span></div>' + L.map(o => pmRow(o.x, o.ds, o.mg, cls, 1) + (tips ? pmTip(o.x, o.mx) : "")).join("") + '</div>' : '';
+  h += grp("Con menos · su máximo", men.sort((a, b) => a.ds - b.ds), "o", 1) + grp("No entran", no, "x", 1) + grp("Entran con " + PM.gen + " %" + (Object.keys(PM.per).length ? " (o el que elegiste)" : ""), con, "", 0);
+  return h; }
+function pmTip(x, mx){ const sj = pmSalto(x, mx); return sj ? '<div class="pm-tip">💡 Con ' + sj + ' % baja de ' + pmF(x.lim) + ': ' + (PM.canal === "Mercado Libre" ? "ML cobra cargo fijo en vez del envío" : "ya no tiene envío gratis") + ' y te queda ' + pmP(pmMg(x, x.precio * (1 - sj / 100))) + '</div>' : ''; }
+function pmHoja(){ const h = PM.hoja; if (!h) return ""; const x = pmItems().filter(y => String(y.id) === h.id)[0]; if (!x) return "";
+  const d = h.d, precio = x.precio * (1 - d / 100), r = pmDesg(x, precio), ok = r.pct >= PM.piso, col = ok ? "var(--good)" : "var(--red)", mx = pmMax(x), q = Math.max(r.queda, 0), tot = precio;
+  return '<div class="pm-dim" data-pmcerrar="1"></div><div class="pm-sheet"><div class="grab"></div><div style="text-align:center"><b style="font-size:17px">' + esc(pmCorto(x.titulo)) + '</b>' + (x.full ? ' <b class="pm-full">FULL</b>' : '') + '<div class="note">' + esc(PM.canal) + ' · ' + esc(x.id) + '</div></div>'
+    + '<div class="pm-two"><div><span class="note">El cliente paga</span>' + (d ? '<s class="note">' + pmF(x.precio) + '</s> ' : '') + '<b class="pm-bigp">' + pmF(precio) + '</b></div><div style="text-align:right"><span class="note">Te queda</span><b class="pm-bigp" style="color:' + col + '">' + pmF(r.queda) + '</b><b style="color:' + col + ';font-size:13px;display:block">' + pmP(r.pct) + ' neto</b></div></div>'
+    + '<div class="pm-bar">' + r.L.map(a => '<i style="width:' + a[1] / tot * 100 + '%;background:' + a[2] + '"></i>').join("") + '<i style="width:' + q / tot * 100 + '%;background:var(--good)"></i></div>'
+    + '<div class="pm-bk">' + r.L.map(a => '<div><i style="background:' + a[2] + '"></i><span>' + a[0] + '</span><b>' + pmF(a[1]) + '</b></div>').join("") + (x.full ? '<div><i style="background:#b48cff"></i><span>Full <em>falta</em></span><b>—</b></div>' : '') + '</div>'
+    + '<div class="pm-big" style="gap:14px"><button class="pm-rb" data-pmh="-1">−</button><span class="n" style="font-size:40px">' + d + '<small>%</small></span><button class="pm-rb" data-pmh="1">+</button></div>'
+    + (mx < 0 ? '<div class="pm-stt no">No llega al piso ni sin descuento: te queda ' + pmP(pmMg(x, x.precio)) + '.</div>' : '<div class="pm-stt' + (ok ? '' : ' no') + '">Podés bajar hasta <b>' + mx + ' %</b> y te sigue quedando el ' + PM.piso + ' %.</div>') + pmTip(x, mx)
+    + (PM.vista === "nueva" ? '<button class="btn y" data-pmusar="1">Usar ' + d + ' % en esta</button><button class="pm-q" data-pmcerrar="1">Cancelar</button>' : '<button class="btn y" data-pmcerrar="1">Listo</button><span class="note" style="text-align:center">Para cambiarla, armá otra promo.</span>') + '</div>'; }
 function pmPint(){
-  const L = pmItems().map(pmFila), act = L.filter(o => o.on), prom = act.length ? Math.round(act.reduce((s, o) => s + o.real, 0) / act.length) : 0, ml = PM.canal === "Mercado Libre";
-  $("pmEst").innerHTML = pmEstado();
-  const cs = PM.camps || [], cc = cs.filter(c => c.id === PM.camp)[0];
-  $("pmForm").innerHTML = (ml && cs.length ? '<div class="chips"><button class="chip' + (!PM.camp ? ' on' : '') + '" onclick="pmCamp(\'\')">Descuento propio</button>' + cs.map(c => '<button class="chip' + (PM.camp === c.id ? ' on' : '') + '" onclick="pmCamp(\'' + esc(c.id) + '\')">' + esc(c.nombre) + '</button>').join("") + '</div>' + (cc ? '<div class="hint">Campaña de ML · del ' + pmDm(cc.desde) + ' al ' + pmDm(cc.hasta) + ' (fechas de ML)</div>' : '') : '')
-    + '<div class="fl"><span class="lbl">Nombre</span><input class="txt" id="pmNom" value="' + esc(PM.nombre) + '" maxlength="40"></div>'
-    + (cc ? '' : '<div class="row2"><div class="fl"><span class="lbl">Desde</span><input class="txt" type="date" id="pmD1" value="' + PM.desde + '"></div><div class="fl"><span class="lbl">Hasta (incluido)</span><input class="txt" type="date" id="pmD2" value="' + PM.hasta + '"></div></div>')
-    + '<div class="fl"><span class="lbl">Piso neto · <b id="pmPisoV">' + PM.piso + ' %</b></span><input type="range" id="pmPiso" min="5" max="40" step="1" value="' + PM.piso + '" style="width:100%;height:40px"></div>'
-    + '<div class="fl"><span class="lbl">Descuento a todas · <b id="pmGenV">' + PM.gen + ' %</b></span><input type="range" id="pmGen" min="' + (ml ? 5 : 1) + '" max="60" step="1" value="' + PM.gen + '" style="width:100%;height:40px"></div>'
-    + '<div class="hint">Entran <b>' + act.length + ' de ' + L.length + '</b> · promedio <b>' + prom + ' %</b></div>'
-    + '<div class="chips"><button class="chip" onclick="pmTodas(true)">Todas</button><button class="chip" onclick="pmTodas(false)">Ninguna</button><button class="chip" onclick="pmAlMax()">Cada una al máximo</button></div>';
-  // 26/11 14:06 (Lucas): lo más minimalista posible: título, precios, % y lo neto; si no llega, solo «máx N %»
-  $("pmList").innerHTML = L.map(o => { const x = o.x, ch = (t, c) => '<span style="font-size:12.5px;font-weight:800;border-radius:999px;padding:2px 9px;background:var(--s2,#303031);color:' + c + '">' + t + '</span>';
-    return '<div class="card" style="gap:6px;padding:12px' + (o.mx ? "" : ";opacity:.45") + '"><label style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-pms="' + esc(x.id) + '"' + (o.on ? " checked" : "") + (o.mx ? "" : " disabled") + ' style="width:22px;height:22px;flex-shrink:0"><b style="min-width:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:15px">' + esc(x.titulo) + '</b></label>'
-      + (o.mx ? '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span style="min-width:0"><s style="color:var(--ink-soft);font-size:13px">' + fm(x.precio).replace(/,00$/, "") + '</s> <b>' + fm(o.deal).replace(/,00$/, "") + '</b> <b style="color:var(--accent)">−' + o.real + ' %</b></span>'
-        + '<span style="display:flex;gap:4px;align-items:center;flex-shrink:0"><button class="btn" style="width:40px;min-height:40px;padding:0" data-pmd="' + esc(x.id) + '|-1">−</button><input class="txt" type="number" inputmode="numeric" min="0" max="' + o.mx + '" value="' + o.ds + '" data-pmp="' + esc(x.id) + '" style="width:58px;height:40px;text-align:center;padding:0 4px"><button class="btn" style="width:40px;min-height:40px;padding:0" data-pmd="' + esc(x.id) + '|1">+</button></span></div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + ch(o.mg.toFixed(0) + " % neto", o.mg >= PM.piso ? "var(--good,#8fd19e)" : "var(--terra-ink,#ff8a83)") + (o.tope ? ch("máx " + o.mx + " %", "var(--warn,#ffb366)") : "") + '</div>'
-        : '<div>' + ch("sin margen para descuento", "var(--ink-soft)") + '</div>') + '</div>'; }).join("");
-  pmCompPint();
-  $("pmOk").textContent = "Programar «" + (PM.nombre || "Promoción") + "» en " + PM.canal + " · " + act.length + " publicaciones"; $("pmOk").className = "btn " + (act.length ? "y" : "off");
-}
+  const sc = window.scrollY, andando = PM.vista === "andando" && PM.promo && PM.promo.estado !== "terminada";
+  $("pmEst").innerHTML = pmSeg();
+  $("pmForm").innerHTML = andando ? pmAndando() : (PM.promo && PM.promo.estado !== "terminada" ? '<button class="pm-q" data-pmandando="1" style="text-align:left">‹ Volver a «' + esc(PM.promo.nombre) + '» (si programás esta, la reemplaza)</button>' : '') + pmNueva();
+  $("pmList").innerHTML = ""; $("pmHojaBox").innerHTML = pmHoja();
+  const comp = $("pmComp"); comp.hidden = !(PM.canal === "Mercado Libre" && PM.verComp); if (!comp.hidden) pmCompPint(); else comp.innerHTML = "";
+  if (!andando) $("pmForm").insertAdjacentHTML("beforeend", pmCompFilaMenu());
+  const n = pmItems().map(pmFila).filter(o => o.on).length, b = $("pmOk"); b.parentNode.hidden = andando;
+  b.textContent = n ? "Programar «" + (PM.nombre || "Promoción") + "» · " + n + " publicaciones" : "Tildá las que van"; b.className = "btn " + (n ? "y" : "off");
+  window.scrollTo(0, sc); }
 document.addEventListener("input", function(e){ const id = e.target.id;
   if (id === "pmPiso"){ PM.piso = +e.target.value; pmPint(); $("pmPiso").focus(); }
   else if (id === "pmGen"){ PM.gen = +e.target.value; PM.per = {}; pmPint(); $("pmGen").focus(); }
-  else if (id === "pmNom"){ PM.nombre = e.target.value; $("pmOk").textContent = "Programar «" + (PM.nombre || "Promoción") + "» en " + PM.canal; }
+  else if (id === "pmNom"){ PM.nombre = e.target.value; }
   else if (id === "pmD1") PM.desde = e.target.value; else if (id === "pmD2") PM.hasta = e.target.value; });
-document.addEventListener("change", function(e){ const d = e.target.dataset;
-  if (d.pmp !== undefined){ PM.per[d.pmp] = Math.max(0, Number(e.target.value) || 0); pmPint(); }
-  else if (d.pms !== undefined){ PM.sel[d.pms] = e.target.checked; pmPint(); } });
-document.addEventListener("click", function(e){ const b = e.target.closest("[data-pmd]"); if (!b) return; const q = b.dataset.pmd.split("|"), x = pmItems().filter(y => String(y.id) === q[0])[0]; if (!x) return;
-  const mx = pmMax(x), cur = Math.min(PM.per[x.id] === undefined ? PM.gen : PM.per[x.id], mx); PM.per[x.id] = Math.max(0, Math.min(mx, cur + Number(q[1]))); pmPint(); });
+document.addEventListener("click", function(e){ if ($("s-promo").hidden) return; const b = e.target.closest("[data-pms],[data-pmx],[data-pmg],[data-pmh],[data-pmusar],[data-pmcerrar],[data-pmtodas],[data-pmfit],[data-pmfe],[data-pmpi],[data-pmcamp],[data-pmcanal],[data-pmnueva],[data-pmandando],[data-pmverc]"); if (!b) return; const d = b.dataset;
+  if (d.pms !== undefined){ e.stopPropagation(); PM.on.has(d.pms) ? PM.on.delete(d.pms) : PM.on.add(d.pms); pmPint(); return; }
+  if (d.pmx !== undefined){ const x = pmItems().filter(y => String(y.id) === d.pmx)[0]; if (!x) return; let dd;
+    if (PM.vista === "andando" && PM.promo){ const i = (PM.promo.items || []).filter(y => y.id === x.id)[0]; dd = i ? i.desc : 0; } else { const o = pmFila(x); dd = o.ds; }
+    PM.hoja = { id: String(x.id), d: dd }; pmPint(); return; }
+  if (d.pmg !== undefined){ PM.gen = Math.max(1, Math.min(60, PM.gen + Number(d.pmg))); PM.per = {}; pmPint(); return; }
+  if (d.pmh !== undefined){ PM.hoja.d = Math.max(0, Math.min(60, PM.hoja.d + Number(d.pmh))); pmPint(); return; }
+  if (d.pmusar !== undefined){ PM.per[PM.hoja.id] = PM.hoja.d; if (PM.hoja.d > 0) PM.on.add(PM.hoja.id); else PM.on.delete(PM.hoja.id); PM.hoja = null; pmPint(); return; }
+  if (d.pmcerrar !== undefined){ PM.hoja = null; pmPint(); return; }
+  if (d.pmtodas !== undefined){ PM.on = new Set(d.pmtodas === "1" ? pmItems().filter(x => pmFila(x).ds > 0).map(x => x.id) : []); pmPint(); return; }
+  if (d.pmfit !== undefined){ PM.on = new Set(pmItems().map(pmFila).filter(o => !o.menos && !o.no && o.ds > 0).map(o => o.x.id)); pmPint(); return; }
+  if (d.pmfe !== undefined){ PM.edFechas = !PM.edFechas; pmPint(); return; }
+  if (d.pmpi !== undefined){ PM.edPiso = !PM.edPiso; pmPint(); return; }
+  if (d.pmcamp !== undefined){ pmCamp(d.pmcamp); return; }
+  if (d.pmcanal !== undefined){ pmCanal(d.pmcanal); return; }
+  if (d.pmnueva !== undefined){ PM.vista = "nueva"; PM.hoja = null; window.scrollTo(0, 0); pmPint(); return; }
+  if (d.pmandando !== undefined){ PM.vista = "andando"; PM.hoja = null; window.scrollTo(0, 0); pmPint(); return; }
+  if (d.pmverc !== undefined){ PM.verComp = !PM.verComp; pmPint(); if (PM.verComp) $("pmComp").scrollIntoView({ block: "start" }); return; } });
 function pmCamp(id){ PM.camp = id; const c = (PM.camps || []).filter(x => x.id === id)[0]; if (c){ PM.desde = c.desde; PM.hasta = c.hasta; PM.nombre = c.nombre; } else { const m = new Date(Date.now() + 864e5); PM.desde = pmIso(m); PM.hasta = pmIso(new Date(Date.now() + 4 * 864e5)); PM.nombre = "Black Friday"; } pmPint(); }
 // 26/11 15:21 (mockup «promos compartidas» aprobado): lo que pone ML y lo que ponemos; las que no llegan al piso, escondidas
 function pmCompFila(c, it){ const x = pmItems().filter(y => y.id === it.id)[0]; if (!x) return null;
@@ -2086,8 +2184,6 @@ document.addEventListener("click", function(e){ const v = e.target.closest("[dat
     it.st = salir ? "candidate" : "started"; pmCompPint(); t(salir ? "Listo: salió de la promo" : "✓ Sumada a " + c.nombre); }); });
 function pmReintentar(){ const b = $("pmReint"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "Reintentando…";
   run("promoReintentar", PM.canal).then(r => { if (!r || r.status !== "ok"){ b.disabled = false; b.textContent = "Reintentar"; t((r && r.msg) || "No se pudo", true); return; } PM.promo = r.promo; pmPint(); t(r.promo.mal.length ? "Quedan " + r.promo.mal.length + ": probá de nuevo en unos minutos" : "✓ Ya están todas"); }); }
-function pmTodas(v){ pmItems().forEach(x => { PM.sel[x.id] = v; }); pmPint(); }
-function pmAlMax(){ pmItems().forEach(x => { PM.per[x.id] = 99; }); pmPint(); }
 function pmGuardar(){ if ($("pmOk").dataset.busy) return;
   const act = pmItems().map(pmFila).filter(o => o.on); if (!act.length){ t("No hay ninguna publicación con descuento", true); return; }
   if (!PM.desde || !PM.hasta || PM.hasta < PM.desde){ t("Revisá las fechas", true); return; }
@@ -2096,7 +2192,7 @@ function pmGuardar(){ if ($("pmOk").dataset.busy) return;
   run("promoGuardar", PM.canal, { nombre: PM.nombre, desde: PM.desde, hasta: PM.hasta, piso: PM.piso, campana: cc ? { id: cc.id, nombre: cc.nombre } : null, items: act.map(o => ({ id: o.x.id, t: o.x.titulo, precio: o.x.precio, deal: o.deal, pp: o.x.pp || 0, mg: Math.round(o.mg * 10) / 10 })) }).then(r => {
     delete $("pmOk").dataset.busy;
     if (!r || r.status !== "ok"){ t((r && r.msg) || "No se pudo", true); pmPint(); return; }
-    PM.promo = r.promo; pmPint(); window.scrollTo(0, 0);
+    PM.promo = r.promo; PM.vista = "andando"; pmPint(); window.scrollTo(0, 0);
     t("✓ «" + r.promo.nombre + "» programada: " + r.promo.ok + " de " + r.promo.n + (PM.canal === "Tienda Nube" && r.promo.desde > pmIso(new Date()) ? " (se pone el " + pmDm(r.promo.desde) + " a las 00:00)" : " puestas")); }); }
 function pmTerminar(){ if (!PM.fin){ PM.fin = true; pmPint(); setTimeout(() => { PM.fin = false; if (!$("s-promo").hidden) pmPint(); }, 4000); return; }
   PM.fin = false; run("promoTerminar", PM.canal).then(r => { if (!r || r.status !== "ok"){ t((r && r.msg) || "No se pudo", true); return; } PM.promo = r.promo; pmPint(); t("Listo: la promoción terminó (cada publicación vuelve a su precio)"); }); }

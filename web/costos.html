@@ -2025,7 +2025,7 @@ function pmAbrir(){
 function pmEstado(){ const p = PM.promo; if (!p || p.estado === "terminada") return "";
   const tx = { programada: "Programada", activa: "Activa ahora", terminando: "Terminando (volviendo a los precios de siempre)" }[p.estado] || p.estado;
   return '<div class="card" style="border:2px solid var(--accent)"><b>' + esc(tx) + ': ' + esc(p.nombre) + ' · del ' + pmDm(p.desde) + ' al ' + pmDm(p.hasta) + '</b><span class="hint">' + p.ok + ' de ' + p.n + ' publicaciones puestas · piso ' + p.piso + ' % neto' + (p.quien ? ' · la cargó ' + esc(p.quien) : '') + '</span>'
-    + (p.mal && p.mal.length ? '<div class="wrb">No se pudieron poner:<br>' + p.mal.map(esc).join("<br>") + '</div>' : '')
+    + (p.mal && p.mal.length ? '<div class="wrb">No se pudieron poner (' + p.mal.length + '):<br>' + p.mal.map(x => esc(String(x).replace(/:.*?(Offer Locked|OFFER_SIBLING_CREATION_IN_PROCESS).*$/, ": ML la estaba procesando"))).join("<br>") + '</div><button class="btn y" id="pmReint" onclick="pmReintentar()">Reintentar las ' + p.mal.length + ' que faltan</button>' : '')
     + (p.estado !== "terminando" ? '<button class="btn" onclick="pmTerminar()">' + (PM.fin ? "¿Seguro? Tocá de nuevo para terminarla ya" : "Terminar la promoción ahora") + '</button>' : '') + '<span class="hint">Si la cambiás abajo y tocás «Programar», reemplaza a esta.</span></div>'; }
 function pmPint(){
   const L = pmItems().map(pmFila), act = L.filter(o => o.on), prom = act.length ? Math.round(act.reduce((s, o) => s + o.real, 0) / act.length) : 0, ml = PM.canal === "Mercado Libre";
@@ -2084,6 +2084,8 @@ document.addEventListener("click", function(e){ const v = e.target.closest("[dat
   run("promoMlSumar", { camp: c.id, tipo: c.tipo, item: it.id, offer: it.offer, precio: f.precio, stock: f.stock, nombre: c.nombre, salir: salir }).then(r => {
     if (!r || r.status !== "ok"){ b.disabled = false; b.textContent = salir ? "Salir" : "Sumarme"; t((r && r.msg) || "ML no dejó", true); return; }
     it.st = salir ? "candidate" : "started"; pmCompPint(); t(salir ? "Listo: salió de la promo" : "✓ Sumada a " + c.nombre); }); });
+function pmReintentar(){ const b = $("pmReint"); if (!b || b.disabled) return; b.disabled = true; b.textContent = "Reintentando…";
+  run("promoReintentar", PM.canal).then(r => { if (!r || r.status !== "ok"){ b.disabled = false; b.textContent = "Reintentar"; t((r && r.msg) || "No se pudo", true); return; } PM.promo = r.promo; pmPint(); t(r.promo.mal.length ? "Quedan " + r.promo.mal.length + ": probá de nuevo en unos minutos" : "✓ Ya están todas"); }); }
 function pmTodas(v){ pmItems().forEach(x => { PM.sel[x.id] = v; }); pmPint(); }
 function pmAlMax(){ pmItems().forEach(x => { PM.per[x.id] = 99; }); pmPint(); }
 function pmGuardar(){ if ($("pmOk").dataset.busy) return;

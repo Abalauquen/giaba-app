@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
@@ -2129,11 +2141,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   function mmCargar(forzar){
     const au = psAuth(); if (MM_PARA.indexOf(au.nombre) === -1 || !au.pin){ const b = el("mmBox"); if (b) b.hidden = true; return; }
     if (MM.pidiendo || (!forzar && MM.d && Date.now() - MM.t < 60000)) { mmPintarBox(); return; }
+    // 27/11 (Lucas 17:41: «no carga el minuto a minuto»): mientras llega, se ve el último que se trajo (con su hora); si no contesta, reintenta solo
+    if (!MM.d) { try { const g = JSON.parse(localStorage.getItem("mm_ult") || "null"); if (g && g.n === au.nombre && g.d && Date.now() - g.t < 12 * 3600e3) { MM.d = g.d; MM.t = 0; mmPintarBox(); } } catch (e) {} }
     if (typeof google === "undefined" || !google.script) return;
     MM.pidiendo = true;
-    google.script.run.withSuccessHandler(function(r){ MM.pidiendo = false; if (!r || r.status !== "ok" || psAuth().nombre !== au.nombre) return; MM.d = r; MM.t = Date.now(); mmPintarBox(); if (!el("screen-minuto").hidden) mmPintarMas(); })
-      .withFailureHandler(function(){ MM.pidiendo = false; }).getMinuto(au.nombre, au.pin);
+    google.script.run.withSuccessHandler(function(r){ MM.pidiendo = false; if (!r || r.status !== "ok" || psAuth().nombre !== au.nombre) { mmReintentar(); return; } MM.d = r; MM.t = Date.now(); MM.fallas = 0;
+        try { localStorage.setItem("mm_ult", JSON.stringify({ n: au.nombre, t: Date.now(), d: r })); } catch (e) {} mmPintarBox(); if (!el("screen-minuto").hidden) mmPintarMas(); })
+      .withFailureHandler(function(){ MM.pidiendo = false; mmReintentar(); }).getMinuto(au.nombre, au.pin);
   }
+  function mmReintentar(){ MM.fallas = (MM.fallas || 0) + 1; if (MM.fallas <= 3) setTimeout(function(){ mmCargar(true); }, 6000 * MM.fallas); }
   function mmAbrir(){ MM.vista = "mas"; MM.vt = null; el("mmTit").textContent = "Minuto a minuto 📡"; showScreen("minuto"); window.scrollTo(0, 0); mmPintarMas(); mmCargar(true); }
   document.addEventListener("click", function(ev){
     const t = ev.target;

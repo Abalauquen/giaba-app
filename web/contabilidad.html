@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
@@ -2375,7 +2387,7 @@ function impPint(){
     ${r.mono?`<div class="rr" style="border-top:1px solid var(--line);padding-top:10px"><span>+ Lucas · monotributo cat. ${esc(r.mono.cat)} · cuota del mes</span><b>${fm(r.mono.cuota)}</b></div>`:""}</div>
    <div class="card"><div class="card-t" style="color:var(--accent)">IVA <small>${r.iva.esActual?"al "+HOY_DM:"mes cerrado"}</small></div>
     ${bal(r.iva.debito,[["Compras A",r.iva.credito,"#8fd19e"],["Perc.",r.iva.perc,"#4f8a5c"]])}
-    <div class="rr"><span>Débito (ventas con factura)</span><b>${fm(r.iva.debito)}</b></div><div class="rr"><span>Crédito (compras y gastos con factura A)</span><b>− ${fm(r.iva.credito)}</b></div>${r.iva.perc?`<div class="rr"><span>Percepciones sufridas</span><b>− ${fm(r.iva.perc)}</b></div>`:""}
+    <div class="rr"><span>Débito (ventas con factura)</span><b>${fm(r.iva.debito)}</b></div><div class="rr"><span>Crédito (compras y gastos con factura A)</span><b>− ${fm(r.iva.credito)}</b></div>${r.iva.perc?`<div class="rr"><span>Percepciones sufridas</span><b>− ${fm(r.iva.perc)}</b></div>`:""}${r.iva.aFavorAnt?`<div class="rr"><span>A favor que viene de ${esc(mesCorto(String(r.iva.aFavorDe).slice(0,7)).toLowerCase())}<small>${/calculado/.test(r.iva.aFavorDe)?"calculado con GIABA (falta esa DDJJ)":"de la DDJJ presentada"}</small></span><b>− ${fm(r.iva.aFavorAnt)}</b></div>`:""}
     <div class="rr tt"><span>A pagar</span><b class="neg">${fm(ivaP)}</b></div>${r.iva.saldo<0?`<span class="hint pos">Queda ${fm(-r.iva.saldo)} a favor para el mes que viene.</span>`:""}
     ${r.iva.esActual&&r.iva.proy?`<span class="cmp" style="color:var(--accent)">A este ritmo, a fin de mes: ${fm(r.iva.proy)}</span>`:""}
     <button class="btn ol sm" style="width:100%" onclick="MES='${IMP_MES}';CRO='';PERC_IN=null;ir('iva')">Ver el IVA del mes ›</button></div></div>`;
@@ -2383,7 +2395,7 @@ function impPint(){
    <span class="note">Barra = parte de las ventas (neto) de cada jurisdicción. La alícuota la cargás una vez (te la pasa el estudio).</span><div class="hbl">${r.iibb.length?r.iibb.map(x=>{const op=JOPEN===x.juris||x.alic===null,j=jsq(x.juris);
     return `${hbar({lbl:esc(x.juris),sub:fp(x.coef),val:x.base,max:mxJ,col:x.alic===null?"var(--warn)":"var(--blue)",on:JOPEN===x.juris,txt:x.aPagar===null?'<span class="s-w">poné la alícuota</span>':fm(x.aPagar),onclick:`JOPEN=JOPEN==='${j}'?'':'${j}';impPint()`})}
      ${op?`<div class="jr"><div class="row"><span class="hint">Ventas (neto)</span><b>${fm(x.base)}</b></div><div class="al"><span>Alícuota</span><input inputmode="decimal" placeholder="%" aria-label="Alícuota ${esc(x.juris)}" data-al="${esc(x.juris)}" value="${x.alic===null?"":String(x.alic).replace(".",",")}" onchange="alic(this.dataset.al,this.value)"><span>%</span></div>
-       ${x.impuesto!==null?`<div class="row"><span class="hint">Impuesto</span><b>${fm(x.impuesto)}</b></div>`:""}${x.perc?`<div class="row"><span class="hint">Percepciones sufridas</span><b>− ${fm(x.perc)}</b></div>`:""}<div class="row"><span class="lbl">A pagar</span><b class="neg">${x.aPagar===null?"—":fm(x.aPagar)}</b></div></div>`:""}`;}).join(""):'<div class="empty">Todavía no hay facturas de Adriana este mes.</div>'}</div>
+       ${x.impuesto!==null?`<div class="row"><span class="hint">Impuesto</span><b>${fm(x.impuesto)}</b></div>`:""}${x.perc?`<div class="row"><span class="hint">Percepciones sufridas</span><b>− ${fm(x.perc)}</b></div>`:""}${x.aFavorAnt?`<div class="row"><span class="hint">A favor de la DDJJ anterior</span><b>− ${fm(x.aFavorAnt)}</b></div>`:""}<div class="row"><span class="lbl">A pagar</span><b class="neg">${x.aPagar===null?"—":fm(x.aPagar)}</b></div></div>`:""}`;}).join(""):'<div class="empty">Todavía no hay facturas de Adriana este mes.</div>'}</div>
    <div class="rr tt"><span>Total IIBB</span><b class="neg">${fm(r.iibbTotal)}</b></div></div>
    <div class="hint" style="margin-top:12px">Es una estimación con lo facturado en GIABA para ir viendo el mes; lo que se presenta lo define el estudio. La jurisdicción de cada venta es la que ya queda anotada en cada factura (regla de las contadoras).</div>`;
   $("impBody").innerHTML=h;

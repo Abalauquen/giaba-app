@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
@@ -1131,6 +1143,8 @@ input[type=date].txt{color-scheme:dark;display:block;-webkit-appearance:none;app
 .pub .hd b{font-size:16px;line-height:1.3}
 .pbmg{display:flex;align-items:center;gap:6px}.pbmg b{min-width:64px;text-align:center;font-size:18px}.pbmg b.pro{color:var(--blue,#8cc8ff)}
 .pbb{width:48px;height:48px;border-radius:12px;border:2px solid var(--line);background:none;color:inherit;font-weight:800;font-size:22px}
+.pb-f{background:var(--s2);border-radius:12px;padding:9px 6px;text-align:center;border:2px solid transparent;color:var(--ink);font:inherit}.pb-f.on{border-color:var(--accent)}.pb-f b{display:block;font-size:19px}.pb-f span{font-size:11.5px;color:var(--ink-soft)}
+.pb-pin{display:flex;align-items:center;gap:8px;background:var(--bg);border:2px solid var(--accent);border-radius:14px;padding:8px 12px;font-size:26px;font-weight:850}.pb-pin input{background:none;border:0;color:var(--ink);font:inherit;width:100%;outline:none;min-width:0}
 .pbg{font-size:12.5px;font-weight:800;border-radius:9px;padding:4px 8px;border:2px solid var(--line);color:var(--soft,#bdb6ae)}.pbg.pro{border-color:var(--blue,#8cc8ff);color:var(--blue,#8cc8ff)}
 .lpz{background:var(--surface);border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .lpz.off{opacity:.55}
@@ -1376,10 +1390,11 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 <div class="screen" id="s-pub" hidden>
   <div class="top"><button class="back" onclick="ir('home')">Costos</button><span class="step">Publicaciones</span><span class="who" data-yo></span></div>
   <h1>Publicaciones</h1>
-  <div class="chips" id="pbCanal"></div>
-  <div class="hint" id="pbInfo"></div>
+  <div id="pbCanal"></div>
+  <div id="pbInfo"></div>
   <div id="pbMal"></div>
-  <div class="cols" id="pbList"></div>
+  <div id="pbList"></div>
+  <div id="pbHoja"></div>
   <div class="sticky"><button class="btn off" id="pbOk" onclick="pbGuardar()">Sin cambios</button></div>
 </div>
 
@@ -1477,7 +1492,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
 
 <!-- INSUMOS -->
 <div class="screen" id="s-insumos" hidden>
-  <div class="top"><button class="back" id="inBack" onclick="inVolver()">Costos</button><span class="step">Insumos</span><span class="who" data-yo></span></div>
+  <div class="top"><button class="back" id="inBack" onclick="inVolver()">Costos</button><span class="step">Materia prima</span><span class="who" data-yo></span></div>
   <h1>Precios de insumos</h1>
   <div class="sub">Es el precio de <b>referencia</b> que deciden ustedes (sin IVA). Una compra nueva no lo cambia sola: acá avisa si la última compra fue distinta.</div>
   <div class="cols">
@@ -1630,7 +1645,7 @@ function cargar(){
   });
 }
 const COS_GRUPOS = [[["rev", "Revisión"], ["pub", "Publicaciones ML y TN"], ["marg", "Márgenes"]], [["cuanto", "Costo"], ["calc", "Calculadora"]],
-  [["insumos", "Insumos"], ["bolsas", "Bolsas y cajas"], ["canal", "Canales"]], [["cubrimos", "Este mes"], ["fijos", "Gastos fijos"]]];
+  [["insumos", "Materia prima"], ["bolsas", "Bolsas y cajas"], ["canal", "Canales"]], [["cubrimos", "Este mes"], ["fijos", "Gastos fijos"]]];
 function cosPestanas(n){
   document.querySelectorAll(".cos-tabs").forEach(t => t.remove());
   const g = COS_GRUPOS.find(x => x.some(y => y[0] === n)); if (!g) return;
@@ -1667,7 +1682,7 @@ function home(){
   const tl = (go, i, b, s, bad, y) => `<button class="tl" data-go="${go}" onclick="ir('${go}')"><span class="i">${i}</span><span class="x"><b>${b}</b><small>${s}</small></span>${bad ? `<span class="badge${y ? " y" : ""}">${bad}</span>` : ""}</button>`;
   // 24/11 (Lucas aprobó mockup-costos-simple): de 12 botones a 6; lo que hace lo mismo queda junto, con pestañas adentro (COS_GRUPOS)
   $("hmA").innerHTML = tl("rev","💲","Precios","Ferias, listas, Mercado Libre y Tienda Nube · márgenes",cam,1) + tl("cuanto","🧮","¿Cuánto sale?","Costo de cada producto y la calculadora",fal) + tl("lpre","📄","Lista de precios para mandar","Comercios y distribuidores · PDF y WhatsApp");
-  $("hmB").innerHTML = tl("insumos","🍓","Lo que usa el cálculo","Insumos, bolsas y cajas, costos de cada canal",(ir_ + bo) || 0);
+  $("hmB").innerHTML = tl("insumos","🍓","Costos de materia prima","Fruta, azúcar, frascos, tapas, etiquetas · bolsas y cajas · canales",(ir_ + bo) || 0);
   $("hmC").innerHTML = tl("cubrimos","⚖️","¿Cubrimos los fijos?","Lo que dejó cada canal vs. los gastos fijos",fj) + tl("productos","📦","Productos","Los que más dejan, más y menos vendidos");
   const L = [[fal,"producto" + (fal === 1 ? "" : "s") + " con stock al que le falta un precio (el costo da menos)","cuanto"],[ir_,"insumo" + (ir_ === 1 ? "" : "s") + " con precio viejo o distinto a la última compra","insumos"],[bo,"bolsa" + (bo === 1 ? "" : "s") + " sin precio","bolsas"],[fj,"gasto" + (fj === 1 ? "" : "s") + " fijo" + (fj === 1 ? "" : "s") + " sin cargar este mes","fijos"],[cam,"cambio" + (cam === 1 ? "" : "s") + " de margen sin aplicar","lista"]].filter(x => x[0]);
   $("hmRev").innerHTML = `<div class="card-t"><span>Para revisar</span><small>los mismos avisos de los botones</small></div>` + (L.length ? L.map(x => `<button class="hm" onclick="ir('${x[2]}')"><span class="t"><b>${x[0]} ${x[1]}</b></span><span class="lnk">Ver ›</span></button>`).join("") : (fjListo ? '<div class="empty">Nada para revisar 👌</div>' : "")) + (fjListo ? "" : '<div class="hint">Buscando gastos fijos sin cargar…</div>');
@@ -1972,15 +1987,13 @@ function clOut(){ const p = pkProd(), c = canalDe(CL.canal); if (!p || !c) retur
 function clUsar(precio, btn){ const p = pkProd(), c = canalDe(CL.canal); CL.monto = Math.ceil(precio / 100) * 100; CL.modo = "cobro"; lsSet("cos_calc", CL); guardarPrecio(p.sku, c.precio, c.zona, CL.monto, btn).then(clPint); }
 
 /* ================= PUBLICACIONES ================= */
-const PB = { canal: "Mercado Libre", filtro: "Todas", cambios: {}, data: null };
+const PB = { canal: "Mercado Libre", filtro: "Todas", cambios: {}, data: null, hoja: null, mas: null, buscar: "" };
 function pbCargar(){ PB.cambios = {}; PB.data = null; pbChips(); $("pbMal").innerHTML = ""; $("pbInfo").innerHTML = "";
   $("pbList").innerHTML = `<div class="load"><div class="spin"></div><span>Trayendo las publicaciones de ${esc(PB.canal)}… (puede tardar un minuto)</span></div>`; pbBtn();
   const canal = PB.canal;
   run("getPublicacionesCos", canal).then(r => { if (canal !== PB.canal) return;
     if (!r || r.status !== "ok"){ $("pbList").innerHTML = '<div class="wrb">' + esc((r && r.msg) || "Sin señal") + '</div>'; return; }
     PB.data = r; pbPint(); if (PM.abrirAl){ PM.abrirAl = false; pmAbrir(); } }); }
-function pbChips(){ $("pbCanal").innerHTML = ["Mercado Libre","Tienda Nube","⚠ Dejan poco"].map(c => `<button class="chip${c === PB.canal || (c === "⚠ Dejan poco" && PB.filtro === "poco") ? " on" : ""}" onclick="pbChip('${c}')">${c}</button>`).join("") + `<button class="chip" id="pbPromo" onclick="pmAbrir()">🏷️ Promoción</button>`; }
-function pbChip(c){ if (c === "⚠ Dejan poco"){ PB.filtro = PB.filtro === "poco" ? "Todas" : "poco"; pbChips(); pbPint(); return; } if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios antes", true); return; } if (c === PB.canal && PB.data) return; PB.canal = c; pbCargar(); }
 // 10/11 (Lucas): el margen objetivo se elige acá (20 … 45 %) y el «Nos queda» se recalcula al tipear el precio
 function pbObj(){ const r = PB.data; let v = Number(lsGet("pb_obj", 0)); return v || (r && r.objetivo) || 35; }
 // 19/11 (Lucas): el envío gratis. Abajo del límite (x.lim): costo fijo por tramo (x.fijoBajo) y sin envío; desde el límite: envío gratis
@@ -2003,23 +2016,87 @@ function pbMg(i, d){ const x = PB.data.items[i], gen = pbObj(); let v = Math.max
   const m = PB.data.margenes = PB.data.margenes || {}; if (v === gen) delete m[x.sku]; else m[x.sku] = v;
   const k = pbCalc(x, PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio, v); x.sugerido = pbCalc(x, x.precio, v).sug; void k; pbPint();
   run("setMargenProducto", x.sku, v === gen ? null : v).then(r => { if (!r || r.status !== "ok") t((r && r.msg) || "No se pudo guardar el margen", true); }); }
-function pbPint(){ const r = PB.data; if (!r) return; const OBJ = pbObj();
-  r.items.forEach(x => { if (x.costo && !x.sinCosto && x.precio){ const k = pbCalc(x, x.precio, pbObjX(x)); x.sugerido = k.sug; } });
-  $("pbInfo").innerHTML = `Costo en CABA de lo que contiene cada publicación · ${r.canal === "Mercado Libre" ? "comisión real de ML para esa publicación (con costo fijo)" : "comisión de Tienda Nube según Costos de cada canal"} · IIBB ${pc(r.iibb)}${r.iva ? " · IVA " + pc(r.iva) : ""} · caja de envío. <b>Sugerido</b> = para que nos quede el margen que elijas:<div class="chips" style="margin-top:6px">${[20,25,30,35,40,45].map(v => `<button class="chip${v === OBJ ? " on" : ""}" onclick="pbSetObj(${v})">${v} %</button>`).join("")}</div>`;
-  let L = r.items; if (PB.filtro === "poco") L = L.filter(x => !x.sinCosto && x.quedaPct !== null && pbCalc(x, x.precio, pbObjX(x)).pct < pbObjX(x));
-  $("pbList").innerHTML = L.length ? L.map(x => { const i = r.items.indexOf(x), pr = PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio;
-    return `<div class="card pub"><div class="hd"><div><b>${esc(x.titulo)}</b><div class="note">${esc(x.sku || "sin SKU")}${x.full ? " · Full" : ""}${x.variantes ? " · " + x.variantes + " variantes (mismo precio)" : ""}</div>${x.promo ? '<span class="al w">tiene promoción: ML/TN puede no dejar cambiarlo</span>' : ""}</div><input class="txt num ed${PB.cambios[x.id] != null ? " man" : ""}" data-plata="1" inputmode="decimal" value="${fmIn(pr)}" oninput="pbCambio(${i},num(this.value),this)" onblur="if(!num(this.value)){this.value=fmIn(PB.data.items[${i}].precio);pbCambio(${i},0,this)}"></div>`
-      + (x.sinCosto ? `<span class="al">Sin costo: ${x.sku ? "revisá la receta / el SKU " + esc(x.sku) : "la publicación no tiene SKU"}</span>`
-        : `<span class="hint">${esc(x.contiene)} · costo fábrica (20 % neto) ${fm(x.costo)} · comisión ${pc(x.comPct)}${x.comFijo ? " + " + fm(x.comFijo) + (x.envio ? " fijo (con " + fm(x.envio) + " de envío gratis)" : " fijo") : ""}${x.caja ? " · caja " + fm(x.caja) : ""}</span><div class="rr"><span>Nos queda (a <span data-pbp="${i}">${fm(pr)}</span>)</span>${(() => { const k = pbCalc(x, pr, pbObjX(x)); return `<b data-pbq="${i}" class="${k.pct < pbObjX(x) ? "neg" : "pos"}">${fm(k.queda)} (${Math.round(k.pct)} %)</b>`; })()}</div>${(() => { const mo = pbObjX(x), pro = mo !== OBJ; return `<div class="rr" style="align-items:center"><span>Margen <span class="pbg${pro ? " pro" : ""}">${pro ? "propio" : "general"}</span></span><span class="pbmg"><button class="pbb" onclick="pbMg(${i},-1)" aria-label="Bajar margen">−</button><b class="${pro ? "pro" : ""}">${mo} %</b><button class="pbb" onclick="pbMg(${i},1)" aria-label="Subir margen">+</button></span></div>`; })()}<div class="rr" style="align-items:center"><span>Sugerido para ${pbObjX(x)} %${x.lim ? (pbCalc(x, x.precio, pbObjX(x)).envSug ? ' <span class="pbg pro">con envío gratis</span>' : ' <span class="pbg">sin envío gratis</span>') : ""}</span><button class="lnk" onclick="pbUsar(${i})">${fm(x.sugerido)} · usar</button></div>${(() => { const L = pbLim(x), es = x.lim && pbCalc(x, x.precio, pbObjX(x)).envSug;
-        if (!L || !es || L.pct < L.minimo) return ""; return `<div class="rr" style="align-items:center"><span>Hasta ${Math.floor(L.pct)} % sin envío gratis</span><button class="lnk" onclick="pbPoner(${i},${L.precio})">${fm(L.precio)} · usar</button></div>`; })()}`)
-      + (x.link ? `<a class="lnk g" style="align-self:flex-start" href="${esc(x.link)}" target="_blank" rel="noopener">Ver publicación ›</a>` : "") + `</div>`; }).join("")
-    : `<div class="empty">${PB.filtro === "poco" ? "Ninguna deja menos del " + OBJ + " % 👌" : "No hay publicaciones."}</div>`;
-  pbBtn(); }
-function pbCambio(i, v, inp){ const x = PB.data.items[i]; if (v && v !== x.precio){ PB.cambios[x.id] = v; inp.classList.add("man"); } else { delete PB.cambios[x.id]; inp.classList.remove("man"); } pbBtn();
-  // 10/11: recalcula ahí mismo cuánto queda con el precio que tipeaste
-  const pv = v || x.precio;   // borrado o igual al de antes → vuelve al precio que estaba
-  if (x.costo && !x.sinCosto && pv){ v = pv; const OBJ = pbObjX(x), k = pbCalc(x, v, OBJ), q = document.querySelector('[data-pbq="' + i + '"]'), pp = document.querySelector('[data-pbp="' + i + '"]');
-    if (q){ q.textContent = fm(k.queda) + " (" + Math.round(k.pct) + " %)"; q.className = k.pct < pbObjX(x) ? "neg" : "pos"; } if (pp) pp.textContent = fm(v); } }
+// 27/11 (mockup interactivo «Publicaciones · más simple», Lucas 08:59: «me gusta la estética… pero no puedo trabajar a nivel masivo»):
+// arriba bien / justo / poco (también filtran) y «⚡ Llevar todas a X %»; una línea por publicación; el precio y el desglose en una hoja.
+function pbChips(){ $("pbCanal").innerHTML = '<div class="pm-seg">' + ["Mercado Libre","Tienda Nube"].map(c => `<button class="${c === PB.canal ? "on" : ""}" onclick="pbChip('${c}')">${c}</button>`).join("") + '</div>'
+  + `<div class="chips" style="margin-bottom:10px"><button class="chip" id="pbPromo" onclick="pmAbrir()">🏷️ Promoción</button></div>`; }
+function pbChip(c){ if (c === "⚠ Dejan poco"){ PB.filtro = PB.filtro === "poco" ? "Todas" : "poco"; pbPint(); return; } if (Object.keys(PB.cambios).length){ t("Guardá o deshacé los cambios antes", true); return; } if (c === PB.canal && PB.data) return; PB.canal = c; PB.hoja = null; PB.mas = null; pbCargar(); }
+function pbPr(x){ return PB.cambios[x.id] != null ? PB.cambios[x.id] : x.precio; }
+function pbCls(x){ const k = pbCalc(x, pbPr(x), 0); return k.pct >= pbObjX(x) ? "bien" : k.pct >= 20 ? "justo" : "poco"; }
+const PB_COL = { bien: "var(--good)", justo: "var(--accent)", poco: "var(--red)" };
+function pbCorto(t){ return typeof pmCorto === "function" ? pmCorto(t) : t; }
+// 27/11 (Lucas: «que tenga la lógica de los 33.000… capaz ofrecés un precio más barato pero te queda más margen porque no ofrecés el envío gratis»):
+// el precio más barato (redondo a $ 100; abajo del límite, termina en 90) que deja el objetivo, comparando abajo y arriba del envío gratis
+function pbRec(x, obj){ if (!x.costo || x.sinCosto) return null; const ok = p => pbCalc(x, p, 0).pct >= obj, top = Math.max(x.costo * 8, x.precio * 3);
+  const minP = (lo, hi) => { for (let p = Math.max(100, Math.ceil(lo / 100) * 100); p < hi; p += 100) if (ok(p)) return p; return null; };
+  if (!x.lim) { const p = minP(x.costo, top); return p ? { p, por: "" } : null; }
+  let ab = minP(x.costo, x.lim); const tope = Math.ceil(x.lim / 100) * 100 - 10; if (!ab && ok(tope)) ab = tope;
+  const ar = minP(x.lim, top);
+  if (ab && (!ar || ab <= ar)) return { p: ab, por: x.precio >= x.lim ? "abajo" : "" };
+  return ar ? { p: ar, por: x.precio < x.lim ? "arriba" : "" } : null; }
+function pbRow(x){ if (x.sinCosto || !x.costo) return `<button class="pm-r" data-pbx="${esc(x.id)}"><span></span><span class="t">${esc(pbCorto(x.titulo))}</span><span class="d"><span class="pm-pill x">sin costo</span></span><span class="p">${x.sku ? "revisá la receta / el SKU " + esc(x.sku) : "la publicación no tiene SKU"}</span></button>`;
+  const pr = pbPr(x), k = pbCalc(x, pr, 0), c = PB_COL[pbCls(x)];
+  return `<button class="pm-r" data-pbx="${esc(x.id)}"><span></span><span class="t">${esc(pbCorto(x.titulo))}${x.full ? ' <b class="pm-full">FULL</b>' : ''}${PB.cambios[x.id] != null ? ' <b class="pm-full" style="color:var(--accent)">CAMBIADO</b>' : ''}</span><span class="d"><b style="color:${c}">${pmP(k.pct)}</b><span class="pm-mini"><i style="width:${Math.max(0, Math.min(100, k.pct / 50 * 100))}%;background:${c}"></i></span></span><span class="p"><b>${pmF(pr)}</b> · te queda ${pmF(k.queda)}</span></button>`; }
+function pbPint(){ const r = PB.data; if (!r) return; const OBJ = pbObj(), I = r.items, cnt = { bien: 0, justo: 0, poco: 0 }; I.forEach(x => { if (!x.sinCosto && x.costo) cnt[pbCls(x)]++; });
+  const sc = window.scrollY, q = String(PB.buscar || "").toLowerCase();
+  $("pbInfo").innerHTML = `<div class="pm-sel" style="margin-bottom:10px"><span class="note">Objetivo</span><span class="chips">${[25,30,35,40].map(v => `<button class="chip${v === OBJ ? " on" : ""}" onclick="pbSetObj(${v})">${v} %</button>`).join("")}</span></div>`
+    + `<div class="pm-kp" style="margin-bottom:10px">${[["bien", "dejan " + OBJ + " % o más"], ["justo", "entre 20 y " + OBJ + " %"], ["poco", "menos de 20 %"]].map(a => `<button class="pb-f${PB.filtro === a[0] ? " on" : ""}" onclick="pbFil('${a[0]}')"><b style="color:${PB_COL[a[0]]}">${cnt[a[0]]}</b><span>${a[1]}</span></button>`).join("")}</div>`
+    + `<button class="btn y" id="pbMas" onclick="pbMasAbrir()" style="margin-bottom:10px">⚡ Llevar todas a ${OBJ} %</button>`
+    + `<div class="pm-sel" style="margin-bottom:10px"><input class="txt" id="pbBus" placeholder="🔍 Buscar" value="${esc(PB.buscar || "")}" style="flex:1;min-width:0"><button class="chip${PB.filtro === "Todas" ? " on" : ""}" onclick="pbFil('Todas')">Todas</button></div>`;
+  let L = I.filter(x => PB.filtro === "Todas" || (!x.sinCosto && x.costo && pbCls(x) === PB.filtro) || (PB.filtro === "poco" && (x.sinCosto || !x.costo)));
+  if (q) L = L.filter(x => String(x.titulo + " " + (x.sku || "")).toLowerCase().indexOf(q) !== -1);
+  L = L.slice().sort((a, b) => (a.sinCosto || !a.costo ? -999 : pbCalc(a, pbPr(a), 0).pct) - (b.sinCosto || !b.costo ? -999 : pbCalc(b, pbPr(b), 0).pct));
+  $("pbList").innerHTML = L.length ? '<div class="pm-card pm-lst">' + L.map(pbRow).join("") + '</div>' : `<div class="empty">${PB.filtro === "poco" ? "Ninguna deja menos del 20 % 👌" : "No hay publicaciones."}</div>`;
+  $("pbHoja").innerHTML = PB.hoja ? pbHojaH() : PB.mas ? pbMasH() : "";
+  pbBtn(); window.scrollTo(0, sc); }
+function pbFil(f){ PB.filtro = PB.filtro === f && f !== "Todas" ? "Todas" : f; pbPint(); }
+function pbDesg(x, precio){ const r = PB.data, iva = (r.iva || 0) / 100, iibb = (r.iibb || 0) / 100, neto = precio / (1 + iva), fijo = pbFijo(x, precio), ml = PB.canal === "Mercado Libre";
+  const L = [["Producto", x.costo || 0, "#7a7570"], [(ml ? "Comisión ML " : "Pago Nube y envíos ") + String(x.comPct).replace(".", ",") + " %", precio * ((x.comPct || 0) / 100 + (r.oPct || 0)), "var(--blue)"]];
+  if (fijo) L.push([x.lim && precio >= x.lim ? "Envío gratis" : ml ? "Cargo fijo ML" : "Envío", fijo, "#5b8fc4"]);
+  if (r.oFijo) L.push(["Otros fijos", r.oFijo, "#5b8fc4"]);
+  L.push(["Impuestos " + String(r.iibb || 0).replace(".", ",") + " %", neto * iibb, "var(--warn)"]); if (iva) L.push(["IVA " + r.iva + " %", precio - neto, "#9b7bd0"]);
+  L.push(["Embalaje" + (x.cajaAprox ? " <em>aprox</em>" : !x.caja && !x.full ? " <em>¿$0?</em>" : ""), x.caja || 0, "#c9a36b"]); return L; }
+function pbHojaH(){ const x = PB.data.items.filter(y => String(y.id) === PB.hoja)[0]; if (!x) return ""; const pr = pbPr(x), OBJ = pbObjX(x);
+  if (x.sinCosto || !x.costo) return `<div class="pm-dim" onclick="pbCerrar()"></div><div class="pm-sheet"><div class="grab"></div><b style="text-align:center">${esc(x.titulo)}</b><span class="al">Sin costo: ${x.sku ? "revisá la receta / el SKU " + esc(x.sku) : "la publicación no tiene SKU"}</span>${x.link ? `<a class="lnk g" href="${esc(x.link)}" target="_blank" rel="noopener">Ver publicación ›</a>` : ""}<button class="btn y" onclick="pbCerrar()">Listo</button></div>`;
+  const k = pbCalc(x, pr, 0), c = k.pct >= OBJ ? "var(--good)" : k.pct >= 20 ? "var(--accent)" : "var(--red)", D = pbDesg(x, pr), q = Math.max(k.queda, 0), rc = pbRec(x, OBJ);
+  let tip = ""; if (x.lim && pr >= x.lim){ const pb = Math.ceil(x.lim / 100) * 100 - 10, kb = pbCalc(x, pb, 0); if (kb.queda > k.queda) tip = `💡 Con ${pmF(pb)} (justo abajo de ${pmF(x.lim)}) ${PB.canal === "Mercado Libre" ? "ML no te cobra el envío" : "no pagás el envío"} y te queda <b>${pmF(kb.queda)}</b> (${pmP(kb.pct)}), más que ahora.`; }
+  return `<div class="pm-dim" onclick="pbCerrar()"></div><div class="pm-sheet"><div class="grab"></div><div style="text-align:center"><b style="font-size:17px">${esc(pbCorto(x.titulo))}</b>${x.full ? ' <b class="pm-full">FULL</b>' : ''}<div class="note">${esc(x.sku || "sin SKU")} · ${esc(x.contiene || "")}${x.variantes ? " · " + x.variantes + " variantes (mismo precio)" : ""}</div></div>`
+    + (x.promo ? '<span class="al w">Tiene promoción: ML/TN puede no dejar cambiarlo</span>' : '')
+    + `<div class="pb-pin">$<input id="pbPi" inputmode="numeric" value="${Math.round(pr)}" oninput="pbTipeo(this)"></div>`
+    + `<div class="pm-two"><div><span class="note">Te queda</span><b class="pm-bigp" style="color:${c}" id="pbHq">${pmF(k.queda)}</b></div><b style="color:${c};font-size:20px" id="pbHp">${pmP(k.pct)}</b></div>`
+    + `<div class="pm-bar">${D.map(a => `<i style="width:${a[1] / pr * 100}%;background:${a[2]}"></i>`).join("")}<i style="width:${q / pr * 100}%;background:var(--good)"></i></div>`
+    + `<div class="pm-bk">${D.map(a => `<div><i style="background:${a[2]}"></i><span>${a[0]}</span><b>${pmF(a[1])}</b></div>`).join("")}${x.full ? '<div><i style="background:#b48cff"></i><span>Full <em>falta</em></span><b>—</b></div>' : ''}</div>`
+    + (tip ? `<div class="pm-tip">${tip}</div>` : '')
+    + `<div class="pm-sel"><span class="note">Objetivo de esta</span><span style="display:flex;align-items:center;gap:8px"><button class="pm-rb" style="width:40px;height:40px" onclick="pbMg(${PB.data.items.indexOf(x)},-1)">−</button><b>${OBJ} %</b><button class="pm-rb" style="width:40px;height:40px" onclick="pbMg(${PB.data.items.indexOf(x)},1)">+</button></span></div>`
+    + (rc && Math.abs(rc.p - pr) >= 100 ? `<button class="chip" style="align-self:center" onclick="pbPonerH(${rc.p})">Recomendado para ${OBJ} %: ${pmF(rc.p)}${rc.por === "abajo" ? " (sin envío gratis)" : rc.por === "arriba" ? " (con envío gratis)" : ""}</button>` : '')
+    + `<button class="btn y" onclick="pbCerrar(1)">${PB.cambios[x.id] != null ? "Cambiar a " + pmF(pr) : "Listo"}</button>`
+    + (PB.cambios[x.id] != null ? `<button class="pm-q" onclick="pbVolver()">Volver a ${pmF(x.precio)}</button>` : '')
+    + (x.link ? `<a class="lnk g" style="align-self:center" href="${esc(x.link)}" target="_blank" rel="noopener">Ver publicación ›</a>` : '') + `</div>`; }
+function pbAbrirH(id){ PB.hoja = id; PB.antes = PB.cambios[id]; pbPint(); }
+function pbCerrar(ok){ if (!ok && PB.hoja){ if (PB.antes === undefined) delete PB.cambios[PB.hoja]; else PB.cambios[PB.hoja] = PB.antes; } PB.hoja = null; PB.mas = null; pbPint(); }
+function pbVolver(){ delete PB.cambios[PB.hoja]; PB.antes = undefined; PB.hoja = null; pbPint(); }
+function pbPonerH(v){ const x = PB.data.items.filter(y => String(y.id) === PB.hoja)[0]; if (v === x.precio) delete PB.cambios[x.id]; else PB.cambios[x.id] = v; pbPint(); }
+function pbTipeo(inp){ const v = num(inp.value), x = PB.data.items.filter(y => String(y.id) === PB.hoja)[0]; if (!x) return; if (v && v !== x.precio) PB.cambios[x.id] = v; else delete PB.cambios[x.id];
+  const pv = v || x.precio, k = pbCalc(x, pv, 0), OBJ = pbObjX(x), c = k.pct >= OBJ ? "var(--good)" : k.pct >= 20 ? "var(--accent)" : "var(--red)";
+  $("pbHq").textContent = pmF(k.queda); $("pbHp").textContent = pmP(k.pct); $("pbHq").style.color = $("pbHp").style.color = c; pbBtn(); }
+// ⚡ masivo
+function pbMasAbrir(){ PB.mas = { modo: "subir", off: {} }; PB.hoja = null; pbPint(); }
+function pbProp(){ return PB.data.items.map(x => { if (x.sinCosto || !x.costo) return null; const OBJ = pbObjX(x), r = pbRec(x, OBJ), pr = pbPr(x), ant = pbCalc(x, pr, 0);
+  if (!r) return { x, no: 1 }; if (PB.mas.modo === "subir" && ant.pct >= OBJ) return null; if (Math.abs(r.p - pr) < 100) return null; return { x, p: r.p, por: r.por, nv: pbCalc(x, r.p, 0), pr }; }).filter(Boolean); }
+function pbMasH(){ const P = pbProp(), ok = P.filter(o => !o.no), no = P.filter(o => o.no), sube = ok.filter(o => o.p > o.pr).length, env = ok.filter(o => o.por).length, on = ok.filter(o => !PB.mas.off[o.x.id]), lim = PB.canal === "Mercado Libre" ? "$ 33.000" : "$ 60.000";
+  return `<div class="pm-dim" onclick="pbCerrar(1)"></div><div class="pm-sheet"><div class="grab"></div><b style="text-align:center;font-size:17px">Llevar a ${pbObj()} % · ${esc(PB.canal)}</b>`
+    + `<div class="pm-seg" style="margin:0"><button class="${PB.mas.modo === "subir" ? "on" : ""}" onclick="pbMasModo('subir')">Solo las que dejan menos</button><button class="${PB.mas.modo === "todas" ? "on" : ""}" onclick="pbMasModo('todas')">Todas (también bajar)</button></div>`
+    + `<div class="pm-kp"><div><b style="color:var(--red)">${sube}</b><span>suben</span></div><div><b style="color:var(--good)">${ok.length - sube}</b><span>bajan</span></div><div><b style="color:#ffe08a">${env}</b><span>por el envío</span></div></div>`
+    + (env ? `<div class="pm-tip">💡 En ${env} conviene cruzar el límite de ${lim} del envío gratis: así llegás al objetivo con un precio más bajo.</div>` : '')
+    + (Object.keys(PB.data.margenes || {}).length ? '<span class="note">Las que tienen objetivo propio usan el suyo.</span>' : '')
+    + `<div class="pm-card pm-lst" style="background:var(--bg)">${ok.length ? ok.map(o => { const of = PB.mas.off[o.x.id]; return `<button class="pm-r" onclick="pbMasT('${esc(String(o.x.id))}')" style="opacity:${of ? .45 : 1}"><span class="pm-cb${of ? "" : " on"}">${of ? "" : "✓"}</span><span class="t">${esc(pbCorto(o.x.titulo))}</span><span class="d"><b style="color:var(--good)">${pmP(o.nv.pct)}</b></span><span class="p">${pmF(o.pr)} → <b>${pmF(o.p)}</b>${o.por === "abajo" ? ' · <span style="color:#ffe08a">sin envío gratis</span>' : o.por === "arriba" ? ' · <span style="color:#ffe08a">con envío gratis</span>' : ''}</span></button>`; }).join("") : '<div class="empty">Todas ya están en su objetivo 👌</div>'}</div>`
+    + (no.length ? `<span class="note">${no.length} no llegan ni subiendo mucho el precio (revisá el costo): ${no.slice(0, 4).map(o => esc(pbCorto(o.x.titulo))).join(", ")}${no.length > 4 ? "…" : ""}</span>` : '')
+    + `<button class="btn ${on.length ? "y" : "off"}" id="pbMasOk" onclick="pbMasUsar()">Usar estos ${on.length} precios</button><button class="pm-q" onclick="pbCerrar(1)">Cancelar</button></div>`; }
+function pbMasModo(m){ PB.mas.modo = m; pbPint(); }
+function pbMasT(id){ PB.mas.off[id] = !PB.mas.off[id]; pbPint(); }
+function pbMasUsar(){ const P = pbProp().filter(o => !o.no && !PB.mas.off[o.x.id]); if (!P.length) return; P.forEach(o => { PB.cambios[o.x.id] = o.p; }); PB.mas = null; PB.filtro = "Todas"; pbPint(); t(P.length + " precios listos · revisalos y tocá Guardar"); }
+document.addEventListener("click", function(e){ const b = e.target.closest("[data-pbx]"); if (b && !$("s-pub").hidden) pbAbrirH(b.dataset.pbx); });
+document.addEventListener("input", function(e){ if (e.target.id === "pbBus"){ PB.buscar = e.target.value; const pos = e.target.selectionStart; pbPint(); const i = $("pbBus"); if (i){ i.focus(); try { i.setSelectionRange(pos, pos); } catch (_) {} } } });
 function pbUsar(i){ const x = PB.data.items[i]; PB.cambios[x.id] = x.sugerido; pbPint(); t("Precio sugerido puesto · tocá Guardar"); }
 function pbPoner(i, v){ const x = PB.data.items[i]; PB.cambios[x.id] = v; pbPint(); t("Precio sin envío gratis puesto · tocá Guardar"); }
 function pbBtn(){ const n = Object.keys(PB.cambios).length; $("pbOk").textContent = n ? "Guardar " + n + " precio" + (n > 1 ? "s" : "") + " en " + PB.canal : "Sin cambios"; $("pbOk").className = "btn " + (n ? "y" : "off"); }

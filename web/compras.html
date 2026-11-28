@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
@@ -1691,6 +1703,7 @@ input[type=date].txt::-webkit-date-and-time-value{text-align:left}
 .fto .ths{display:flex;gap:8px;flex-wrap:wrap}
 .fto .th{width:64px;height:84px;border-radius:10px;background:#ece6dc center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#333}
 .ftl{display:flex;flex-direction:column;gap:8px}
+.lf{display:flex;flex-direction:column;gap:5px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.lf-t{font-weight:800;font-size:14px}.lf-ok{color:var(--good);font-size:13.5px;font-weight:650}.lf-n{color:var(--warn);font-size:13.5px;font-weight:650;background:rgba(255,179,107,.1);border-radius:8px;padding:5px 8px}
 </style>
 </head>
 <body>
@@ -3481,6 +3494,104 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
       const b64 = cv.toDataURL("image/jpeg", 0.72); URL.revokeObjectURL(url); ok({ mime: "image/jpeg", b64: b64, prev: b64 }); };
     img.onerror = function(){ URL.revokeObjectURL(url); const fr = new FileReader(); fr.onload = function(){ ok({ mime: file.type || "image/jpeg", b64: String(fr.result), prev: "" }); }; fr.readAsDataURL(file); };
     img.src = url; }); }
+  // ===== 27/11 🔎 LECTOR DE FACTURAS (Lucas 11:48: «me interesa todo lo que interprete la aplicación sola de las imágenes… sumar la parte de QR de facturas…
+  // que se marque en el renglón esta info no la leí, para que la completemos nosotros»). Paso 1: el QR de ARCA (fecha, CUIT, tipo, número, total, CAE),
+  // leído en el celu (jsQR), sin mandar la foto a ningún lado. Lo que no viene en el QR (neto, IVA, percepciones) queda marcado «no lo leí».
+  const LF = { pg: null, ga: null };
+  const LF_TIPO = { 1: "A", 2: "A", 3: "A", 6: "B", 7: "B", 8: "B", 11: "C", 12: "C", 13: "C", 51: "M", 52: "M", 53: "M", 19: "E", 20: "E", 21: "E" };
+  const LF_NC = { 3: 1, 8: 1, 13: 1, 53: 1, 21: 1 };
+  function lfLib(){ if (window.jsQR) return Promise.resolve(window.jsQR); if (lfLib.p) return lfLib.p;
+    lfLib.p = new Promise(function(ok){ const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"; s.onload = function(){ ok(window.jsQR || null); }; s.onerror = function(){ lfLib.p = null; ok(null); }; document.head.appendChild(s); }); return lfLib.p; }
+  // el texto del QR de ARCA: https://www.afip.gob.ar/fe/qr/?p=<base64 de un JSON>
+  function lfParse(txt){ const m = String(txt || "").match(/[?&]p=([^&#\s]+)/); if (!m) return null;
+    try { let b = decodeURIComponent(m[1]).replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "=";
+      const j = JSON.parse(decodeURIComponent(escape(atob(b)))); if (!j || !j.cuit || !j.nroCmp) return null;
+      return { fecha: String(j.fecha || "").slice(0, 10), cuit: String(j.cuit), pv: Number(j.ptoVta) || 0, tipoCmp: Number(j.tipoCmp) || 0, tipo: LF_TIPO[Number(j.tipoCmp)] || "", nc: !!LF_NC[Number(j.tipoCmp)], nro: Number(j.nroCmp) || 0, total: Number(j.importe) || 0, cae: String(j.codAut || "") }; } catch (e) { return null; } }
+  // busca el QR en la foto entera y, si no aparece, por partes (suele estar abajo a la izquierda) más grande
+  function lfQR(file){ return lfLib().then(function(Q){ if (!Q) return null; return new Promise(function(ok){
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){ const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently: true }), W = img.width, H = img.height;
+      const prueba = function(sx, sy, sw, sh, M){ const k = Math.min(M / Math.max(sw, sh), 3); cv.width = Math.max(1, Math.round(sw * k)); cv.height = Math.max(1, Math.round(sh * k)); cx.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+        const d = cx.getImageData(0, 0, cv.width, cv.height), r = Q(d.data, cv.width, cv.height, { inversionAttempts: "attemptBoth" }); return r && r.data ? r.data : null; };
+      let t = prueba(0, 0, W, H, 1800);
+      const P = [[0, H / 2, W / 2, H / 2], [W / 2, H / 2, W / 2, H / 2], [0, 0, W / 2, H / 2], [W / 2, 0, W / 2, H / 2], [0, H / 3, W, H * 2 / 3]];
+      for (let i = 0; !t && i < P.length; i++) t = prueba(P[i][0], P[i][1], P[i][2], P[i][3], 1400);
+      URL.revokeObjectURL(url); ok(t); };
+    img.onerror = function(){ URL.revokeObjectURL(url); ok(null); }; img.src = url; }); }); }
+  function lfIso(f){ return /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : ""; }
+  function lfCuit(c){ c = String(c || "").replace(/\D/g, ""); return c.length === 11 ? c.slice(0, 2) + "-" + c.slice(2, 10) + "-" + c.slice(10) : c; }
+  function lfLeer(k, file){
+    if (!file || !/^image\//.test(file.type || "image/")) { LF[k] = { pdf: true }; fotoPint(k); return; }
+    LF[k] = { leyendo: true }; fotoPint(k);
+    lfQR(file).then(function(txt){ const q = txt ? lfParse(txt) : null; LF[k] = q ? { q: q } : { sinQR: true, otro: !!txt };
+      if (q) lfAplicar(k, q); fotoRepintar(k);
+      const tipo = k === "pg" ? (PG && PG.tipo) : (GA && GA.tipo);
+      if (tipo === "A" || (q && q.tipo === "A")) { const r = LF[k]; r.ocr = "leyendo"; fotoRepintar(k);
+        lfOcr(k, file).then(function(t){ if (LF[k] !== r) return; if (t === null) { r.ocr = "no"; fotoRepintar(k); return; }
+          r.t = lfTexto(t); r.ocr = "ok"; if (!q && r.t.total) r.totalTxt = r.t.total; lfAplicarTexto(k, r.t); fotoRepintar(k); }); } }); }
+  // pone en el formulario lo que vino en el QR (solo si el campo está vacío o es distinto y es lo único seguro)
+  function lfAplicar(k, q){ const num = q.pv && q.nro ? (q.tipo ? q.tipo + "-" : "") + String(q.pv).padStart(4, "0") + "-" + String(q.nro).padStart(8, "0") : "";
+    if (k === "pg"){ if (!PG) return; if (q.tipo && /^[ABC]$/.test(q.tipo)) PG.tipo = q.tipo; if (num) PG.num = numFact(PG.tipo, num) || num; if (lfIso(q.fecha)) PG.fecha = q.fecha;
+      try { el("pgNum").value = PG.num || ""; el("pgFecha").value = PG.fecha || ""; } catch (e) {} }
+    else { if (!GA) return; if (q.tipo && /^[ABC]$/.test(q.tipo)) GA.tipo = q.tipo; if (num) GA.num = numFact(GA.tipo, num) || num; if (lfIso(q.fecha)) GA.fecha = q.fecha;
+      if (q.total && !(pm(GA.total) > 0)) GA.total = String(q.total).replace(".", ","); if (q.cuit && !String(GA.cuit || "").replace(/\D/g, "")) GA.cuit = lfCuit(q.cuit);
+      try { pintarGasto(); } catch (e) {} } }
+  // 27/11 🔎 paso 2: el TEXTO de la foto (Tesseract, en el celu, gratis) para lo que no trae el QR: neto, IVA por alícuota, percepciones e impuestos internos.
+  // Se baja solo la primera vez que se usa (unos MB). Si algo no se lee, queda marcado ⚠ para completarlo a mano.
+  function lfOcrLib(){ if (window.Tesseract) return Promise.resolve(window.Tesseract); if (lfOcrLib.p) return lfOcrLib.p;
+    lfOcrLib.p = new Promise(function(ok){ const s = document.createElement("script"); s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"; s.onload = function(){ ok(window.Tesseract || null); }; s.onerror = function(){ lfOcrLib.p = null; ok(null); }; document.head.appendChild(s); }); return lfOcrLib.p; }
+  function lfNum(t){ t = String(t || "").replace(/[$\s]/g, ""); if (!/\d/.test(t)) return 0;
+    if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, "").replace(",", "."); else if (/\.\d{1,2}$/.test(t)) t = t.replace(/,/g, ""); else t = t.replace(/[.,]/g, "");
+    const n = Number(t); return isFinite(n) ? n : 0; }
+  const LF_PROV = [[/c\.?a\.?b\.?a|capital|ciudad aut/i, "CABA"], [/buenos aires|bs\.? ?as|arba|p\.?b\.?a/i, "Buenos Aires"], [/chubut/i, "Chubut"], [/r[ií]o negro/i, "Río Negro"], [/neuqu[eé]n/i, "Neuquén"]];
+  // lee importes de las líneas de la factura (texto del OCR)
+  function lfTexto(txt){ const out = { iva: {}, percs: [], otros: 0 }, L = String(txt || "").split(/\n+/);
+    const ultNum = function(l){ const m = l.match(/\$?\s*-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{1,2})|\$?\s*-?\d+(?:[.,]\d{1,2})?/g); return m ? lfNum(m[m.length - 1]) : 0; };
+    L.forEach(function(l){ const s = l.trim(); if (!s) return; const n = ultNum(s); if (!(n > 0)) return;
+      if (/neto\s*(no\s*)?gravado|importe\s*neto|subtotal/i.test(s) && !/no\s*gravado/i.test(s)) { if (!out.neto) out.neto = n; return; }
+      const iv = s.match(/i\.?v\.?a\.?\s*(?:inscripto\s*)?(\d{1,2}(?:[.,]5)?)\s*%/i);
+      if (iv && !/perc/i.test(s)) { const a = lfNum(iv[1]); if ([21, 10.5, 27, 2.5, 5].indexOf(a) !== -1) out.iva[a] = (out.iva[a] || 0) + n; return; }
+      if (/perc/i.test(s)) { const p = (LF_PROV.filter(function(x){ return x[0].test(s); })[0] || [])[1];
+        out.percs.push({ tipo: /i\.?v\.?a/i.test(s) ? "IVA" : /ganan/i.test(s) ? "Ganancias" : "IIBB · " + (p || "otra"), monto: n }); return; }
+      if (/imp(uesto)?s?\.?\s*int(erno)?|combustible|tasa\s*vial|ley\s*\d/i.test(s)) { out.otros += n; return; }
+      if (/^total\b|importe\s*total|total\s*a\s*pagar/i.test(s)) out.total = n; });
+    out.ivaTot = Object.keys(out.iva).reduce(function(a, k){ return a + out.iva[k]; }, 0); return out; }
+  window.lfTexto = lfTexto;   // (para la prueba)
+  function lfOcr(k, file){ return lfOcrLib().then(function(T){ if (!T || !T.recognize) return null;
+    return T.recognize(file, "spa").then(function(r){ return r && r.data ? String(r.data.text || "") : ""; }, function(){ return null; }); }); }
+  // completa con lo leído SOLO lo que está vacío (no pisa lo que ya escribiste)
+  function lfAplicarTexto(k, o){ const f = function(n){ return fm(n); };
+    if (k === "ga" && GA){ if (o.ivaTot > 0 && !GA.ivaManual) { GA.iva = f(o.ivaTot); GA.ivaManual = true; }
+      if (o.otros > 0 && !(pm(GA.otros) > 0)) GA.otros = f(o.otros);
+      if (o.percs.length && !GA.percs.some(function(x){ return pm(x.txt) > 0; })) GA.percs = o.percs.map(function(x){ return { tipo: x.tipo, txt: f(x.monto), abierto: false }; });
+      if (o.total && !(pm(GA.total) > 0)) GA.total = String(o.total).replace(".", ",");
+      try { pintarGasto(); } catch (e) {} }
+    else if (k === "pg" && PG){ if (o.percs.length && !PG.percs.some(function(x){ return pm(x.txt) > 0; })) PG.percs = o.percs.map(function(x){ return { tipo: x.tipo, txt: f(x.monto), abierto: false }; });
+      if (o.otros > 0 && !(pm(PG.otros) > 0)) PG.otros = f(o.otros);
+      try { pintarPago(); } catch (e) {} } }
+  function lfHtml(k){ const r = LF[k]; if (!r) return "";
+    if (r.leyendo) return '<div class="lf"><span class="lf-t">🔎 Leyendo la factura…</span></div>';
+    if (r.pdf) return '<div class="lf"><span class="lf-t">🔎 En los PDF todavía no leo el QR</span><span class="lf-n">⚠ Completá los datos a mano</span></div>';
+    if (r.sinQR) return '<div class="lf"><span class="lf-t">🔎 ' + (r.otro ? "El QR no es el de ARCA" : "No encontré el QR de ARCA") + '</span><span class="lf-n">⚠ Tipo, número, fecha y CUIT: no los leí. Si la factura tiene QR, probá otra foto más de cerca y con luz.</span>' + (r.ocr ? lfHtmlTexto(r) : '') + '</div>';
+    const q = r.q, ok = function(t){ return '<span class="lf-ok">✓ ' + t + '</span>'; }, no = function(t){ return '<span class="lf-n">⚠ ' + t + '</span>'; };
+    let h = '<div class="lf"><span class="lf-t">🔎 Leído del QR de ARCA</span>';
+    h += q.tipo ? ok((q.nc ? "Nota de crédito " : "Factura ") + q.tipo + " · " + String(q.pv).padStart(4, "0") + "-" + String(q.nro).padStart(8, "0")) : no("Tipo de comprobante: no lo leí");
+    h += lfIso(q.fecha) ? ok("Fecha " + q.fecha.slice(8, 10) + "/" + q.fecha.slice(5, 7) + "/" + q.fecha.slice(0, 4)) : no("Fecha: no la leí");
+    const prov = k === "pg" ? (C && C.prov) : null, cuitApp = String(k === "pg" ? (prov && prov.cuit) || "" : (GA && GA.cuit) || "").replace(/\D/g, "");
+    h += !cuitApp ? ok("CUIT " + lfCuit(q.cuit)) : cuitApp === q.cuit ? ok("CUIT " + lfCuit(q.cuit) + " · es el del proveedor") : no("El CUIT de la factura (" + lfCuit(q.cuit) + ") no es el de " + esc((prov && prov.nombre) || "este proveedor") + ": ¿es la factura correcta?");
+    if (q.total){ const tApp = k === "pg" ? pgK().total : pm(GA && GA.total); h += !(tApp > 0) || Math.abs(tApp - q.total) < 1 ? ok("Total " + fm(q.total) + (tApp > 0 ? " · coincide" : "")) : no("La factura dice " + fm(q.total) + " y acá suma " + fm(tApp) + ": revisá precios o percepciones"); }
+    if (q.cae) h += ok("CAE " + q.cae);
+    if (q.tipo === "A") h += lfHtmlTexto(r);
+    return h + '</div>'; }
+  function lfHtmlTexto(r){ const ok = function(t){ return '<span class="lf-ok">✓ ' + t + '</span>'; }, no = function(t){ return '<span class="lf-n">⚠ ' + t + '</span>'; };
+    if (r.ocr === "leyendo") return '<span class="lf-t" style="font-weight:650;color:var(--ink-mid)">🔎 Leyendo los importes de la foto…</span>';
+    if (r.ocr !== "ok" || !r.t) return no("Neto, IVA y percepciones: no los leí, completalos de la factura");
+    const o = r.t, iv = Object.keys(o.iva); let h = "";
+    h += o.neto ? ok("Neto gravado " + fm(o.neto)) : no("Neto gravado: no lo leí");
+    h += iv.length ? iv.map(function(a){ return ok("IVA " + String(a).replace(".", ",") + " % " + fm(o.iva[a])); }).join("") : no("IVA: no lo leí");
+    h += o.percs.length ? o.percs.map(function(x){ return ok("Percepción " + esc(x.tipo) + " " + fm(x.monto) + (/otra/.test(x.tipo) ? " · ⚠ elegí la provincia" : "")); }).join("") : '<span class="lf-ok" style="color:var(--ink-mid)">· Sin percepciones en la foto (si tiene, agregalas)</span>';
+    if (o.otros) h += ok("Otros impuestos " + fm(o.otros));
+    return h + '<span class="lf-ok" style="color:var(--ink-mid)">· Lo leído del texto puede fallar: revisalo con la factura</span>'; }
   function fotoPint(k){
     const box = el(k === "pg" ? "pgFoto" : "gaFoto"); if (!box) return;
     const Y = FT.ya[k] || [];
@@ -3497,17 +3608,18 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     else h += (pide ? "" : '<span class="hint">Se sube sola a la carpeta de Drive de las contadoras. Si no la tenés ahora, la subís después desde «📷 Fotos de facturas».</span>')
       + '<div class="row2"><button class="btn y sm" style="width:100%" data-a="fotoCam" data-k="' + k + '">📷 Sacar foto</button><button class="btn ol sm" style="width:100%" data-a="fotoArch" data-k="' + k + '">📎 Archivo</button></div>'
       + (pide ? '<button type="button" class="nodesp" data-a="fotoDesp" data-k="' + k + '">⏳ Todavía no me la mandaron</button>' : "");
-    box.innerHTML = h;
+    box.innerHTML = h + lfHtml(k);
   }
   ACT.fotoCam = function(v, b){ FT.k = b.dataset.k; FT.fx = null; el("fotoCam").value = ""; el("fotoCam").click(); };
   ACT.fotoArch = function(v, b){ FT.k = b.dataset.k; FT.fx = null; el("fotoArch").value = ""; el("fotoArch").click(); };
-  ACT.fotoSacar = function(v, b){ FT[b.dataset.k] = []; fotoRepintar(b.dataset.k); };
+  ACT.fotoSacar = function(v, b){ FT[b.dataset.k] = []; LF[b.dataset.k] = null; fotoRepintar(b.dataset.k); };
   function fotoElegidas(files){
     const L = [].slice.call(files || []); if (!L.length) return;
     Promise.all(L.map(fotoAchicar)).then(function(R){
       R = R.filter(Boolean); if (!R.length){ toast("No pude leer el archivo", true); return; }
       if (FT.fx){ const x = FT.fx; FT.fx = null; R.forEach(function(f, i){ fotoCola(Object.assign({}, x, { pag: (x.ya || 0) + i + 1, mime: f.mime, b64: f.b64, uid: x.id + "-" + Date.now() + "-" + i })); }); toast("Subiendo la foto…"); fotoMandar(true); return; }
-      FT[FT.k] = FT[FT.k].concat(R); FT.desp[FT.k] = false; fotoRepintar(FT.k);
+      const kk = FT.k, nuevo = !FT[kk].length; FT[kk] = FT[kk].concat(R); FT.desp[kk] = false; fotoRepintar(kk);
+      if (nuevo) lfLeer(kk, L[0]);   // 27/11 🔎 lee el QR de la primera página
     });
   }
   el("fotoCam").addEventListener("change", function(){ fotoElegidas(this.files); });

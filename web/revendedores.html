@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {

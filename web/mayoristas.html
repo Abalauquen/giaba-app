@@ -323,6 +323,18 @@
     try { conPase(function (p) { if (!p) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
       fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, falla: { fn: n, motivo: mot, ms: ms } }) }).catch(function () {}); }); } catch (e) {}
   }
+  // 27/11 (Lucas 10:12: «muchas veces los cambios… son porque hay errores… botones que no funcionan»): cada error de pantalla de un celular
+  // queda anotado solo en la base (rt_fallas, «pantalla:…»), con la pantalla y lo último que se tocó. Máximo 5 por vez que se abre, sin repetir.
+  var ERR_N = 0, ERR_V = {}, ULT_TOQUE = "";
+  function errPantalla(){ try { var L = document.querySelectorAll('[id^="s-"],[id^="screen-"]'); for (var i = 0; i < L.length; i++) if (!L[i].hidden && L[i].offsetParent !== null) return L[i].id; } catch (_) {} return ""; }
+  function errAnotar(msg, donde){ msg = String(msg || "").slice(0, 200); if (!msg || /ResizeObserver|^Script error\.?$/.test(msg)) return; var k = msg + "|" + donde; if (ERR_V[k] || ERR_N >= 5) return; ERR_V[k] = 1; ERR_N++;
+    try { conPase(function (p) { if (!p || !p.token) return; var h = { apikey: p.key, "Content-Type": "application/json" }; if (!/^sb_/.test(p.key)) h.Authorization = "Bearer " + p.key;
+      fetch(p.url + "/functions/v1/giaba-run", { method: "POST", headers: h, body: JSON.stringify({ token: p.token, error: { app: self.GIABA_APP_TAG || "", pant: errPantalla(), msg: msg, donde: donde, toque: ULT_TOQUE } }) }).catch(function () {}); }); } catch (e) {} }
+  try {
+    document.addEventListener("click", function (e) { try { var b = e.target && e.target.closest ? e.target.closest("button,a,[onclick],[data-sku],.chip,.btn") : null; if (b) ULT_TOQUE = (b.id ? "#" + b.id + " " : "") + String(b.textContent || "").replace(/\s+/g, " ").trim().slice(0, 50); } catch (_) {} }, true);
+    window.addEventListener("error", function (e) { if (!e || !(e.message || e.error)) return; errAnotar(e.message || (e.error && e.error.message), String(e.filename || "").split("/").pop().split("?")[0] + ":" + (e.lineno || 0) + ":" + (e.colno || 0)); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; errAnotar("promesa: " + ((r && r.message) || r), ""); });
+  } catch (_) {}
   var LIBRES = /^(registrarTiemposApp|apToken|vfToken|vfProcesar|vfLog|validarAcceso|biSubirAhora|vmtProcesar|borradoresListar|reclamosDeVenta|personas|get)/;   // 19/11: vfProcesar/vmtProcesar son el «empujón» a Google (con la base como dueña no hacen nada)
   function envolver(t, ok, fail, uo) {
     return new Proxy(t, { get: function (tt, k) {
@@ -762,6 +774,9 @@ input[type=date]:not([data-nodt])::-webkit-date-and-time-value{text-align:left}
 .v3-ant b{font-size:17px;font-family:'Manrope',sans-serif}
 /* 26/11 · 💰 Cobranzas */
 .cz-mp{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid var(--line);border-radius:14px;font-size:14px}
+.cz-sum{display:flex;flex-direction:column;gap:8px;padding-bottom:4px}.cz-tot{font-size:30px;font-weight:850;letter-spacing:-.02em}
+.cz-bar{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:2px}.cz-bar i{display:block;cursor:pointer}
+.cz-lg{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-soft)}.cz-lg span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;background:var(--c)}
 .cz-g{display:flex;flex-direction:column;gap:8px}.cz-k{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .cz-r{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:11px 12px;color:var(--ink);font:inherit;text-align:left;cursor:pointer;width:100%}
 .cz-r .n{display:flex;flex-direction:column;min-width:0}.cz-r .n b{font-size:16px}.cz-r .n span{font-size:13.5px;color:var(--ink-mid)}.cz-r .m{font-weight:800;white-space:nowrap}
@@ -1948,7 +1963,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
   // ===== 26/11 · 💰 Cobranzas (mockup-cobranzas-compras, aprobado 21/11): solo Lucas y Adriana =====
   // Entregado con saldo → recordatorio de cobro · Listo para retirar → recordatorio de retiro (sin hablar de plata) · A preparar: sin mensaje.
   // El mensaje sale del WhatsApp de quien lo manda; la app lo arma y anota cuándo se mandó. Maricel no entra (va por su cuenta corriente).
-  const CZ = { abierto: null, rec: null };
+  const CZ = { abierto: null, rec: null, f: "todo" };   // 27/11: f = filtro de la barra (todo / venc / sem / dia)
   function czHoy(){ const d = new Date(); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
   function czFecha(d){ return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + d.getFullYear(); }
   function czDias(p){ const d = fD(p.vence); return d ? Math.round((hoy0() - d) / 864e5) : null; }
@@ -1977,6 +1992,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     const v = d !== null && d > 0 ? ", que venció el " + dm(p.vence) : (p.vence ? ", que vence el " + dm(p.vence) : "");
     return "Hola, ¿cómo andan? Solo para recordarles que necesitamos cobrar lo pendiente del pedido del " + dm(p.fecha) + " (" + fm(saldo).replace(/,00$/, "") + v + ").\n\nEspero se encuentren bien, ¡muchas gracias!\n" + firma + " · Abalauquen";
   }
+  function czMail(p){ const c = DATOS ? DATOS.clientes.filter(function(k){ return k.id === p.clienteId; })[0] : null; return c && /@/.test(c.email || "") ? c.email : ""; }
   function czTel(p){ const c = DATOS ? DATOS.clientes.filter(function(k){ return k.id === p.clienteId; })[0] : null; return c ? telWa(c.tel) : ""; }
   function czUlt(p){ return p.cobWa && p.cobWa.ult ? "Último recordatorio por WhatsApp: " + p.cobWa.ult.slice(0, 5) + " " + p.cobWa.ult.slice(11) + (p.cobWa.quien ? " (" + p.cobWa.quien + ")" : "") : "Último recordatorio por WhatsApp: nunca."; }
   function czFila(p, sub, off){
@@ -1997,7 +2013,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     return '<div class="cz-d"><span class="v3-hint">' + (cob ? "Recordatorio de cobro" : "Recordatorio de retiro") + ' · ' + esc(p.id) + ' · pedido del ' + esc(dm(p.fecha)) + '. Tocá el mensaje para cambiar algo:</span>'
       + '<textarea id="czTxt">' + esc(czMsg(p)) + '</textarea>'
       + '<div class="cz-b">' + (tel ? '<a class="v3-btn sm g" id="czWa" target="_blank" rel="noopener" href="https://wa.me/' + tel + '?text=' + encodeURIComponent(czMsg(p)) + '">📲 Abrir en WhatsApp</a>' : '<span class="v3-hint">Sin teléfono cargado: copiá el mensaje.</span>')
-      + '<button class="v3-btn sm" type="button" data-cza="copiar">Copiar</button></div>'
+      + '<button class="v3-btn sm" type="button" data-cza="copiar">Copiar</button>' + (cob ? (czMail(p) ? '<button class="v3-btn sm" type="button" data-cza="mail">✉️ Mail</button>' : '<span class="v3-hint">Sin mail cargado</span>') : '') + '</div>'
       + '<div class="cz-b">' + (cob ? '<button class="v3-btn sm y" type="button" data-cza="pago">✓ Ya pagó</button>' : '<button class="v3-btn sm y" type="button" data-cza="retiro">✓ Ya lo retiró</button>')
       + '<button class="v3-btn sm" type="button" data-cza="rec">Recordarme otro día</button></div>'
       + '<span class="v3-hint">' + esc(czUlt(p)) + '</span></div>';
@@ -2019,6 +2035,15 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (MPc.autos.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--good,#8fd19e)">💸 Pagos actualizados solos (MP)</span>' + MPc.autos.map(function(x){
         return '<div class="cz-mp" style="justify-content:space-between"><span>✓ <b>' + nomC(x.cli) + '</b> · ' + fm(x.monto).replace(/,00$/, "") + ' · ' + esc(x.ped) + ' · ' + esc(x.cuenta) + ' ' + esc(x.cuando) + (x.parcial ? ' · parcial, falta ' + fm(x.falta).replace(/,00$/, "") : '') + (x.nom ? ' · pagó ' + esc(x.nom) : '') + '</span>'
           + '<button class="v3-btn sm" type="button" data-mpdes="' + esc(x.mov) + '">Deshacer</button></div>'; }).join("") + '</div>';
+    // 27/11 (mockup «Cobranzas · más simple», aprobado): cuánto te deben, partido en vencido / vence esta semana / al día (la barra y los chips filtran)
+    const aCob = L.venc.concat(L.prox), gr = function(p){ const d = czDias(p); return d !== null && d > 0 ? "venc" : d !== null && d > -7 ? "sem" : "dia"; };
+    const G = { venc: 0, sem: 0, dia: 0 }; aCob.forEach(function(p){ G[gr(p)] += p.total - p.cobrado; }); const tG = G.venc + G.sem + G.dia, COLz = { venc: "var(--terra-ink)", sem: "var(--warn)", dia: "var(--good,#8fd19e)" };
+    if (tG > 0.5) h += '<div class="cz-sum"><span class="cz-k" style="color:var(--ink-mid)">Te deben</span><b class="cz-tot">' + fm(tG).replace(/,00$/, "") + '</b>'
+      + '<div class="cz-bar">' + ["venc","sem","dia"].map(function(k){ return G[k] > 0.5 ? '<i data-czf="' + k + '" style="flex:' + G[k] + ';background:' + COLz[k] + '"></i>' : ''; }).join("") + '</div>'
+      + '<div class="cz-lg">' + [["venc","Vencido"],["sem","Vence esta semana"],["dia","Al día"]].filter(function(a){ return G[a[0]] > 0.5; }).map(function(a){ return '<span style="--c:' + COLz[a[0]] + '">' + a[1] + ' ' + fm(G[a[0]]).replace(/,00$/, "") + '</span>'; }).join("") + '</div>'
+      + '<div class="cz-b">' + [["todo","Todos"],["venc","Vencidos"],["sem","Esta semana"],["dia","Al día"]].map(function(a){ return '<button class="v3-btn sm' + (CZ.f === a[0] ? ' y' : '') + '" type="button" data-czf="' + a[0] + '">' + a[1] + '</button>'; }).join("") + '</div></div>';
+    const fil = function(Lx){ return CZ.f === "todo" ? Lx : Lx.filter(function(p){ return gr(p) === CZ.f; }); };
+    L.venc = fil(L.venc); L.prox = fil(L.prox);
     if (L.venc.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--terra-ink)">Entregado y vencido · ' + fm(tv).replace(/,00$/, "") + '</span>' + L.venc.map(function(p){ const d = czDias(p); return czFila(p, esc(p.id) + ' · venció ' + esc(dm(p.vence)) + ' · hace ' + d + (d === 1 ? ' día' : ' días')); }).join("") + '</div>';
     if (L.prox.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--warn)">Entregado · a cobrar</span>' + L.prox.map(function(p){ return czFila(p, esc(p.id) + (p.vence ? ' · vence ' + esc(dm(p.vence)) : ' · sin vencimiento')); }).join("") + '</div>';
     if (L.ret.length) h += '<div class="cz-g"><span class="cz-k" style="color:var(--accent)">Listo · pendiente de retiro</span>' + L.ret.map(function(p){ return czFila(p, esc(p.id) + ' · pedido del ' + esc(dm(p.fecha)) + ' · retira en ' + esc(p.deposito || "")); }).join("") + '</div>';
@@ -2044,6 +2069,7 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
         toast(mde ? "Listo: deshice el cobro" : (mel.dataset.mpel.split("|")[1] ? "Listo: quedó cobrado" : "Listo: no es de ningún pedido")); cargarPedidos(); });
       return;
     }
+    const fz = e.target.closest("[data-czf]"); if (fz){ CZ.f = CZ.f === fz.dataset.czf && fz.dataset.czf !== "todo" ? "todo" : fz.dataset.czf; CZ.abierto = null; pintarCobz(); return; }
     const r = e.target.closest("[data-cz]"), a = e.target.closest("[data-cza]"), dia = e.target.closest("[data-czdia]"), wa = e.target.closest("#czWa");
     if (r){ CZ.abierto = CZ.abierto === r.dataset.cz ? null : r.dataset.cz; CZ.rec = null; pintarCobz(); return; }
     const p = CZ.abierto ? czPed(CZ.abierto) : null; if (!p) return;
@@ -2052,6 +2078,10 @@ button:active:not([disabled]), .btn:active, .chip:active, .tl:active { transform
     if (!a) return;
     const k = a.dataset.cza;
     if (k === "copiar"){ const t = el("czTxt"); const v = t ? t.value : czMsg(p); try { navigator.clipboard.writeText(v).then(function(){ toast("Copiado"); }, function(){ t.select(); toast("Seleccionado: copialo"); }); } catch (x) { if (t) t.select(); } return; }
+    // 27/11 (Lucas: «sumaría la opción de recordar por mail, siempre y cuando lo tenga cargado»)
+    if (k === "mail"){ if (a.disabled) return; a.disabled = true; a.textContent = "Mandando…";
+      run("cobranzaMail", p.id).then(function(r){ if (!r || r.status !== "ok"){ a.disabled = false; a.textContent = "✉️ Mail"; toast((r && r.msg) || "No se pudo mandar (probá de nuevo)", true); return; }
+        czMarcar(p, "avisado"); toast("Listo: le mandé el recordatorio a " + (r.a || czMail(p))); setTimeout(pintarCobz, 300); }); return; }
     if (k === "rec"){ CZ.rec = p.id; pintarCobz(); return; }
     if (k === "volver"){ CZ.rec = null; pintarCobz(); return; }
     // «Ya pagó» abre la carga del cobro con el monto puesto (no se marca pagado solo) · «Ya lo retiró» abre el pedido (ahí se marca entregado)
